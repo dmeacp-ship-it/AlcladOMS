@@ -14,7 +14,8 @@ const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='d
 
 async function logout() {
   'use server'
-  await (await authClient()).auth.signOut()
+  // local: only this browser. Supabase's default ('global') would sign the user out on every device.
+  await (await authClient()).auth.signOut({ scope: 'local' })
   revalidatePath('/', 'layout')
   redirect('/login')
 }
@@ -41,12 +42,15 @@ export default async function RootLayout({ children }) {
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
+      me.role === 'admin' && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [
+      { href: '/admin/settings', label: 'Company', icon: 'ph-gear' },
       { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
       { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
       { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
+      { href: '/admin/activity', label: 'Activity Log', icon: 'ph-clock-counter-clockwise' },
     ]
   }
   return (

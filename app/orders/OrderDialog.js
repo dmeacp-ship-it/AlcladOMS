@@ -1,4 +1,4 @@
-import { DISPATCH, PRODUCTION, balanceOf, can, dispatchOpen, dmy, int, money, readyOf, totals } from '@/lib/tas'
+import { DISPATCH, PRODUCTION, balanceOf, can, dispatchOpen, dmy, int, money, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
 import { Modal, ModalFoot, PlantStatus, RouteDialog, DocView } from '../ui'
 import OrderActions from './OrderActions'
@@ -76,7 +76,7 @@ function nextStep(o) {
 }
 
 export default function OrderDialog({ o, history, me, back, closeHref, openBatchPi }) {
-  const t = totals(o.items, o.transport)
+  const t = totals(o.items, o.transport, o.vat_rate)
   const approved = o.status === 'APPROVED'
   const open = dispatchOpen(o)
   const editPlant = open && can(me, 'plant')
@@ -119,7 +119,8 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
         </Modal>
       )}
       {can(me, 'sales') && <a className="btn btn-ghost" href={`/orders/new?from=${o.id}`}><i className="ph ph-copy" />Duplicate</a>}
-      <Modal title={`Delete Order — ${o.quote_no}`} icon="ph-trash" label="Delete" btnIcon="ph-trash" btnClass="btn btn-danger" size="small">
+      {me.role === 'admin' && <a className="btn btn-ghost" href={`/orders/${o.id}/edit`}><i className="ph ph-pencil-simple" />Edit order</a>}
+      {me.role === 'admin' && <Modal title={`Delete Order — ${o.quote_no}`} icon="ph-trash" label="Delete" btnIcon="ph-trash" btnClass="btn btn-danger" size="small">
         <form action={deleteOrder}>
           <input type="hidden" name="id" value={o.id} />
           <div className="modal-body">
@@ -128,7 +129,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
           </div>
           <ModalFoot label="Delete Order" icon="ph-trash" cls="btn-danger" />
         </form>
-      </Modal>
+      </Modal>}
     </div>
   )
 
@@ -289,7 +290,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
         <div className="sum" style={{ marginTop: 16 }}>
           <div>Subtotal <b>{money(t.subtotal)}</b></div>
           <div>Transport <b>{money(t.transport)}</b></div>
-          <div>VAT 15% <b>{money(t.vat)}</b></div>
+          <div>VAT {vatPct(o.vat_rate)} <b>{money(t.vat)}</b></div>
           <div className="grand">Total (SAR) <b>{money(t.total)}</b></div>
         </div>
       </div>

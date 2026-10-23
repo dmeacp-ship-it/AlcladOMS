@@ -1,5 +1,6 @@
 import { db, requireRole } from '@/lib/server'
-import { createUser, updateUser } from '../actions'
+import { stamp } from '@/lib/activity'
+import { createUser, signOutUser, updateUser } from '../actions'
 import { Modal, ModalFoot, PasswordInput, RoleSelect } from '../../ui'
 
 const initials = (n) => n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -14,7 +15,16 @@ export const metadata = { title: 'Users' }
 
 export default async function Users() {
   const me = await requireRole('admin')
-  const { data: users } = await db().from('profiles').select('*').order('full_name')
+  const [{ data: users }, { data: seen }] = await Promise.all([
+    db().from('profiles').select('*').order('full_name'),
+    db().rpc('user_last_sign_in'), // migrate-008; null before it runs
+  ])
+  const lastSeen = Object.fromEntries((seen || []).map((r) => [r.id, r.last_sign_in_at]))
+  const ago = (t) => {
+    if (!t) return null
+    const m = Math.round((Date.now() - new Date(t)) / 60000)
+    return m < 60 ? `${Math.max(m, 1)} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : m < 43200 ? `${Math.round(m / 1440)} days ago` : stamp(t)
+  }
 
   return (
     <div className="card">
@@ -44,7 +54,7 @@ export default async function Users() {
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
-            <tr><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th className="r">Actions</th></tr>
+            <tr><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th>Last sign-in</th><th className="r">Actions</th></tr>
           </thead>
           <tbody>
             {users?.map((u) => (
@@ -60,6 +70,7 @@ export default async function Users() {
                 <td>{u.mobile || <span className="muted">—</span>}</td>
                 <td><span className={`rtag rt-${u.role}`} style={{ marginTop: 0 }}>{u.role}</span></td>
                 <td><span className={`badge ${u.active ? 'b-ok' : 'b-none'}`}>{u.active ? 'Active' : 'Disabled'}</span></td>
+                <td className="nowrap muted" title={lastSeen[u.id] ? stamp(lastSeen[u.id]) : undefined}>{ago(lastSeen[u.id]) || '—'}</td>
                 <td>
                   <div className="row-acts">
                     <Modal title={`Edit ${u.full_name}`} icon="ph-pencil-simple" btnIcon="ph-pencil-simple" ariaLabel={`Edit ${u.full_name}`}
@@ -83,6 +94,19 @@ export default async function Users() {
                         <ModalFoot label="Save changes" icon="ph-check" />
                       </form>
                     </Modal>
+                    {u.id !== me.id && (
+                      <Modal title={`Sign out ${u.full_name}?`} icon="ph-sign-out" btnIcon="ph-sign-out" ariaLabel={`Sign out ${u.full_name} everywhere`}
+                        btnClass="btn btn-ghost btn-sm act-icon-btn" size="small">
+                        <form action={signOutUser}>
+                          <input type="hidden" name="id" value={u.id} />
+                          <div className="modal-body">
+                            <p>Ends <b>{u.full_name}</b>'s sessions on every device. They can sign in again with their password.</p>
+                            <p>To stop them signing in at all, untick <b>Active</b> in Edit instead.</p>
+                          </div>
+                          <ModalFoot label="Sign out everywhere" icon="ph-sign-out" cls="btn-danger" />
+                        </form>
+                      </Modal>
+                    )}
                   </div>
                 </td>
               </tr>

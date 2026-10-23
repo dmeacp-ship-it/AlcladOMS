@@ -19,6 +19,10 @@ const LIST_TITLES = {
 }
 const PAGES = [
   [/^\/orders\/new/, 'New Quotation', 'Pick the customer and line items, then submit for approval'],
+  [/^\/orders\/\d+\/edit/, 'Edit Order', 'Admin correction: customer, salesperson, lines and prices'],
+  [/^\/admin\/settings/, 'Company Settings', 'Company, documents, VAT, numbering and approval rules'],
+  [/^\/admin\/activity/, 'Activity Log', 'Who did what, and when'],
+  [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it or choose “Save as PDF”'],
   [/^\/plant/, 'Plant Dispatch', 'Dispatch DO lines one by one — part quantities allowed'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
@@ -29,7 +33,7 @@ const PAGES = [
 // Sidebar + topbar around every signed-in page, as in the FMS app.
 export default function Shell({ me, nav, settings, logout, children }) {
   const pathname = usePathname()
-  const inSettings = pathname.startsWith('/admin')
+  const inSettings = settings.some((s) => pathname.startsWith(s.href))
   // Settings popover: closes on navigation, outside click and Esc.
   const [setOpen, setSetOpen] = useState(false)
   const setRef = useRef(null)

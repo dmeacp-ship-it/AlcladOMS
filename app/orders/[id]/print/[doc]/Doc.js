@@ -1,17 +1,7 @@
-import { COMPANY, dmy, int, money, round2, totals } from '@/lib/tas'
+import { dmy, int, money, round2, totals, vatPct } from '@/lib/tas'
 
 // Printable Quotation / Delivery Order / Proforma Invoice in the "TAS sales format.xlsx" layout.
-const TERMS = [
-  'Tas International Manufacturing Company shall exempt from any responsibilities of loss if customers pay any cash or transfer any fund to any individuals without TAS  approval.',
-  'Mode of payment (MoP), Cash on delivery / Bank Account Transfer',
-  '30% Payment in Advance (PIA) & 70% Before Delivery (CBD).',
-  'Payment will be effected according to the conditions set up in the Proforma Invoice, unless any changes were agreed with the customer in written.',
-  'The amount should be paid to our bank account mentioned in the Proforma Invoice, on or before due time.',
-  'All orders are subject to quotation on the basis of a Proforma Invoice for subsequent confirmation by the customer in writing. No order will be entered for production and/or delivered until reception of the confirmation of said Proforma Invoice in writing and receiveing of advance payment as agreed in this proforma invoice, unless otherwise specified.',
-  'The Purchaser shall not for any reason, with hold payment or make any deduction or set off from the Price until unless agreed in writting with Tas International Manufacturing Company.',
-  'In general, no modification, amendment, waiver or other changes of any of these Terms and Conditions, or of any of the Seller’s rights or remedies thereunder, shall be binding on Seller unless expressly accepted in writing by Seller’s authorized officers.',
-]
-
+// s = getSettings(): company details, terms and letterhead are edited under Settings → Company.
 const DOCS = {
   quote: { fno: 'F.NO:-TAS/SALE/01', label: 'QUOTATION NO.', title: 'QUOTATION', to: 'QUOTE TO', min: 11 },
   do: { fno: 'F.NO:-TAS/SALE/04', label: 'DELIVERY ORDER NO.', title: 'DELIVERY ORDER', to: 'DELIVERING TO', min: 14 },
@@ -25,7 +15,8 @@ export const docReady = (doc, o, batch) => {
   return false
 }
 
-export default function Doc({ doc, o, batch }) {
+export default function Doc({ doc, o, batch, s }) {
+  const COMPANY = s.company
   const d = DOCS[doc]
   const isDO = doc === 'do'
 
@@ -92,14 +83,14 @@ export default function Doc({ doc, o, batch }) {
   }
 
   const blanks = Math.max(0, d.min - lines.length)
-  const t = totals(lines, transport)
+  const t = totals(lines, transport, o.vat_rate)
   const heads = isDO
     ? ['DESCRIPTION', 'WIDTH', 'LENGTH', 'Quantity (Pcs)', 'Quantity (m2)']
     : ['DESCRIPTION', 'QTY (PCS)', 'QTY (M2)', 'UNIT PRICE', 'TOTAL']
 
   return (
     <div className="doc">
-      <img className="lh" src="/letterhead.png" alt="" />
+      <img className="lh" src={`/letterhead?v=${s.letterhead_v || 0}`} alt="" />
       <div className="fno">{d.fno}</div>
       <div className="head">
         <div className="company">
@@ -164,7 +155,7 @@ export default function Doc({ doc, o, batch }) {
           <tbody>
             <tr><th>SUBTOTAL</th><td>{money(t.subtotal)}</td></tr>
             <tr><th>TRANSPORT</th><td>{money(t.transport)}</td></tr>
-            <tr><th>VAT (15%)</th><td>{money(t.vat)}</td></tr>
+            <tr><th>VAT ({vatPct(o.vat_rate)})</th><td>{money(t.vat)}</td></tr>
             <tr className="grand"><th>TOTAL (SAR)</th><td>SAR {money(t.total)}</td></tr>
           </tbody>
         </table>
@@ -174,7 +165,7 @@ export default function Doc({ doc, o, batch }) {
         <>
           <div className="terms">
             Remarks / Payment Instructions:
-            {TERMS.map((x, i) => <div key={i}>{i + 1}. {x}</div>)}
+            {s.quote_terms.map((x, i) => <div key={i}>{i + 1}. {x}</div>)}
           </div>
           <div className="sign">
             <div>
@@ -198,8 +189,7 @@ export default function Doc({ doc, o, batch }) {
       {doc === 'pi' && (
         <div className="terms">
           <i>REMARKS / PAYMENT INSTRUCTIONS:</i>
-          <div>* Tas International Manufacturing Company shall exempt from any responsibilities of loss if customers pay any cash or transfer any fund to any individuals without Tas  approval.</div>
-          <div>* The amount should be paid to our bank account mentioned in the below before delivery.</div>
+          {s.pi_terms.map((x, i) => <div key={i}>* {x}</div>)}
           <br />
           <i>BANK ACCOUNT INFORMATION:</i>
           <div>Beneficiary Bank Name:&nbsp; <b>{COMPANY.BANK_NAME}</b></div>

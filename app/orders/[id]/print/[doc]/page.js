@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { findOrder, getOrder, requireRole } from '@/lib/server'
+import { getSettings } from '@/lib/settings'
 import Doc, { docReady } from './Doc'
 import { PrintButton } from '../../../../ui'
 
@@ -35,7 +36,7 @@ export default async function PrintPage({ params, searchParams }) {
           <PrintButton />
         </div>
       </div>
-      <Doc doc={doc} o={o} batch={batch} />
+      <Doc doc={doc} o={o} batch={batch} s={await getSettings()} />
     </>
   )
 }

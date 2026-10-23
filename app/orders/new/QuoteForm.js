@@ -1,7 +1,7 @@
 'use client'
 import { startTransition, useActionState, useRef, useState } from 'react'
-import { createQuote } from '../actions'
-import { calcM2, describe, dmy, lineTotal, money, today, totals } from '@/lib/tas'
+import { createQuote, updateOrder } from '../actions'
+import { calcM2, describe, dmy, lineTotal, money, today, totals, vatPct } from '@/lib/tas'
 import { Combobox } from '../../ui'
 
 const PICKS = ['brand', 'color_code', 'grade', 'core', 'skin', 'width', 'length', 'thickness']
@@ -11,9 +11,12 @@ const Ro = ({ label, value, span2 }) => (
   <div className={`fg${span2 ? ' span2' : ''}`}><label>{label}</label><div className="ro">{value || <span className="muted">—</span>}</div></div>
 )
 
-export default function QuoteForm({ customers, options, salespersons, me, initial }) {
-  const [state, action, pending] = useActionState(createQuote, null)
+// New quotation, or (edit set) an admin correcting an existing order: edit = { id, quote_no, quote_date, vat_rate }.
+// Lines of an edited order carry id, plus min (already dispatched) and locked (on a DO, can't be removed).
+export default function QuoteForm({ customers, options, salespersons, me, initial, edit, exposure = {}, vatRate }) {
+  const [state, action, pending] = useActionState(edit ? updateOrder : createQuote, null)
   const [customerId, setCustomerId] = useState(initial?.customer_id || '')
+  const [spId, setSpId] = useState(initial?.salesperson_id || String(me.id))
   // Start with only 1 blank row by default, or existing lines if copying an earlier quote
   const [lines, setLines] = useState(() => (initial?.lines?.length ? initial.lines : [blank()]))
   const [addCount, setAddCount] = useState(5)
@@ -27,8 +30,18 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
     const m2 = calcM2(+l.width, +l.length, +l.qty)
     return { color_name: colors[l.color_code] || '', description: l.brand ? describe(l) : '', m2, total: lineTotal(m2, +l.qty, +l.price) }
   })
-  const t = totals(calc, +transport || 0)
+  const rate = edit ? edit.vat_rate : vatRate
+  const t = totals(calc, +transport || 0, rate)
   const filled = lines.filter((l) => l.brand && +l.qty > 0).length
+  // Credit limit: open orders of this customer plus this quote.
+  const limit = c?.credit_limit != null ? Number(c.credit_limit) : null
+  const used = (exposure[c?.id] || 0) + t.total
+  const overLimit = limit != null && used > limit
+  const pickCustomer = (val) => {
+    setCustomerId(val)
+    const sp = customers.find((x) => String(x.id) === val)?.salesperson_id
+    if (sp && salespersons?.some((s) => s.id === sp)) setSpId(sp)
+  }
   const set = (i, k, v) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)))
   const pick = (i, k) => (
     <input name={k} list={`opt-${k}`} value={lines[i][k]} onChange={(e) => set(i, k, e.target.value)} aria-label={`${k.replace('_', ' ')} line ${i + 1}`} />
@@ -54,7 +67,13 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
   return (
     <form onSubmit={submit}>
       {state?.error && <div className="banner error shake"><i className="ph ph-warning-circle" /><span>{state.error}</span></div>}
-      {initial && <div className="banner info"><i className="ph ph-copy" /><span>Copied from an earlier quotation — check the lines and prices, then submit.</span></div>}
+      {edit && <input type="hidden" name="order_id" value={edit.id} />}
+      {edit && (
+        <div className="banner warn"><i className="ph ph-pencil-simple" />
+          <span>Editing <b>{edit.quote_no}</b> as admin. The status, DOs and PIs stay as they are; lines already dispatched can't go below the dispatched quantity or be removed. Every change is recorded in the order's timeline.</span>
+        </div>
+      )}
+      {initial && !edit && <div className="banner info"><i className="ph ph-copy" /><span>Copied from an earlier quotation — check the lines and prices, then submit.</span></div>}
 
       <section className="fsec compact">
         <div className="fsec-ttl"><i className="ph ph-identification-card" />Customer &amp; Order Information</div>
@@ -65,7 +84,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
               id="customer"
               name="customer_id"
               value={customerId}
-              onChange={(val) => setCustomerId(val)}
+              onChange={pickCustomer}
               placeholder="Search or select customer…"
               required
               options={customers.map((x) => ({
@@ -82,7 +101,8 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
               <Combobox
                 id="salesperson"
                 name="salesperson_id"
-                defaultValue={String(me.id)}
+                value={spId}
+                onChange={(val) => setSpId(val)}
                 placeholder="Select salesperson…"
                 required
                 options={salespersons.map((s) => ({
@@ -92,7 +112,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
               />
             ) : <div className="ro">{me.full_name}</div>}
           </div>
-          <Ro label="Quote Date" value={dmy(today())} />
+          <Ro label="Quote Date" value={dmy(edit?.quote_date || today())} />
           <Ro label="Validity" value="15 Days" />
         </div>
 
@@ -130,6 +150,15 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
               <div className="cust-meta-item cust-meta-addr">
                 <span className="lbl">Address:</span>
                 <span className="val">{[c.address, c.country].filter(Boolean).join(', ')}</span>
+              </div>
+            )}
+            {limit != null && (
+              <div className="cust-meta-item cust-meta-addr">
+                <span className="lbl">Credit:</span>
+                <span className={`val${overLimit ? ' red fw6' : ''}`}>
+                  SAR {money(used)} with this quote, of a SAR {money(limit)} limit
+                  {(exposure[c.id] || 0) > 0 && <span className="muted"> (SAR {money(exposure[c.id])} in open orders)</span>}
+                </span>
               </div>
             )}
           </div>
@@ -189,19 +218,20 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
               ) : (
                 lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="muted">{i + 1}</td>
+                    <td className="muted">{i + 1}<input type="hidden" name="line_id" value={l.id || ''} /></td>
                     <td>{pick(i, 'brand')}</td>
                     <td>{pick(i, 'color_code')}</td>
                     <td className="text-sm nowrap">{calc[i]?.color_name || ''}</td>
                     {PICKS.slice(2).map((k) => <td key={k}>{pick(i, k)}</td>)}
                     <td className="text-sm">{l.brand && 'M2'}</td>
                     <td className="text-sm nowrap">{calc[i]?.description || ''}</td>
-                    <td><input name="qty" type="number" min="0" step="1" value={l.qty} onChange={(e) => set(i, 'qty', e.target.value)} aria-label={`qty line ${i + 1}`} /></td>
+                    <td><input name="qty" type="number" min={l.min || 0} step="1" value={l.qty} title={l.min ? `${l.min} PCS already dispatched` : undefined} onChange={(e) => set(i, 'qty', e.target.value)} aria-label={`qty line ${i + 1}`} /></td>
                     <td className="num">{calc[i]?.m2 ? money(calc[i].m2) : ''}</td>
                     <td><input name="price" type="number" min="0" step="0.01" value={l.price} onChange={(e) => set(i, 'price', e.target.value)} aria-label={`price line ${i + 1}`} /></td>
                     <td className="num fw6">{calc[i]?.total ? money(calc[i].total) : ''}</td>
                     <td>
-                      <button type="button" className="btn-link danger" title="Remove line" aria-label={`Remove line ${i + 1}`}
+                      <button type="button" className="btn-link danger" disabled={l.locked} aria-label={`Remove line ${i + 1}`}
+                        title={l.locked ? "On a Delivery Order, so it can't be removed" : 'Remove line'}
                         onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>
                         <i className="ph ph-trash" />
                       </button>
@@ -242,32 +272,37 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
             <div><label htmlFor="transport" className="sub" style={{ fontWeight: 400 }}>Transport (SAR)</label>
               <input id="transport" name="transport" type="number" min="0" step="0.01" value={transport} onChange={(e) => setTransport(e.target.value)} />
             </div>
-            <div>VAT 15% (SAR) <b>{money(t.vat)}</b></div>
+            <div>VAT {vatPct(rate)} (SAR) <b>{money(t.vat)}</b></div>
             <div className="grand">Total (SAR) <b>{money(t.total)}</b></div>
           </div>
         </div>
       </div>
 
       <div className="row" style={{ justifyContent: 'flex-end' }}>
+        {edit && <a className="btn btn-ghost btn-lg" href={`/orders?view=${edit.id}`}>Cancel</a>}
         <button className="btn btn-primary btn-lg" disabled={pending}>
-          {pending ? <span className="spin" /> : <i className="ph ph-seal-check" />}{pending ? 'Submitting…' : 'Submit for Approval'}
+          {pending ? <span className="spin" /> : <i className={`ph ${edit ? 'ph-check' : 'ph-seal-check'}`} />}
+          {pending ? 'Saving…' : edit ? 'Save changes' : 'Submit for Approval'}
         </button>
       </div>
 
-      <dialog ref={confirmRef} className="modal small" aria-label="Submit quotation"
+      <dialog ref={confirmRef} className="modal small" aria-label={edit ? 'Save order changes' : 'Submit quotation'}
         onMouseDown={(e) => { if (e.target === confirmRef.current) confirmRef.current.close() }}>
         <div className="modal-header">
-          <div className="modal-ttl"><i className="ph ph-seal-check" />Submit for approval?
+          <div className="modal-ttl"><i className={`ph ${edit ? 'ph-pencil-simple' : 'ph-seal-check'}`} />{edit ? `Save changes to ${edit.quote_no}?` : 'Submit for approval?'}
             <button type="button" className="btn-link x" onClick={() => confirmRef.current.close()} aria-label="Close" tabIndex={-1}><i className="ph ph-x" /></button>
           </div>
         </div>
         <div className="modal-body">
           <p><b><bdi>{c?.name || 'Customer'}</bdi></b> · {filled} line{filled === 1 ? '' : 's'} · <b>SAR {money(t.total)}</b> incl. VAT.</p>
-          <p>An approver will see it in Pending Approval. You can't edit it after submitting.</p>
+          {overLimit && <div className="banner warn"><i className="ph ph-warning" /><span>Over the credit limit: SAR {money(used)} of SAR {money(limit)}.</span></div>}
+          <p>{edit
+            ? 'Documents already issued keep their numbers; printing them again shows the corrected details.'
+            : "An approver will see it in Pending Approval. You can't edit it after submitting."}</p>
         </div>
         <div className="modal-foot">
           <button type="button" className="btn btn-ghost" onClick={() => confirmRef.current.close()}>Cancel</button>
-          <button type="button" className="btn btn-primary" onClick={confirm}><i className="ph ph-paper-plane-tilt" />Submit</button>
+          <button type="button" className="btn btn-primary" onClick={confirm}><i className={`ph ${edit ? 'ph-check' : 'ph-paper-plane-tilt'}`} />{edit ? 'Save' : 'Submit'}</button>
         </div>
       </dialog>
     </form>

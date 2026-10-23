@@ -21,4 +21,5 @@ export async function proxy(request) {
   return response
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'] }
+// Static files and the app icons (so the sign-in page has its favicon) skip the check.
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|.*\\.png$).*)'] }

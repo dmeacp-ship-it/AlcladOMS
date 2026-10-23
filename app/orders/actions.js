@@ -1,9 +1,10 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { db, getOrder, go, logEvent, requireRole } from '@/lib/server'
+import { QUEUES, db, findOrder, getOrder, go, logEvent, requireRole } from '@/lib/server'
 import { removeInvoices, saveInvoice } from '@/lib/drive'
-import { DISPATCH, PRODUCTION, calcM2, describe, dispatchOpen, dmy, lineTotal, today } from '@/lib/tas'
+import { getSettings } from '@/lib/settings'
+import { DISPATCH, PRODUCTION, calcM2, describe, dispatchOpen, dmy, int, lineTotal, money, readyOf, today, totals } from '@/lib/tas'
 
 const num = (v) => (String(v ?? '').trim() === '' ? NaN : Number(v))
 // After an action, land back where it was started: the order dialog, the list row or the plant page.
@@ -14,18 +15,9 @@ const back = (fd, id) => {
 const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v)
 const ATTRS = ['brand', 'color_code', 'grade', 'core', 'skin', 'width', 'length', 'thickness']
 
-// Called through useActionState, so errors are returned (keeps the typed form) instead of redirected.
-export async function createQuote(_prev, fd) {
-  const me = await requireRole('sales')
-  const { data: c } = await db().from('customers').select('*').eq('id', fd.get('customer_id') || 0).maybeSingle()
-  if (!c) return { error: 'Please select a customer.' }
-
-  let sp = me
-  if (me.role !== 'sales') {
-    ;({ data: sp } = await db().from('profiles').select('*').eq('id', fd.get('salesperson_id') || me.id).maybeSingle())
-    if (!sp?.active) return { error: 'Please select a salesperson.' }
-  }
-
+// Quotation form lines -> order_items rows, or { error }. Shared by createQuote and updateOrder.
+// line_id is set on lines of an order being edited (empty for new lines).
+async function parseLines(fd) {
   // Same rule as the sheet dropdowns: every attribute must exist in the Item Master.
   const { data: opt } = await db().rpc('item_options')
   const allowed = (k, v) => (opt?.[k] || []).some((x) => String(x) === v)
@@ -33,12 +25,13 @@ export async function createQuote(_prev, fd) {
   const cols = Object.fromEntries(ATTRS.map((k) => [k, fd.getAll(k).map((v) => String(v).trim())]))
   const qtys = fd.getAll('qty')
   const prices = fd.getAll('price')
+  const ids = fd.getAll('line_id')
   const items = []
   for (let i = 0; i < qtys.length; i++) {
     const l = Object.fromEntries(ATTRS.map((k) => [k, cols[k][i] || '']))
     const qty = num(qtys[i])
     const price = String(prices[i] ?? '').trim() === '' ? 0 : num(prices[i])
-    if (!l.brand && !String(qtys[i]).trim()) continue // untouched line
+    if (!l.brand && !String(qtys[i]).trim() && !ids[i]) continue // untouched new line
     const row = `Line ${i + 1}: `
     if (!l.brand) return { error: row + 'select a Brand.' }
     if (!(qty > 0)) return { error: row + 'Qty (PCS) must be more than 0.' }
@@ -49,6 +42,7 @@ export async function createQuote(_prev, fd) {
     if (l.color_code && !opt?.color?.[l.color_code]) return { error: row + `"${l.color_code}" is not a valid color code.` }
     const m2 = calcM2(num(l.width), num(l.length), qty)
     items.push({
+      line_id: ids[i] || null,
       item_no: items.length + 1,
       ...Object.fromEntries(ATTRS.map((k) => [k, l[k] || null])),
       color_name: opt?.color?.[l.color_code] || null,
@@ -59,16 +53,51 @@ export async function createQuote(_prev, fd) {
     })
   }
   if (!items.length) return { error: 'Enter at least one line item with Qty (PCS) more than 0.' }
+  return { items }
+}
 
+// Customer details copied onto the order, so documents never change when the master is edited.
+const snapshot = (c) => ({
+  customer_id: c.id,
+  customer_code: c.code,
+  customer_name: c.name,
+  address: c.country && !(c.address || '').includes(c.country) ? [c.address, c.country].filter(Boolean).join(', ') : c.address,
+  cr_no: c.cr_no,
+  vat_no: c.vat_no,
+  contact_no: c.mobile,
+})
+
+// Credit check for the timeline: open orders of the customer plus this one, against its limit.
+async function creditNote(c, total, skipOrder) {
+  if (c.credit_limit == null) return ''
+  const { data: open } = await QUEUES.ACTIVE(db().from('orders').select('id, transport, vat_rate, items:order_items(total)').eq('customer_id', c.id))
+  const used = (open || []).filter((o) => String(o.id) !== String(skipOrder))
+    .reduce((s, o) => s + totals(o.items, o.transport, o.vat_rate).total, 0) + total
+  return used > Number(c.credit_limit) ? ` · over credit limit: SAR ${money(used)} of ${money(c.credit_limit)}` : ''
+}
+
+// Called through useActionState, so errors are returned (keeps the typed form) instead of redirected.
+export async function createQuote(_prev, fd) {
+  const me = await requireRole('sales')
+  const { data: c } = await db().from('customers').select('*').eq('id', fd.get('customer_id') || 0).maybeSingle()
+  if (!c) return { error: 'Please select a customer.' }
+  if (me.role === 'sales' && c.salesperson_id && c.salesperson_id !== me.id) return { error: 'This customer is assigned to another salesperson.' }
+
+  let sp = me
+  if (me.role !== 'sales') {
+    ;({ data: sp } = await db().from('profiles').select('*').eq('id', fd.get('salesperson_id') || me.id).maybeSingle())
+    if (!sp?.active) return { error: 'Please select a salesperson.' }
+  }
+
+  const { items, error: lineError } = await parseLines(fd)
+  if (lineError) return { error: lineError }
+
+  const s = await getSettings()
+  const rate = Number(s.vat_pct) / 100
   const transport = num(fd.get('transport'))
   const { data: order, error } = await db().from('orders').insert({
-    customer_id: c.id,
-    customer_code: c.code,
-    customer_name: c.name,
-    address: c.country && !(c.address || '').includes(c.country) ? [c.address, c.country].filter(Boolean).join(', ') : c.address,
-    cr_no: c.cr_no,
-    vat_no: c.vat_no,
-    contact_no: c.mobile,
+    vat_rate: rate,
+    ...snapshot(c),
     salesperson_id: sp.id,
     salesperson_name: sp.full_name,
     notes: String(fd.get('notes') || '').trim() || null,
@@ -77,14 +106,22 @@ export async function createQuote(_prev, fd) {
   }).select('id, quote_no').single()
   if (error) return { error: error.message }
 
-  const { error: e2 } = await db().from('order_items').insert(items.map((it) => ({ ...it, order_id: order.id })))
+  const { error: e2 } = await db().from('order_items').insert(items.map(({ line_id, ...it }) => ({ ...it, order_id: order.id })))
   if (e2) {
     await db().from('orders').delete().eq('id', order.id)
     return { error: e2.message }
   }
-  await logEvent(order.id, me, 'Quotation created', `${items.length} line${items.length > 1 ? 's' : ''}`)
+  const total = totals(items, transport > 0 ? transport : 0, rate).total
+  await logEvent(order.id, me, 'Quotation created', `${items.length} line${items.length > 1 ? 's' : ''}${await creditNote(c, total, order.id)}`)
+
+  // Approval rule (Settings → Rules): small quotes skip the approval queue.
+  const auto = Number(s.auto_approve_below) > 0 && total < Number(s.auto_approve_below)
+  if (auto) {
+    await db().from('orders').update({ status: 'APPROVED', action_by: 'Auto-approved', action_at: new Date().toISOString() }).eq('id', order.id)
+    await logEvent(order.id, { full_name: 'System' }, 'Approved', `Auto-approved: below SAR ${money(s.auto_approve_below)}`)
+  }
   revalidatePath('/', 'layout')
-  redirect(`/orders?view=${order.id}&ok=${encodeURIComponent(`Quotation ${order.quote_no} submitted for approval.`)}`)
+  redirect(`/orders?view=${order.id}&ok=${encodeURIComponent(`Quotation ${order.quote_no} ${auto ? 'auto-approved' : 'submitted for approval'}.`)}`)
 }
 
 // Approve / reject replaces the old one-click email links.
@@ -94,6 +131,13 @@ export async function decide(fd) {
   const approve = fd.get('decision') === 'approve'
   const reason = String(fd.get('reason') || '').trim()
   if (!approve && !reason) go(back(fd, id), 'error', 'Enter a reason for rejection.')
+  if (approve && me.role !== 'admin') {
+    const limit = Number((await getSettings()).admin_approval_above)
+    const o = await getOrder(id, me)
+    if (limit > 0 && totals(o.items, o.transport, o.vat_rate).total > limit) {
+      go(back(fd, id), 'error', `Quotes over SAR ${money(limit)} need an admin to approve.`)
+    }
+  }
   const { data } = await db().from('orders')
     .update({
       status: approve ? 'APPROVED' : 'REJECTED',
@@ -254,7 +298,7 @@ export async function generateBatchDO(fd) {
     // Direct table updates fallback
     const custCode = o.customer_code || 'CUS'
     const todayStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh' }).replace(/\//g, '').replace(/^(\d{4})\d\d(\d\d)$/, '$1$2')
-    const prefix = `DO-${custCode}-${todayStr}-`
+    const prefix = `${(await getSettings()).do_prefix}-${custCode}-${todayStr}-`
     const { data: existing } = await db().from('order_batches').select('do_no').ilike('do_no', `${prefix}%`)
     const maxSeq = (existing || []).reduce((max, r) => {
       const n = parseInt(r.do_no?.slice(prefix.length) || '0', 10)
@@ -392,7 +436,7 @@ export async function generateBatchPI(fd) {
   } else {
     const custCode = o.customer_code || 'CUS'
     const todayStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Riyadh' }).replace(/\//g, '').replace(/^(\d{4})\d\d(\d\d)$/, '$1$2')
-    const prefix = `PI-${custCode}-${todayStr}-`
+    const prefix = `${(await getSettings()).pi_prefix}-${custCode}-${todayStr}-`
     const { data: existing } = await db().from('order_batches').select('pi_no').ilike('pi_no', `${prefix}%`)
     const maxSeq = (existing || []).reduce((max, r) => {
       const n = parseInt(r.pi_no?.slice(prefix.length) || '0', 10)
@@ -505,13 +549,14 @@ export const recordDispatch = generateBatchDO
 
 // Permanently delete an order and its associated records (items, batches, dispatches).
 export async function deleteOrder(fd) {
-  const me = await requireRole()
+  const me = await requireRole('admin')
   const id = fd.get('id')
-  const { data: o } = await db().from('orders').select('id, quote_no, salesperson_id, tax_invoice_path, batches:order_batches(tax_invoice_path)').eq('id', id).maybeSingle()
+  const { data: o } = await db().from('orders').select('id, quote_no, customer_name, salesperson_id, tax_invoice_path, batches:order_batches(tax_invoice_path)').eq('id', id).maybeSingle()
   if (!o) go('/orders', 'error', 'Order not found.')
 
   const { error } = await db().from('orders').delete().eq('id', id)
   if (error) go(`/orders?view=${id}`, 'error', error.message)
+  await logEvent(null, me, 'Order deleted', `${o.quote_no} · ${o.customer_name}`)
   // Every batch's tax invoice, not only the latest one the order points at.
   try {
     await removeInvoices([...new Set([o.tax_invoice_path, ...(o.batches || []).map((b) => b.tax_invoice_path)])])
@@ -519,4 +564,90 @@ export async function deleteOrder(fd) {
 
   revalidatePath('/', 'layout')
   go('/orders', 'ok', `Order ${o.quote_no} has been permanently deleted.`)
+}
+
+// Admin correction of an order filled in wrongly: customer, salesperson, notes, transport and lines.
+// Status, DOs and PIs stay as they are. A line on a Delivery Order can't be removed, and no line can
+// go below what has already been dispatched. Every change goes into the order's timeline.
+export async function updateOrder(_prev, fd) {
+  const me = await requireRole('admin')
+  const o = await findOrder(fd.get('order_id'), me)
+  if (!o) return { error: 'Order not found.' }
+  const { data: c } = await db().from('customers').select('*').eq('id', fd.get('customer_id') || 0).maybeSingle()
+  if (!c) return { error: 'Please select a customer.' }
+  const { data: sp } = await db().from('profiles').select('id, full_name').eq('id', fd.get('salesperson_id') || o.salesperson_id).maybeSingle()
+  if (!sp) return { error: 'Please select a salesperson.' }
+  const { items, error: lineError } = await parseLines(fd)
+  if (lineError) return { error: lineError }
+
+  const old = Object.fromEntries(o.items.map((it) => [String(it.id), it]))
+  const { data: onDo } = await db().from('batch_items').select('order_item_id').in('order_item_id', o.items.map((it) => it.id))
+  const locked = new Set((onDo || []).map((r) => String(r.order_item_id)))
+  for (const it of items) {
+    const was = it.line_id && old[it.line_id]
+    if (it.line_id && !was) return { error: 'A line no longer belongs to this order. Reload the page and try again.' }
+    if (was && it.qty < Number(was.dispatched_qty || 0)) return { error: `Line ${was.item_no}: ${int(was.dispatched_qty)} PCS are already dispatched, so Qty can't be lower.` }
+  }
+  const kept = new Set(items.map((it) => it.line_id).filter(Boolean))
+  const removed = o.items.filter((it) => !kept.has(String(it.id)))
+  for (const it of removed) {
+    if (locked.has(String(it.id)) || Number(it.dispatched_qty) > 0) return { error: `Line ${it.item_no} is on a Delivery Order and can't be removed.` }
+  }
+
+  const transport = num(fd.get('transport')) > 0 ? num(fd.get('transport')) : 0
+  const head = {
+    ...(String(c.id) !== String(o.customer_id) && snapshot(c)),
+    salesperson_id: sp.id,
+    salesperson_name: sp.full_name,
+    notes: String(fd.get('notes') || '').trim() || null,
+    transport,
+  }
+  const changes = []
+  if (head.customer_name) changes.push(`customer ${o.customer_name} → ${c.name}`)
+  if (sp.id !== o.salesperson_id) changes.push(`salesperson ${o.salesperson_name} → ${sp.full_name}`)
+  if ((head.notes || '') !== (o.notes || '')) changes.push('notes')
+  if (Number(o.transport) !== transport) changes.push(`transport ${money(o.transport)} → ${money(transport)}`)
+
+  const same = (a, b) => String(a ?? '') === String(b ?? '') || (a != null && b != null && Number(a) === Number(b))
+  let next = Math.max(0, ...o.items.map((it) => it.item_no))
+  const inserts = []
+  for (const { line_id, item_no, ...it } of items) {
+    const was = line_id && old[line_id]
+    if (!was) {
+      inserts.push({ ...it, order_id: o.id, item_no: ++next })
+      changes.push(`line ${next} added`)
+      continue
+    }
+    const diff = [...ATTRS, 'qty', 'price'].filter((k) => !same(it[k], was[k]))
+    if (!diff.length) continue
+    // Ready pieces can't be more than what is left to dispatch at the new quantity.
+    const ready = Math.min(readyOf(was), Math.max(0, it.qty - Number(was.dispatched_qty || 0)))
+    const { error } = await db().from('order_items').update({ ...it, ready_qty: ready }).eq('id', was.id)
+    if (error) return { error: error.message }
+    changes.push(`line ${was.item_no}: ${diff.map((k) => (k === 'qty' || k === 'price' ? `${k} ${was[k]} → ${it[k]}` : k.replace('_', ' '))).join(', ')}`)
+  }
+  if (removed.length) {
+    const { error } = await db().from('order_items').delete().in('id', removed.map((it) => it.id))
+    if (error) return { error: error.message }
+    changes.push(...removed.map((it) => `line ${it.item_no} removed`))
+  }
+  if (inserts.length) {
+    const { error } = await db().from('order_items').insert(inserts)
+    if (error) return { error: error.message }
+  }
+
+  if (!changes.length) redirect(`/orders?view=${o.id}&ok=${encodeURIComponent('No changes to save.')}`)
+  // Quantities changed after a DO: keep the order's dispatch status in step with its lines.
+  if (o.dispatch_status && o.dispatch_status !== 'SHORT_CLOSED') {
+    const { data: now } = await db().from('order_items').select('qty, dispatched_qty').eq('order_id', o.id)
+    const done = now.every((it) => Number(it.dispatched_qty || 0) >= Number(it.qty))
+    head.dispatch_status = done ? 'DISPATCHED' : now.some((it) => Number(it.dispatched_qty) > 0) ? 'PARTIAL' : 'PENDING'
+  }
+  const { error } = await db().from('orders').update(head).eq('id', o.id)
+  if (error) return { error: error.message }
+
+  const total = totals(items, transport, o.vat_rate).total
+  await logEvent(o.id, me, 'Edited by admin', `${changes.join('; ')}${await creditNote(c, total, o.id)}`.slice(0, 1000))
+  revalidatePath('/', 'layout')
+  redirect(`/orders?view=${o.id}&ok=${encodeURIComponent(`${o.quote_no} updated.`)}`)
 }

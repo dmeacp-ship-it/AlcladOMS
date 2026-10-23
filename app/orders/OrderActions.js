@@ -7,7 +7,7 @@ import { FileDrop, Modal, ModalFoot } from '../ui'
 export default function OrderActions({ o, me, back, sm, openBatchPi }) {
   const approved = o.status === 'APPROVED'
   const size = sm ? ' btn-sm' : ''
-  const t = totals(o.items, o.transport)
+  const t = totals(o.items, o.transport, o.vat_rate)
   const Hidden = (
     <>
       <input type="hidden" name="id" value={o.id} />
@@ -266,8 +266,8 @@ export default function OrderActions({ o, me, back, sm, openBatchPi }) {
         )
       })}
 
-      {/* Delete order */}
-      {sm && (
+      {/* Delete order (admin only) */}
+      {sm && me.role === 'admin' && (
         <Modal
           title={`Delete Order — ${o.quote_no}`}
           icon="ph-trash"

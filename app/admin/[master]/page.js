@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db, requireRole } from '@/lib/server'
-import { MASTERS } from '@/lib/tas'
-import { deleteMaster, saveMaster } from '../actions'
-import { Modal, ModalFoot } from '../../ui'
+import { MASTERS, money } from '@/lib/tas'
+import { deleteMaster, importMaster, saveMaster } from '../actions'
+import { FileDrop, Modal, ModalFoot } from '../../ui'
 
 const PAGE = 50
 const label = (c) => c.replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase()).replace(/\b(Cr|Vat|Uom)\b/g, (x) => x.toUpperCase())
@@ -24,20 +24,37 @@ export default async function Master({ params, searchParams }) {
   const term = String(sp.q || '').trim()
   const one = cfg.title.slice(0, -1)
 
-  let q = db().from(master).select('*', { count: 'exact' }).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
+  const isCust = master === 'customers'
+  let q = db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' }).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
   if (term) q = q.ilike(cfg.search, `%${term}%`)
-  const { data: rows, count } = await q
+  const [{ data: rows, count }, { data: people }] = await Promise.all([
+    q,
+    isCust ? db().from('profiles').select('id, full_name').in('role', ['sales', 'admin']).eq('active', true).order('full_name') : { data: [] },
+  ])
   const link = (p) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }) })}`
   const here = link(page)
+  const num = (c) => (cfg.numbers || []).includes(c)
 
   const fields = (r) => (
     <div className="fgrid-2">
       {cfg.cols.map((c) => (
         <div className={`fg${WIDE.includes(c) ? ' full' : ''}`} key={c}>
-          <label htmlFor={`${c}-${r?.id ?? 'new'}`}>{label(c)} {cfg.required.includes(c) && <span className="req">*</span>}</label>
-          <input id={`${c}-${r?.id ?? 'new'}`} name={c} defaultValue={r?.[c] ?? ''} required={cfg.required.includes(c)} />
+          <label htmlFor={`${c}-${r?.id ?? 'new'}`}>
+            {label(c)}{c === 'credit_limit' && <span className="hint"> — SAR incl. VAT, blank = no limit</span>} {cfg.required.includes(c) && <span className="req">*</span>}
+          </label>
+          <input id={`${c}-${r?.id ?? 'new'}`} name={c} defaultValue={r?.[c] ?? ''} required={cfg.required.includes(c)}
+            {...(num(c) && { type: 'number', min: 0, step: 'any' })} />
         </div>
       ))}
+      {isCust && (
+        <div className="fg">
+          <label htmlFor={`sp-${r?.id ?? 'new'}`}>Assigned salesperson</label>
+          <select id={`sp-${r?.id ?? 'new'}`} name="salesperson_id" defaultValue={r?.salesperson_id || ''}>
+            <option value="">Anyone</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+          </select>
+        </div>
+      )}
     </div>
   )
 
@@ -61,22 +78,40 @@ export default async function Master({ params, searchParams }) {
               <ModalFoot label={`Add ${one}`} icon="ph-plus" />
             </form>
           </Modal>
+          <Modal title={`Import ${cfg.title}`} icon="ph-upload-simple" label="Import" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
+            <form action={importMaster}>
+              <input type="hidden" name="table" value={master} />
+              <div className="modal-body">
+                <p>
+                  Save the Excel sheet as <b>CSV UTF-8</b> (File → Save As). The first row must be the column names, the same as in{' '}
+                  <a href={`/admin/export/${master}`}>an Export</a>: <span className="muted">{[...cfg.cols, ...(isCust ? ['salesperson'] : [])].join(', ')}</span>.
+                </p>
+                <p>{isCust
+                  ? 'Customers are matched on code: new codes are added, existing ones are updated. Salesperson can be a name, email or username.'
+                  : 'Rows are added; an item whose description is already in the master is skipped.'}</p>
+                <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" />
+              </div>
+              <ModalFoot label="Import" icon="ph-upload-simple" />
+            </form>
+          </Modal>
+          <a className="btn btn-ghost btn-sm" href={`/admin/export/${master}`}><i className="ph ph-download-simple" />Export</a>
         </div>
       </div>
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
-            <tr>{cfg.cols.map((c) => <th key={c}>{label(c)}</th>)}<th className="r">Actions</th></tr>
+            <tr>{cfg.cols.map((c) => <th key={c} className={num(c) ? 'r' : undefined}>{label(c)}</th>)}{isCust && <th>Salesperson</th>}<th className="r">Actions</th></tr>
           </thead>
           <tbody>
             {rows?.map((r) => (
               <tr key={r.id}>
                 {cfg.cols.map((c) => (
-                  <td key={c} className={c === 'name' || c === 'description' ? 'desc' : c === 'address' ? 'text-sm' : 'nowrap'}
+                  <td key={c} className={c === 'name' || c === 'description' ? 'desc' : c === 'address' ? 'text-sm' : num(c) ? 'num' : 'nowrap'}
                     style={c === 'address' ? { minWidth: 220 } : c === 'description' ? { minWidth: 260 } : undefined}>
-                    {r[c] ?? <span className="muted">—</span>}
+                    {r[c] == null ? <span className="muted">—</span> : c === 'credit_limit' ? money(r[c]) : r[c]}
                   </td>
                 ))}
+                {isCust && <td className="nowrap">{r.sp?.full_name || <span className="muted">Anyone</span>}</td>}
                 <td>
                   <div className="row-acts">
                     <Modal title={`Edit ${one}`} icon="ph-pencil-simple" btnIcon="ph-pencil-simple" ariaLabel={`Edit ${r[cfg.search] || one}`}

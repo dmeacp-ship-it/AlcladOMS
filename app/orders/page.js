@@ -34,7 +34,7 @@ export default async function Orders({ searchParams }) {
   const own = (q) => (me.role === 'sales' ? q.eq('salesperson_id', me.id) : q)
 
   let q = filterOrders(own(db().from('orders')
-    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, items:order_items(id, item_no, description, qty, price, total, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status), batches:order_batches(*, items:batch_items(*, order_item:order_items(*)))')
+    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, vat_rate, items:order_items(id, item_no, description, qty, price, total, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status), batches:order_batches(*, items:batch_items(*, order_item:order_items(*)))')
     .order('id', { ascending: false }).range((page - 1) * PAGE, page * PAGE)), status)
   if (term) q = q.or(`quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,doc_no.ilike.%${term}%`)
 
@@ -81,6 +81,11 @@ export default async function Orders({ searchParams }) {
               <i className="ph ph-magnifying-glass" />
               <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, DO/PI no" />
             </div>
+            {me.role === 'admin' && (
+              <a className="btn btn-ghost btn-sm" href={`/admin/export/orders?${new URLSearchParams({ ...(status && { status }), ...(term && { q: term }) })}`}>
+                <i className="ph ph-download-simple" />Export
+              </a>
+            )}
           </form>
         </div>
         {error && <div className="banner error" style={{ margin: '0 20px 16px' }} title={error.message}><i className="ph ph-warning-circle" />Couldn't load the orders. Press Refresh to try again; if it keeps failing, tell the admin.</div>}
@@ -109,7 +114,7 @@ export default async function Orders({ searchParams }) {
                   <td className="nowrap fw6"><bdi>{o.customer_name}</bdi></td>
                   <td className="nowrap">{o.salesperson_name}</td>
                   <td className="num">{(o.items || []).reduce((n, it) => n + Number(it.qty || 0), 0)} PCS</td>
-                  <td className="num fw6">{money(totals(o.items, o.transport).total)}</td>
+                  <td className="num fw6">{money(totals(o.items, o.transport, o.vat_rate).total)}</td>
                   <td className="nowrap">
                     <div className="docs nowrap">
                       {/* One badge: dispatch progress once approved, else the approval status */}

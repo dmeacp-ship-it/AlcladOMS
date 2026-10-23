@@ -160,12 +160,12 @@ export function PlantStatus({ id, value, coil, options, readyQty, balance }) {
 }
 
 // Drag-and-drop / click file picker (FMS .file-drop).
-export function FileDrop({ name, accept, hint }) {
+export function FileDrop({ name, accept, hint, required = true }) {
   const [file, setFile] = useState(null)
   const [drag, setDrag] = useState(false)
   return (
     <label className={`file-drop${drag ? ' drag' : ''}`} onDragEnter={() => setDrag(true)} onDragLeave={() => setDrag(false)} onDrop={() => setDrag(false)}>
-      <input type="file" name={name} accept={accept} required onChange={(e) => setFile(e.target.files[0] || null)} />
+      <input type="file" name={name} accept={accept} required={required} onChange={(e) => setFile(e.target.files[0] || null)} />
       <i className={`ph ${file ? 'ph-file-text' : 'ph-upload-simple'}`} />
       <p>{file ? file.name : 'Click to choose, or drop a file here'}</p>
       <small>{file ? `${(file.size / 1048576).toFixed(2)} MB` : hint}</small>

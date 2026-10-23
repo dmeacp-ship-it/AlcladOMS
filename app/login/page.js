@@ -18,7 +18,7 @@ async function login(fd) {
   if (error) go('/login', 'error', 'Wrong email/username or password.')
   const { data: me } = await db().from('profiles').select('active').eq('id', data.user.id).maybeSingle()
   if (!me?.active) {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     go('/login', 'error', 'Your account is not active. Ask the admin.')
   }
   revalidatePath('/', 'layout')
