@@ -441,6 +441,28 @@ label, .lbl { font-size: 12px; font-weight: 600; color: var(--text); line-height
 .ca { color: var(--accentH) !important; } .co { color: var(--orange) !important; } .cg { color: var(--green) !important; }
 .cr { color: var(--red) !important; } .cy { color: var(--yellow) !important; } .ct { color: var(--teal) !important; } .cp { color: var(--purple) !important; }
 
+/* Segmented tabs (Reports) */
+.tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 16px; background: var(--fill); border-radius: 980px; width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.tab { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 980px; font-size: 13px; font-weight: 600; color: var(--sub); white-space: nowrap; text-decoration: none !important; transition: background var(--dur-fast), color var(--dur-fast); }
+.tab i { font-size: 16px; }
+.tab:hover { color: var(--text); background: var(--fill-2); }
+.tab.on { background: var(--card); color: var(--accentH); box-shadow: var(--shadow-1); }
+.tab:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* Report cards on the Reports overview */
+.rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.rcard {
+  display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: var(--shadow-1); color: var(--text); text-decoration: none !important; transition: transform var(--dur) var(--spring), box-shadow var(--dur) var(--spring), border-color var(--dur-fast);
+}
+.rcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.rcard:focus-visible { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
+.rcard-ttl { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
+.rcard-ttl i { font-size: 20px; color: var(--accentH); }
+.rcard-n { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rcard-sub { font-size: 12.5px; color: var(--sub); line-height: 1.5; }
+.rcard-go { margin-top: auto; padding-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--accentH); display: flex; align-items: center; gap: 4px; }
+
 /* ── 9. Tables — grouped list ── */
 
 /* ── Horizontal Scrollable Tables & Single-line Rows ── */
