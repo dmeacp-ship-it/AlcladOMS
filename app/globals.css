@@ -668,9 +668,24 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
 .modal-ttl .x { margin-left: auto; color: var(--muted); font-size: 18px; }
 .modal-ttl .badge { font-size: 11px; }
 .modal-header .status-tracker { margin-top: 16px; padding-bottom: 2px; }
-.modal-foot .foot-left { margin-right: auto; display: flex; gap: 10px; flex-wrap: wrap; }
-.foot-more { display: contents; } /* wide screens: its buttons sit in the footer as before */
-.foot-more-btn { display: none !important; }
+/* Order dialog footer: secondary actions (duplicate, edit, cancel, short close, delete) in a "More" menu
+   on the left, the order's next step + Close on the right. The menu opens upward, as a list. */
+.foot-more { position: relative; margin-right: auto; }
+.foot-more:has(> .foot-left:empty) { display: none; }
+.foot-more .foot-left {
+  display: none; position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; flex-direction: column; gap: 2px; min-width: 220px;
+  padding: 6px; background: var(--card); border: 1px solid var(--border2); border-radius: 14px; box-shadow: var(--shadow-2);
+}
+.foot-more.open .foot-left { display: flex; }
+.foot-more .foot-left > :is(.btn, a.btn) {
+  width: 100%; justify-content: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--r-ctl);
+  background: none; box-shadow: none; color: var(--text); font-weight: 500; transform: none;
+}
+.foot-more .foot-left > :is(.btn, a.btn):hover { background: var(--fill-2); transform: none; }
+.foot-more .foot-left > :is(.btn, a.btn) i { color: var(--sub); }
+.foot-more .foot-left > :is(.btn-warn, .btn-danger), .foot-more .foot-left > :is(.btn-warn, .btn-danger) i { color: var(--red); }
+/* Delete sits last, under a divider */
+.foot-more .foot-left > .btn-danger { margin-top: 4px; border-top: 1px solid var(--border); border-radius: 0 0 var(--r-ctl) var(--r-ctl); padding-top: 12px; }
 .modal-foot { flex-wrap: wrap; }
 
 /* Profile sections inside the order dialog (FMS .profile-section) */
@@ -809,15 +824,8 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
   /* Buttons share rows two-up instead of stacking into a tall column */
   .modal-foot { padding: 10px 16px; }
   .modal-foot .btn { flex: 1 1 140px; min-width: 0; white-space: normal; text-align: center; padding: 9px 12px; }
-  /* Secondary actions (cancel, short close, duplicate, edit, delete) fold behind "More" */
-  .modal-foot .foot-more { display: block; position: relative; flex: 1 1 140px; }
-  .foot-more-btn { display: inline-flex !important; width: 100%; }
-  .modal-foot .foot-more .foot-left {
-    display: none; position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; flex-direction: column; gap: 6px; min-width: 230px; margin: 0;
-    padding: 8px; background: var(--card); border: 1px solid var(--border2); border-radius: 14px; box-shadow: var(--shadow-2);
-  }
-  .modal-foot .foot-more.open .foot-left { display: flex; }
-  .modal-foot .foot-more .foot-left .btn { flex: none; width: 100%; }
+  .modal-foot .foot-more { flex: 1 1 140px; }
+  .modal-foot .foot-more-btn { width: 100%; }
   /* Six tracker steps don't fit 375px: let the strip scroll instead of overlapping labels */
   .status-tracker { overflow-x: auto; padding: 8px 0; scrollbar-width: none; }
   .status-step { min-width: 76px; }
@@ -1109,3 +1117,6 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
     print-color-adjust: exact; -webkit-print-color-adjust: exact;
   }
 }
+
+/* Row actions that may wrap onto a second line when the table is narrow (order dialog batch rows) */
+.row-acts.wrap { flex-wrap: wrap; white-space: normal; row-gap: 6px; }

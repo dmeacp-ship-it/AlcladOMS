@@ -113,22 +113,30 @@ export function UnsavedGuard() {
   return <span ref={ref} hidden />
 }
 
-// Secondary actions of a dialog footer. Wide screens: shown inline. Phones: folded behind a "More" button
-// so the footer doesn't fill the screen. The list stays mounted (and visible while open), because the
-// confirm dialogs inside it can't open from a hidden element.
+// Secondary actions of a dialog footer, behind a "More" button so the footer keeps only the next step.
+// The list stays mounted (and visible while open), because the confirm dialogs inside it can't open
+// from a hidden element.
 export function FootMore({ children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
     if (!open) return
     const out = (e) => { if (!ref.current?.contains(e.target) && !e.target.closest?.('dialog')) setOpen(false) }
+    // Esc closes the menu, not the order dialog around it (unless a confirm dialog is open on top).
+    const esc = (e) => {
+      if (e.key !== 'Escape' || document.querySelectorAll('dialog[open]').length > 1) return
+      e.preventDefault()
+      setOpen(false)
+      ref.current?.querySelector('.foot-more-btn')?.focus()
+    }
     document.addEventListener('mousedown', out)
-    return () => document.removeEventListener('mousedown', out)
+    document.addEventListener('keydown', esc, true)
+    return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc, true) }
   }, [open])
   return (
     <div ref={ref} className={`foot-more${open ? ' open' : ''}`}>
-      <button type="button" className="btn btn-ghost neutral foot-more-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <i className="ph ph-dots-three" />More
+      <button type="button" className="btn btn-ghost neutral foot-more-btn" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(!open)}>
+        <i className="ph ph-dots-three-outline" />More<i className={`ph ${open ? 'ph-caret-down' : 'ph-caret-up'}`} />
       </button>
       <div className="foot-left">{children}</div>
     </div>

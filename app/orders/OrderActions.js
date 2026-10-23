@@ -1,10 +1,10 @@
 import Link from 'next/link'
-import { balanceOf, can, int, money, readyOf, today, totals } from '@/lib/tas'
+import { balanceOf, can, dispatchOpen, int, money, readyOf, today, totals } from '@/lib/tas'
 import { decide, deleteOrder, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
 import { FileDrop, Modal, ModalFoot } from '../ui'
 
 // Order actions: Approve/Reject, Plant Dispatch link, Generate DO (when ready), Generate PI per batch, Tax Invoice.
-export default function OrderActions({ o, me, back, sm, openBatchPi }) {
+export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog }) {
   const approved = o.status === 'APPROVED'
   const size = sm ? ' btn-sm' : ''
   const t = totals(o.items, o.transport, o.vat_rate)
@@ -54,7 +54,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi }) {
       )}
 
       {/* Approved but nothing is marked ready yet: link directly to Plant Dispatch */}
-      {approved && !sm && readyLines.length === 0 && (
+      {approved && !sm && dispatchOpen(o) && readyLines.length === 0 && (
         <Link href="/plant" className={`btn btn-ghost${size}`} title="Go to Plant Dispatch to update status and mark ready quantities">
           <i className="ph ph-factory" />Plant Dispatch
         </Link>
@@ -160,110 +160,15 @@ export default function OrderActions({ o, me, back, sm, openBatchPi }) {
         </Modal>
       )}
 
-      {/* Generate PI for each DO batch waiting for an invoice */}
-      {approved && pendingPIBatches.map((batch) => {
-        const isAutoOpen = String(openBatchPi) === String(batch.id)
-        return (
-          <Modal
-            key={batch.id}
-            title={`Generate Proforma Invoice — ${batch.do_no || `Batch #${batch.batch_no}`}`}
-            icon="ph-receipt"
-            label={`Generate PI${pendingPIBatches.length > 1 ? ` (${batch.do_no || `#${batch.batch_no}`})` : ''}`}
-            btnIcon="ph-receipt"
-            btnClass={`btn btn-success${size}`}
-            size="large"
-            defaultOpen={isAutoOpen}
-          >
-            <form action={generateBatchPI}>
-              {Hidden}
-              <input type="hidden" name="batch_id" value={batch.id} />
-              <div className="modal-body">
-                <p>Quantities are pre-filled from this Delivery Order (<b>{batch.do_no}</b>). If you modify a quoted unit price, provide a reason.</p>
-                <div className="tbl-wrap">
-                  <table className="tbl">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Material Description</th>
-                        <th className="r">DO Qty (PCS)</th>
-                        <th className="r">Quoted Price</th>
-                        <th>Invoice (PCS)</th>
-                        <th>Unit Price (SAR)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(batch.items || []).map((bi, idx) => (
-                        <tr key={bi.id}>
-                          <td className="muted">{idx + 1}</td>
-                          <td className="desc">{bi.order_item?.description || 'Item'}</td>
-                          <td className="num fw6">{int(bi.do_qty)}</td>
-                          <td className="num">{money(bi.order_item?.price)}</td>
-                          <td>
-                            <input
-                              className="qty"
-                              name={`qty_${bi.id}`}
-                              type="number"
-                              min="0"
-                              max={bi.do_qty}
-                              step="1"
-                              defaultValue={bi.do_qty}
-                              required
-                              aria-label="Invoice qty"
-                            />
-                          </td>
-                          <td>
-                            <input
-                              className="qty"
-                              name={`price_${bi.id}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              defaultValue={bi.order_item?.price || 0}
-                              required
-                              aria-label="Unit price"
-                            />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="fg" style={{ marginTop: 14 }}>
-                  <label htmlFor={`note-${batch.id}`}>Reason for price change <span className="hint">— only if a unit price differs from quotation</span></label>
-                  <textarea id={`note-${batch.id}`} name="price_note" rows={2} placeholder="e.g. special discount approved by management" />
-                </div>
-              </div>
-              <ModalFoot label="Generate PI" icon="ph-receipt" />
-            </form>
-          </Modal>
-        )
-      })}
-
-      {/* Tax Invoice Upload: one per PI batch (orders without batches keep the single upload) */}
-      {approved && can(me, 'accounts') && (o.batches?.length ? o.batches.filter((b) => b.pi_date) : hasAnyPI ? [null] : []).map((b) => {
+      {/* Per-batch PI and tax invoice. In the order dialog they sit on each batch row instead (inDialog). */}
+      {approved && !(inDialog && o.batches?.length) && pendingPIBatches.map((batch) => (
+        <PiAction key={batch.id} o={o} batch={batch} back={back} size={size} autoOpen={String(openBatchPi) === String(batch.id)}
+          label={`Generate PI${pendingPIBatches.length > 1 ? ` (${batch.do_no || `#${batch.batch_no}`})` : ''}`} />
+      ))}
+      {approved && can(me, 'accounts') && (o.batches?.length ? (inDialog ? [] : o.batches.filter((b) => b.pi_date)) : hasAnyPI ? [null] : []).map((b) => {
         const cur = b ? b.tax_invoice_path : o.tax_invoice_path
         if (sm && cur) return null
-        const tag = b?.pi_no ? ` (${b.pi_no})` : ''
-        return (
-          <Modal
-            key={b?.id || 'order'}
-            title={`${cur ? 'Replace' : 'Upload'} Tax Invoice — ${b?.pi_no || o.quote_no}`}
-            icon="ph-upload-simple"
-            label={`${cur ? 'Replace' : 'Upload'} Invoice${tag}`}
-            btnIcon="ph-upload-simple"
-            btnClass={`btn ${cur ? 'btn-ghost' : 'btn-warn'}${size}`}
-          >
-            <form action={uploadTaxInvoice}>
-              {Hidden}
-              {b && <input type="hidden" name="batch_id" value={b.id} />}
-              <div className="modal-body">
-                <FileDrop name="file" accept="application/pdf,image/*" hint="PDF or image, max 4 MB" />
-                {cur && <p>The file already uploaded will be replaced.</p>}
-              </div>
-              <ModalFoot label="Upload" icon="ph-upload-simple" />
-            </form>
-          </Modal>
-        )
+        return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace' : 'Upload'} Invoice${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
       })}
 
       {/* Delete order (admin only) */}
@@ -288,5 +193,108 @@ export default function OrderActions({ o, me, back, sm, openBatchPi }) {
         </Modal>
       )}
     </>
+  )
+}
+
+// Generate PI for one DO batch (row action in the order dialog, footer / list action elsewhere).
+export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-sm', autoOpen }) {
+  return (
+    <Modal
+      title={`Generate Proforma Invoice — ${batch.do_no || `Batch #${batch.batch_no}`}`}
+      icon="ph-receipt"
+      label={label}
+      btnIcon="ph-receipt"
+      btnClass={`btn btn-success${size}`}
+      size="large"
+      defaultOpen={autoOpen}
+    >
+      <form action={generateBatchPI}>
+        <input type="hidden" name="id" value={o.id} />
+        <input type="hidden" name="back" value={back} />
+        <input type="hidden" name="batch_id" value={batch.id} />
+        <div className="modal-body">
+          <p>Quantities are pre-filled from this Delivery Order (<b>{batch.do_no}</b>). If you modify a quoted unit price, provide a reason.</p>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Material Description</th>
+                  <th className="r">DO Qty (PCS)</th>
+                  <th className="r">Quoted Price</th>
+                  <th>Invoice (PCS)</th>
+                  <th>Unit Price (SAR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(batch.items || []).map((bi, idx) => (
+                  <tr key={bi.id}>
+                    <td className="muted">{idx + 1}</td>
+                    <td className="desc">{bi.order_item?.description || 'Item'}</td>
+                    <td className="num fw6">{int(bi.do_qty)}</td>
+                    <td className="num">{money(bi.order_item?.price)}</td>
+                    <td>
+                      <input
+                        className="qty"
+                        name={`qty_${bi.id}`}
+                        type="number"
+                        min="0"
+                        max={bi.do_qty}
+                        step="1"
+                        defaultValue={bi.do_qty}
+                        required
+                        aria-label="Invoice qty"
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="qty"
+                        name={`price_${bi.id}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={bi.order_item?.price || 0}
+                        required
+                        aria-label="Unit price"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="fg" style={{ marginTop: 14 }}>
+            <label htmlFor={`note-${batch.id}`}>Reason for price change <span className="hint">— only if a unit price differs from quotation</span></label>
+            <textarea id={`note-${batch.id}`} name="price_note" rows={2} placeholder="e.g. special discount approved by management" />
+          </div>
+        </div>
+        <ModalFoot label="Generate PI" icon="ph-receipt" />
+      </form>
+    </Modal>
+  )
+}
+
+// Upload or replace the tax invoice of one PI batch (b = null: an order without batches).
+export function TaxAction({ o, b, back, label, size = ' btn-sm' }) {
+  const cur = b ? b.tax_invoice_path : o.tax_invoice_path
+  return (
+    <Modal
+      title={`${cur ? 'Replace' : 'Upload'} Tax Invoice — ${b?.pi_no || o.quote_no}`}
+      icon="ph-upload-simple"
+      label={label || (cur ? 'Replace invoice' : 'Upload invoice')}
+      btnIcon="ph-upload-simple"
+      btnClass={`btn ${cur ? 'btn-ghost' : 'btn-warn'}${size}`}
+    >
+      <form action={uploadTaxInvoice}>
+        <input type="hidden" name="id" value={o.id} />
+        <input type="hidden" name="back" value={back} />
+        {b && <input type="hidden" name="batch_id" value={b.id} />}
+        <div className="modal-body">
+          <FileDrop name="file" accept="application/pdf,image/*" hint="PDF or image, max 4 MB" />
+          {cur && <p>The file already uploaded will be replaced.</p>}
+        </div>
+        <ModalFoot label="Upload" icon="ph-upload-simple" />
+      </form>
+    </Modal>
   )
 }

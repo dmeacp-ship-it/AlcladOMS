@@ -1,7 +1,7 @@
 import { DISPATCH, PRODUCTION, balanceOf, can, dispatchOpen, dmy, int, money, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
 import { FootMore, Modal, ModalFoot, PlantStatus, RouteDialog, DocView } from '../ui'
-import OrderActions from './OrderActions'
+import OrderActions, { PiAction, TaxAction } from './OrderActions'
 
 // Order profile shown as a large dialog over the orders list (FMS viewOrderDetails).
 
@@ -133,7 +133,8 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
     </FootMore>
   )
 
-  const actions = <OrderActions o={o} me={me} back={back} openBatchPi={openBatchPi} />
+  // Footer keeps only the order's next step (approve, Generate DO…); per-batch PI and tax invoice are on the batch rows.
+  const actions = <OrderActions o={o} me={me} back={back} openBatchPi={openBatchPi} inDialog />
 
   return (
     <RouteDialog
@@ -182,34 +183,42 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Batch #</th>
-                  <th>DO No</th>
-                  <th>DO Date</th>
-                  <th>PI No</th>
-                  <th>PI Date</th>
-                  <th>Vehicle / Driver</th>
-                  <th className="r">Transport</th>
-                  <th className="r">Actions</th>
+                  <th>#</th>
+                  <th>Delivery Order</th>
+                  <th>Proforma Invoice</th>
+                  <th>Tax Invoice</th>
+                  <th>Truck</th>
+                  <th className="r">Documents &amp; actions</th>
                 </tr>
               </thead>
               <tbody>
                 {batches.map((b) => (
                   <tr key={b.id}>
-                    <td className="fw6">#{b.batch_no}</td>
-                    <td className="nowrap"><b>{b.do_no}</b></td>
-                    <td className="nowrap muted">{dmy(b.do_date)}</td>
+                    <td className="fw6 muted">{b.batch_no}</td>
+                    <td className="nowrap"><b>{b.do_no}</b><div className="muted text-sm">{dmy(b.do_date)}</div></td>
                     <td className="nowrap">
-                      {b.pi_no ? <b>{b.pi_no}</b> : <span className="badge b-warn">Pending PI</span>}
+                      {b.pi_no ? <><b>{b.pi_no}</b><div className="muted text-sm">{dmy(b.pi_date)}</div></> : <span className="badge b-warn">Pending PI</span>}
                     </td>
-                    <td className="nowrap muted">{dmy(b.pi_date) || '—'}</td>
-                    <td className="nowrap muted">
-                      {[b.vehicle_no, b.driver].filter(Boolean).join(' · ') || '—'}
+                    <td className="nowrap">
+                      {b.tax_invoice_path ? <span className="badge b-ok"><i className="ph ph-check" />Uploaded</span>
+                        : b.pi_no ? <span className="badge b-warn">Pending</span> : <span className="muted">—</span>}
                     </td>
-                    <td className="num">{money(b.transport)}</td>
-                    <td className="nowrap r">
-                      <div className="row-acts">
-                        <DocView href={`/orders/${o.id}/print/do?batch=${b.id}`} icon="ph-truck" label="DO" title={`Delivery Order — ${b.do_no}`} cls="btn btn-ghost btn-sm" />
-                        {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice — ${b.pi_no}`} cls="btn btn-ghost btn-sm" />}
+                    <td className="nowrap">
+                      {[b.vehicle_no, b.driver].filter(Boolean).join(' · ') || <span className="muted">—</span>}
+                      {Number(b.transport) > 0 && <div className="muted text-sm">Transport SAR {money(b.transport)}</div>}
+                    </td>
+                    <td className="r">
+                      {/* View first, then this batch's next step (Generate PI, or upload / replace its tax invoice) */}
+                      <div className="row-acts wrap">
+                        <DocView href={`/orders/${o.id}/print/do?batch=${b.id}`} icon="ph-truck" label="DO" title={`Delivery Order — ${b.do_no}`} />
+                        {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice — ${b.pi_no}`} />}
+                        {b.tax_invoice_path && <DocView href={`/orders/${o.id}/tax-invoice?batch=${b.id}`} icon="ph-paperclip" label="Tax inv." title={`Tax Invoice — ${b.pi_no}`} />}
+                        {approved && !b.pi_no && (
+                          <PiAction o={o} batch={b} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
+                        )}
+                        {approved && b.pi_no && can(me, 'accounts') && (
+                          <TaxAction o={o} b={b} back={back} label={b.tax_invoice_path ? 'Replace' : 'Upload invoice'} />
+                        )}
                       </div>
                     </td>
                   </tr>
