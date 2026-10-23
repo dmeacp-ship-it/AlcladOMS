@@ -6,7 +6,8 @@ import { QUEUES, authClient, currentUser, db } from '@/lib/server'
 import { can } from '@/lib/tas'
 import Shell from './Shell'
 
-export const metadata = { title: 'TAS Order Management' }
+// Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
+export const metadata = { title: { default: 'TAS OMS', template: '%s · TAS OMS' } }
 
 // Runs before first paint so a saved dark theme / collapsed sidebar never flashes. No saved choice -> follow the OS.
 const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';if(localStorage.sb_collapsed==='true')d.dataset.sb='col'}catch(e){}"

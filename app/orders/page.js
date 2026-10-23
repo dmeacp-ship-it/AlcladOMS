@@ -18,6 +18,13 @@ const TILES = [
 ]
 const PAGE = 100
 
+// Tab title: the open order's quote no, else the list ("Awaiting PI · TAS OMS").
+export async function generateMetadata({ searchParams }) {
+  const sp = await searchParams
+  const o = sp.view ? await findOrder(sp.view, await requireRole()) : null
+  return { title: o?.quote_no || TILES.find((t) => t.status === (sp.status || ''))?.label || 'Orders' }
+}
+
 export default async function Orders({ searchParams }) {
   const me = await requireRole()
   const sp = await searchParams

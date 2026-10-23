@@ -4,6 +4,8 @@ import { Modal, ModalFoot, PasswordInput, RoleSelect } from '../../ui'
 
 const initials = (n) => n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
+export const metadata = { title: 'Users' }
+
 export default async function Users() {
   const me = await requireRole('admin')
   const { data: users } = await db().from('profiles').select('*').order('full_name')

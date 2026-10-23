@@ -20,7 +20,7 @@ async function login(fd) {
   redirect('/orders')
 }
 
-export const metadata = { title: 'Sign in — TAS OMS' }
+export const metadata = { title: 'Sign in' }
 
 export default async function LoginPage({ searchParams }) {
   const sp = await searchParams

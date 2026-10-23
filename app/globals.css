@@ -129,11 +129,11 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 }
 .sb-brand:hover { background: color-mix(in srgb, var(--card) 60%, transparent); }
 .sb-logo {
-  width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff));
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--accent); /* flat, like the favicon and the sign-in logo */
   box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--accent) 60%, transparent); transition: transform 0.25s var(--spring);
 }
-.sb-logo i { color: #fff; font-size: 20px; }
+.sb-logo svg { width: 20px; height: 17px; fill: #fff; }
 .sb-brand:hover .sb-logo { transform: scale(1.1) rotate(-4deg); }
 .sb-brand:active .sb-logo { transform: scale(0.92); }
 .sb-name { font-size: 14px; font-weight: 800; letter-spacing: -0.2px; white-space: nowrap; line-height: 1.3; }

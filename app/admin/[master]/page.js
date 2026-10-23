@@ -9,6 +9,10 @@ const PAGE = 50
 const label = (c) => c.replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase()).replace(/\b(Cr|Vat|Uom)\b/g, (x) => x.toUpperCase())
 const WIDE = ['address', 'description']
 
+export async function generateMetadata({ params }) {
+  return { title: MASTERS[(await params).master]?.title }
+}
+
 // Customers and Items: search, paging, add / edit / delete in dialogs.
 export default async function Master({ params, searchParams }) {
   await requireRole('admin')

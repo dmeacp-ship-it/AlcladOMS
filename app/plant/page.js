@@ -16,6 +16,8 @@ const ITEM = 'id, order_id, item_no, description, color_name, qty, width, length
 const ORDER = 'orders!inner(id, quote_no, doc_no, do_date, customer_name, status, dispatch_status)'
 const LIMIT = 300
 
+export const metadata = { title: 'Plant Dispatch' }
+
 export default async function Plant({ searchParams }) {
   const me = await requireRole('plant')
   const sp = await searchParams

@@ -1,6 +1,8 @@
 import { db, getOrder, requireRole } from '@/lib/server'
 import QuoteForm from './QuoteForm'
 
+export const metadata = { title: 'New Quotation' }
+
 export default async function NewQuote({ searchParams }) {
   const me = await requireRole('sales')
   // ?from=<order id>: start from a copy of an earlier (e.g. rejected) quotation.

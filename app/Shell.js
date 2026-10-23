@@ -104,7 +104,8 @@ export default function Shell({ me, nav, logout, children }) {
       <aside className="sb" aria-label="Main navigation">
         <div className="sb-nav-wrapper">
           <button type="button" className="sb-brand" onClick={toggleSb} aria-label="Collapse or expand the sidebar">
-            <div className="sb-logo"><i className="ph ph-list" /></div>
+            {/* Same mark as the favicon (app/icon.svg) */}
+            <div className="sb-logo"><svg viewBox="12 16 40 34" aria-hidden="true"><path d="M12 50V30l11 7v-7l11 7v-7l11 7V16h7v34z" /></svg></div>
             <div>
               <div className="sb-name">TAS OMS</div>
               <div className="sb-sub">TAS International Mfg.</div>
