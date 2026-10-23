@@ -6,6 +6,9 @@ import ReportsHead from '../ReportsHead'
 
 export const metadata = { title: 'Waiting · Reports' }
 
+// Over 7 days: an icon as well as red, so it doesn't rely on colour alone.
+const Late = () => <i className="ph ph-warning" role="img" aria-label="Over 7 days:" title="Waiting over 7 days" style={{ marginRight: 4, verticalAlign: '-2px' }} />
+
 // Everything waiting right now, per queue, oldest first. Over 7 days is shown in red.
 export default async function Waiting({ searchParams }) {
   await requireRole('admin')
@@ -26,7 +29,7 @@ export default async function Waiting({ searchParams }) {
                   <td className="fw6 nowrap"><a href={`#${q.key}`}><i className={`ph ${q.icon}`} /> {q.label}</a></td>
                   <td className="muted">{q.who}</td>
                   <td className="num fw6">{q.rows.length}</td><td className="num">{q.fresh}</td><td className="num">{q.week}</td>
-                  <td className={`num${q.old ? ' red fw6' : ''}`}>{q.old}</td>
+                  <td className={`num${q.old ? ' red fw6' : ''}`}>{q.old > 0 && <Late />}{q.old}</td>
                 </tr>
               ))}
             </tbody>
@@ -53,7 +56,7 @@ export default async function Waiting({ searchParams }) {
                     <td className="nowrap">{r.salesperson_name}</td>
                     {(q.key === 'pi' || q.key === 'tax') && <td className="nowrap">{r.ref}</td>}
                     <td className="nowrap muted">{r.since ? dmy(String(r.since).slice(0, 10)) : '—'}</td>
-                    <td className={`num${r.age > 7 ? ' red fw6' : ''}`}>{r.age}</td>
+                    <td className={`num${r.age > 7 ? ' red fw6' : ''}`}>{r.age > 7 && <Late />}{r.age}</td>
                   </tr>
                 ))}
               </tbody>

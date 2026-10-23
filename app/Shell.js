@@ -130,6 +130,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
 
   return (
     <div className="app">
+      <a href="#main" className="skip-link">Skip to content</a>
       <aside className="sb" aria-label="Main navigation">
         <div className="sb-nav-wrapper">
           <button type="button" className="sb-brand" onClick={toggleSb} aria-label="Collapse or expand the sidebar">
@@ -188,7 +189,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
             </button>
           </div>
         </header>
-        <main className="content">{children}</main>
+        <main id="main" className="content" tabIndex={-1}>{children}</main>
       </div>
 
       <div id="toasts" role="status" aria-live="polite">

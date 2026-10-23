@@ -33,12 +33,23 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
           </form>
         )}
         {exports.length > 0 && (
-          <div className="acts">
-            <span className="muted text-sm">Download{periodless ? '' : ' for this period'}:</span>
-            {exports.map(([k, l]) => (
-              <a key={k} className="btn btn-ghost btn-sm" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-download-simple" />{l}</a>
-            ))}
-          </div>
+          <>
+            <div className="acts dl-inline">
+              <span className="muted text-sm">Download{periodless ? '' : ' for this period'}:</span>
+              {exports.map(([k, l]) => (
+                <a key={k} className="btn btn-ghost btn-sm" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-download-simple" />{l}</a>
+              ))}
+            </div>
+            {/* Phones: the same downloads folded into one menu, so the report starts higher up */}
+            <details className="dl-menu">
+              <summary className="btn btn-ghost btn-sm"><i className="ph ph-download-simple" />Download<i className="ph ph-caret-down" /></summary>
+              <div className="dl-list">
+                {exports.map(([k, l]) => (
+                  <a key={k} className="dl-item" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-file-csv" />{l}</a>
+                ))}
+              </div>
+            </details>
+          </>
         )}
       </div>
     </>

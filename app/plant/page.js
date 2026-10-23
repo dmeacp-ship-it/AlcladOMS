@@ -94,7 +94,7 @@ export default async function Plant({ searchParams }) {
             {tab !== 'open' && <input type="hidden" name="tab" value={tab} />}
             <div className="sw">
               <i className="ph ph-magnifying-glass" />
-              <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, material…" />
+              <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, material…" aria-label="Search plant lines" />
             </div>
           </form>
         </div>

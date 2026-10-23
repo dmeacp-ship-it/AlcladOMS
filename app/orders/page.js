@@ -79,7 +79,7 @@ export default async function Orders({ searchParams }) {
             {status && <input type="hidden" name="status" value={status} />}
             <div className="sw">
               <i className="ph ph-magnifying-glass" />
-              <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, DO/PI no" />
+              <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, DO/PI no" aria-label="Search this list" />
             </div>
             {me.role === 'admin' && (
               <a className="btn btn-ghost btn-sm" href={`/admin/export/orders?${new URLSearchParams({ ...(status && { status }), ...(term && { q: term }) })}`}>

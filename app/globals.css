@@ -113,6 +113,14 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .spacer { flex: 1; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+/* Keyboard users: first Tab shows this, Enter jumps past the sidebar */
+.skip-link {
+  position: fixed; left: 12px; top: -60px; z-index: 10001; padding: 10px 16px; border-radius: 980px;
+  background: var(--accent); color: #fff; font-weight: 700; text-decoration: none !important; transition: top var(--dur-fast) var(--ease-out);
+}
+.skip-link:focus { top: 12px; outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
+.content:focus { outline: none; }
+
 /* ── 3. App shell & sidebar ── */
 .app { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 .sb {
@@ -139,7 +147,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .sb-name { font-size: 14px; font-weight: 800; letter-spacing: -0.2px; white-space: nowrap; line-height: 1.3; }
 .sb-sub { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; line-height: 1.3; }
 .sb-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 4px; }
-.nsec { padding: 14px 12px 6px; font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; white-space: nowrap; opacity: 0.85; }
+.nsec { padding: 14px 12px 6px; font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; white-space: nowrap; }
 .nsec:first-child { padding-top: 4px; }
 .ni {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--r-ctl); border: 1px solid transparent;
@@ -159,7 +167,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ni.active i { color: var(--accentH); }
 .ni-txt { font-size: 13px; white-space: nowrap; flex: 1; }
 .ni-bd {
-  background: var(--accent); color: #fff; border-radius: 100px; padding: 2px 8px; font-size: 10px; font-weight: 700; min-width: 20px; text-align: center; line-height: 1.4;
+  background: var(--accent); color: #fff; border-radius: 100px; padding: 2px 8px; font-size: 11px; font-weight: 700; min-width: 20px; text-align: center; line-height: 1.4;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 35%, transparent); animation: badgePop 0.3s var(--spring);
 }
 @keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
@@ -178,7 +186,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .sb-user:hover .av { transform: scale(1.08); }
 .sb-ui { min-width: 0; flex: 1; }
 .sb-uname { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
-.rtag { margin-top: 3px; display: inline-block; padding: 2px 8px; border-radius: 980px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.4; }
+.rtag { margin-top: 3px; display: inline-block; padding: 2px 8px; border-radius: 980px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.4; }
 .rt-admin { background: var(--bad-bg); color: var(--bad-fg); }
 .rt-sales { background: var(--warn-bg); color: var(--warn-fg); }
 .rt-approver { background: var(--ok-bg); color: var(--ok-fg); }
@@ -208,7 +216,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 :root[data-sb="col"] .sb-pop .ni-txt { display: inline; }
 @media (max-width: 768px) {
   .sb-pop { left: calc(100% + 8px); right: auto; bottom: 0; width: 200px; }
-  .sb-pop .ni { padding: 10px 14px; justify-content: flex-start; }
+  .sb-pop .ni { flex-direction: row; gap: 12px; padding: 10px 14px; justify-content: flex-start; }
   .sb-pop .ni-txt { display: inline !important; }
 }
 
@@ -303,7 +311,8 @@ input[type="checkbox"] { width: 17px; height: 17px; padding: 0; accent-color: va
 input[type="checkbox"]:active { transform: scale(0.86); }
 textarea { resize: vertical; min-height: 80px; line-height: 1.45; }
 input[readonly] { background: var(--fill-2); color: var(--muted); cursor: not-allowed; }
-::placeholder { color: var(--muted); }
+/* --sub, not --muted: on the grey input fill --muted is only 4.4:1 */
+::placeholder { color: var(--sub); opacity: 1; }
 option, optgroup { background-color: var(--card); color: var(--text); font-family: var(--font-ui); }
 .ro { padding: 10px 12px; border-radius: var(--r-ctl); background: var(--fill-2); color: var(--text); min-height: 38px; font-weight: 500; word-break: break-word; }
 .ro .muted { font-weight: 400; }
@@ -377,7 +386,7 @@ option, optgroup { background-color: var(--card); color: var(--text); font-famil
 .cust-meta-item .lbl {
   color: var(--muted);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -448,6 +457,25 @@ label, .lbl { font-size: 12px; font-weight: 600; color: var(--text); line-height
 .tab:hover { color: var(--text); background: var(--fill-2); }
 .tab.on { background: var(--card); color: var(--accentH); box-shadow: var(--shadow-1); }
 .tab:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* Reports downloads: inline on wide screens, one menu on phones */
+.dl-menu { display: none; position: relative; margin-left: auto; }
+.page-head:has(.dl-menu[open]) { position: relative; z-index: 20; } /* menu above the tiles that follow */
+.dl-menu > summary { list-style: none; }
+.dl-menu > summary::-webkit-details-marker { display: none; }
+.dl-list {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 190px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--card); border: 1px solid var(--border2); border-radius: 14px; box-shadow: var(--shadow-2);
+}
+.dl-item { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: var(--r-ctl); color: var(--text); font-weight: 500; text-decoration: none !important; }
+.dl-item i { font-size: 18px; color: var(--accentH); }
+.dl-item:hover, .dl-item:focus-visible { background: var(--fill-2); outline: none; }
+@media (max-width: 768px) {
+  .acts.dl-inline { display: none; }
+  .dl-menu { display: block; }
+  /* The tab strip scrolls sideways: fade its right edge so that's visible */
+  .tabs { padding-right: 28px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+}
 
 /* Report cards on the Reports overview */
 .rcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 20px; }
@@ -573,7 +601,7 @@ table { width: 100%; border-collapse: collapse; }
 .dr { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dr.span2 { grid-column: span 2; }
 .dr.full { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 14px; }
-.dk { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; line-height: 1.3; }
+.dk { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; line-height: 1.3; }
 .dv { font-size: 13px; font-weight: 500; word-break: break-word; line-height: 1.45; }
 
 /* ── 12. Status tracker ── */
@@ -594,7 +622,7 @@ table { width: 100%; border-collapse: collapse; }
 .status-step.completed .step-lbl { color: var(--text); }
 .status-step.active .step-lbl { color: var(--accentH); }
 .status-step.rejected .step-lbl { color: var(--red); }
-.step-time { font-size: 10px; color: var(--muted); white-space: nowrap; font-weight: 500; }
+.step-time { font-size: 11px; color: var(--muted); white-space: nowrap; font-weight: 500; }
 @keyframes dotPulse {
   0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent); }
   50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 8%, transparent); }
@@ -745,10 +773,15 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
   .gsearch input, .gsearch input:focus { width: 180px; }
 }
 @media (max-width: 768px) {
-  .sb, :root[data-sb="col"] .sb { width: 64px; }
+  /* Narrow rail: icon with a short label under it (labels matter on the plant floor) */
+  .sb, :root[data-sb="col"] .sb { width: 76px; }
   .sb-brand { justify-content: center; padding: 0; }
-  .sb-name, .sb-sub, .nsec, .ni-txt, .sb-ui, .sb-caret { display: none !important; }
-  .ni { justify-content: center; padding: 12px; }
+  .sb-name, .sb-sub, .nsec, .sb-ui, .sb-caret { display: none !important; }
+  .sb-nav, .sb-bottom-wrapper { padding-left: 6px; padding-right: 6px; }
+  .ni, :root[data-sb="col"] .ni { flex-direction: column; justify-content: center; gap: 3px; padding: 8px 2px; width: auto; height: auto; margin: 0; border-radius: 12px; }
+  .ni.active, :root[data-sb="col"] .ni.active { border-radius: 12px; }
+  .ni:hover { transform: none; }
+  :is(.sb-nav, .sb-set-btn) .ni-txt { display: block !important; flex: none; font-size: 11px; line-height: 1.15; text-align: center; white-space: normal; }
   .ni-bd { position: absolute; top: 4px; right: 4px; padding: 1px 5px; }
   .sb-user { flex-direction: column; padding: 10px 0; }
   .logout-btn { margin: 0 auto; }
@@ -779,7 +812,10 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
 @media (pointer: coarse) {
   .btn-sm, .btn-ic, .logout-btn, .act-icon-btn, .btn-link, .pw-eye, .toast-x, .combobox-clear, .status-sel { min-height: 44px; min-width: 44px; }
   .chip-link, button.doc-no, .tbl .qno { min-height: 44px; display: inline-flex; align-items: center; }
+  input[type="checkbox"] { width: 24px; height: 24px; }
 }
+/* Line checkboxes on the plant screen are used a lot: a little bigger everywhere */
+.plant-tbl input[type="checkbox"] { width: 20px; height: 20px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
@@ -872,7 +908,7 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
 .combobox-display:focus-visible { outline: none; }
 .combobox-req { position: absolute; left: 12px; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
 .combobox-display.placeholder {
-  color: var(--muted);
+  color: var(--sub);
 }
 .combobox-search-input {
   width: 100%;
@@ -887,7 +923,7 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
   text-align: left;
 }
 .combobox-search-input::placeholder {
-  color: var(--muted);
+  color: var(--sub);
 }
 .combobox-icons {
   display: flex;
