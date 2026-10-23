@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import Form from 'next/form'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { LinkBusy } from './ui'
 
 const LIST_TITLES = {
@@ -30,8 +30,18 @@ const PAGES = [
 export default function Shell({ me, nav, settings, logout, children }) {
   const pathname = usePathname()
   const inSettings = pathname.startsWith('/admin')
-  const [setOpen, setSetOpen] = useState(inSettings)
-  useEffect(() => { if (inSettings) setSetOpen(true) }, [inSettings])
+  // Settings popover: closes on navigation, outside click and Esc.
+  const [setOpen, setSetOpen] = useState(false)
+  const setRef = useRef(null)
+  useEffect(() => setSetOpen(false), [pathname])
+  useEffect(() => {
+    if (!setOpen) return
+    const out = (e) => { if (!setRef.current?.contains(e.target)) setSetOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setSetOpen(false) }
+    document.addEventListener('mousedown', out)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc) }
+  }, [setOpen])
   const sp = useSearchParams()
   const status = sp.get('status') || ''
   const router = useRouter()
@@ -128,9 +138,9 @@ export default function Shell({ me, nav, settings, logout, children }) {
         </div>
         <div className="sb-bottom-wrapper">
           {settings.length > 0 && (
-            <div className={`sb-set${setOpen ? ' open' : ''}`}>
-              {setOpen && <nav id="sb-settings" className="sb-set-list" aria-label="Settings">{settings.map(item)}</nav>}
-              <button type="button" className={`ni sb-set-btn${inSettings && !setOpen ? ' active' : ''}`} title="Settings"
+            <div ref={setRef} className={`sb-set${setOpen ? ' open' : ''}`}>
+              {setOpen && <nav id="sb-settings" className="sb-pop" aria-label="Settings">{settings.map(item)}</nav>}
+              <button type="button" className={`ni sb-set-btn${inSettings ? ' active' : ''}`} title="Settings"
                 aria-expanded={setOpen} aria-controls="sb-settings" onClick={() => setSetOpen(!setOpen)}>
                 <i className="ph ph-gear-six" />
                 <span className="ni-txt">Settings</span>
