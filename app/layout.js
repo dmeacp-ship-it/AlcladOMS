@@ -38,9 +38,9 @@ export default async function RootLayout({ children }) {
     const todo = waiting.reduce((a, b) => a + b, 0)
     nav = [
       { section: 'Workflow' },
-      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
-      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
+      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
+      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
       me.role === 'admin' && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
     ].filter(Boolean)
