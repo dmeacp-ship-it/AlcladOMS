@@ -191,10 +191,17 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 }
 .logout-btn:hover { background: color-mix(in srgb, var(--red) 15%, transparent); transform: scale(1.12); }
 
+/* Settings group (admin masters) above the profile card; its links open upward */
+.sb-set { display: flex; flex-direction: column; gap: 4px; margin-bottom: 4px; }
+.sb-set-btn { width: 100%; background: none; font: inherit; text-align: left; }
+.sb-caret { font-size: 14px !important; margin-left: auto; transition: transform var(--dur) var(--spring); }
+.sb-set.open .sb-caret { transform: rotate(-90deg); }
+.sb-set-list { display: flex; flex-direction: column; gap: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border); animation: contentIn var(--dur) var(--ease-out) both; }
+
 /* Collapsed sidebar (logo click), remembered in localStorage */
 :root[data-sb="col"] .sb { width: 72px; }
 :root[data-sb="col"] .sb-brand { justify-content: center; padding: 0; }
-:root[data-sb="col"] :is(.sb-name, .sb-sub, .nsec, .ni-txt, .sb-ui) { display: none; }
+:root[data-sb="col"] :is(.sb-name, .sb-sub, .nsec, .ni-txt, .sb-ui, .sb-caret) { display: none; }
 :root[data-sb="col"] .ni { justify-content: center; gap: 2px; padding: 0 4px; width: 48px; height: 40px; margin: 0 auto; }
 :root[data-sb="col"] .ni.active { border-radius: 12px; }
 :root[data-sb="col"] .ni:hover { transform: none; }
@@ -704,7 +711,7 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
 @media (max-width: 768px) {
   .sb, :root[data-sb="col"] .sb { width: 64px; }
   .sb-brand { justify-content: center; padding: 0; }
-  .sb-name, .sb-sub, .nsec, .ni-txt, .sb-ui { display: none !important; }
+  .sb-name, .sb-sub, .nsec, .ni-txt, .sb-ui, .sb-caret { display: none !important; }
   .ni { justify-content: center; padding: 12px; }
   .ni-bd { position: absolute; top: 4px; right: 4px; padding: 1px 5px; }
   .sb-user { flex-direction: column; padding: 10px 0; }

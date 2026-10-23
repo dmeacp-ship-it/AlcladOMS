@@ -6,11 +6,16 @@ import { PasswordInput, Submit } from '../ui'
 async function login(fd) {
   'use server'
   const supabase = await authClient()
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: String(fd.get('email') || '').trim(),
-    password: String(fd.get('password') || ''),
-  })
-  if (error) go('/login', 'error', 'Wrong email or password.')
+  // Email or username: a username is swapped for that user's email before signing in.
+  let email = String(fd.get('login') || '').trim().toLowerCase()
+  if (email && !email.includes('@')) {
+    const { data: p } = await db().from('profiles').select('email').eq('username', email).maybeSingle()
+    email = p?.email || ''
+  }
+  const { data, error } = email
+    ? await supabase.auth.signInWithPassword({ email, password: String(fd.get('password') || '') })
+    : { error: true }
+  if (error) go('/login', 'error', 'Wrong email/username or password.')
   const { data: me } = await db().from('profiles').select('active').eq('id', data.user.id).maybeSingle()
   if (!me?.active) {
     await supabase.auth.signOut()
@@ -39,8 +44,8 @@ export default async function LoginPage({ searchParams }) {
         {sp.error && <div className="banner error shake"><i className="ph ph-warning-circle" />{sp.error}</div>}
         <form action={login}>
           <div className="lg">
-            <label htmlFor="email">Email</label>
-            <input id="email" name="email" type="email" required autoComplete="username" placeholder="you@company.com" />
+            <label htmlFor="login">Email or username</label>
+            <input id="login" name="login" required autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="username or you@company.com" />
           </div>
           <div className="lg">
             <label htmlFor="password">Password</label>

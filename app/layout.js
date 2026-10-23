@@ -22,6 +22,7 @@ async function logout() {
 export default async function RootLayout({ children }) {
   const me = await currentUser()
   let nav = []
+  let settings = []
   if (me) {
     const count = async (f) => (await f(db().from('orders').select('id', { count: 'exact', head: true }))).count || 0
     // Active Orders badge = orders waiting on something this user's role does.
@@ -40,11 +41,13 @@ export default async function RootLayout({ children }) {
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
-      me.role === 'admin' && { section: 'Admin' },
-      me.role === 'admin' && { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
-      me.role === 'admin' && { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
-      me.role === 'admin' && { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
     ].filter(Boolean)
+    // Admin masters sit in the Settings group at the bottom of the sidebar.
+    if (me.role === 'admin') settings = [
+      { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
+      { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
+      { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
+    ]
   }
   return (
     <html lang="en" suppressHydrationWarning>
@@ -53,7 +56,7 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         {me ? (
-          <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} logout={logout}>{children}</Shell>
+          <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} settings={settings} logout={logout}>{children}</Shell>
         ) : children}
       </body>
     </html>

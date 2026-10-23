@@ -27,8 +27,11 @@ const PAGES = [
 ]
 
 // Sidebar + topbar around every signed-in page, as in the FMS app.
-export default function Shell({ me, nav, logout, children }) {
+export default function Shell({ me, nav, settings, logout, children }) {
   const pathname = usePathname()
+  const inSettings = pathname.startsWith('/admin')
+  const [setOpen, setSetOpen] = useState(inSettings)
+  useEffect(() => { if (inSettings) setSetOpen(true) }, [inSettings])
   const sp = useSearchParams()
   const status = sp.get('status') || ''
   const router = useRouter()
@@ -68,6 +71,14 @@ export default function Shell({ me, nav, logout, children }) {
   const [title, sub] = pathname === '/orders'
     ? LIST_TITLES[status] || LIST_TITLES['']
     : (PAGES.find(([re]) => re.test(pathname)) || [null, 'TAS OMS', '']).slice(1)
+  const item = (n) => (
+    <Link key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}`} title={n.label}>
+      <LinkBusy />
+      <i className={`ph ${n.icon}`} />
+      <span className="ni-txt">{n.label}</span>
+      {n.badge > 0 && <span className="ni-bd">{n.badge}</span>}
+    </Link>
+  )
   const initials = me.full_name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
   function toggleSb() {
@@ -112,19 +123,21 @@ export default function Shell({ me, nav, logout, children }) {
             </div>
           </button>
           <nav className="sb-nav">
-            {nav.map((n, i) => n.section ? (
-              <div key={i} className="nsec">{n.section}</div>
-            ) : (
-              <Link key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}`} title={n.label}>
-                <LinkBusy />
-                <i className={`ph ${n.icon}`} />
-                <span className="ni-txt">{n.label}</span>
-                {n.badge > 0 && <span className="ni-bd">{n.badge}</span>}
-              </Link>
-            ))}
+            {nav.map((n, i) => n.section ? <div key={i} className="nsec">{n.section}</div> : item(n))}
           </nav>
         </div>
         <div className="sb-bottom-wrapper">
+          {settings.length > 0 && (
+            <div className={`sb-set${setOpen ? ' open' : ''}`}>
+              {setOpen && <nav id="sb-settings" className="sb-set-list" aria-label="Settings">{settings.map(item)}</nav>}
+              <button type="button" className={`ni sb-set-btn${inSettings && !setOpen ? ' active' : ''}`} title="Settings"
+                aria-expanded={setOpen} aria-controls="sb-settings" onClick={() => setSetOpen(!setOpen)}>
+                <i className="ph ph-gear-six" />
+                <span className="ni-txt">Settings</span>
+                <i className="ph ph-caret-right sb-caret" aria-hidden="true" />
+              </button>
+            </div>
+          )}
           <div className="sb-user">
             <div className="av" aria-hidden="true">{initials}</div>
             <div className="sb-ui">

@@ -6,6 +6,8 @@ create table profiles (
   id         uuid primary key references auth.users on delete cascade,
   full_name  text not null,
   email      text,
+  username   text unique check (username ~ '^[a-z0-9._-]{3,30}$'), -- optional sign-in name
+
   mobile     text,
   role       text not null check (role in ('admin', 'sales', 'approver', 'operations', 'accounts', 'plant')),
   active     boolean not null default true,

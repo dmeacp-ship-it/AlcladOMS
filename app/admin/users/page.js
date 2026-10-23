@@ -3,6 +3,12 @@ import { createUser, updateUser } from '../actions'
 import { Modal, ModalFoot, PasswordInput, RoleSelect } from '../../ui'
 
 const initials = (n) => n.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+// Same rule as the database check (migrate-007): 3–30 of a-z 0-9 . _ -  (saved lowercase).
+const userField = (id, value) => (
+  <input id={id} name="username" defaultValue={value || ''} pattern={String.raw`[A-Za-z0-9._\-]{3,30}`} maxLength={30}
+    autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="ahmed.k"
+    title="3–30 letters, numbers, dots, dashes or underscores" />
+)
 
 export const metadata = { title: 'Users' }
 
@@ -20,8 +26,9 @@ export default async function Users() {
               <div className="modal-body">
                 <div className="fgrid-2">
                   <div className="fg"><label htmlFor="nu-name">Full name <span className="req">*</span></label><input id="nu-name" name="full_name" required /></div>
+                  <div className="fg"><label htmlFor="nu-user">Username <span className="hint">— optional, to sign in without the email</span></label>{userField('nu-user')}</div>
+                  <div className="fg"><label htmlFor="nu-email">Email <span className="req">*</span></label><input id="nu-email" name="email" type="email" required autoComplete="off" /></div>
                   <div className="fg"><label htmlFor="nu-mobile">Mobile</label><input id="nu-mobile" name="mobile" /></div>
-                  <div className="fg full"><label htmlFor="nu-email">Email <span className="req">*</span></label><input id="nu-email" name="email" type="email" required autoComplete="off" /></div>
                   <div className="fg full">
                     <label htmlFor="nu-pw">Password <span className="req">*</span> <span className="hint">— at least 8 characters</span></label>
                     <PasswordInput id="nu-pw" name="password" minLength={8} required autoComplete="new-password" />
@@ -37,7 +44,7 @@ export default async function Users() {
       <div className="tbl-wrap">
         <table className="tbl">
           <thead>
-            <tr><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th className="r">Actions</th></tr>
+            <tr><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th className="r">Actions</th></tr>
           </thead>
           <tbody>
             {users?.map((u) => (
@@ -48,6 +55,7 @@ export default async function Users() {
                     <span className="desc">{u.full_name}{u.id === me.id && <span className="muted text-sm"> (you)</span>}</span>
                   </div>
                 </td>
+                <td>{u.username || <span className="muted">—</span>}</td>
                 <td>{u.email}</td>
                 <td>{u.mobile || <span className="muted">—</span>}</td>
                 <td><span className={`rtag rt-${u.role}`} style={{ marginTop: 0 }}>{u.role}</span></td>
@@ -61,8 +69,9 @@ export default async function Users() {
                         <div className="modal-body">
                           <div className="fgrid-2">
                             <div className="fg"><label htmlFor={`n-${u.id}`}>Full name <span className="req">*</span></label><input id={`n-${u.id}`} name="full_name" defaultValue={u.full_name} required /></div>
+                            <div className="fg"><label htmlFor={`u-${u.id}`}>Username</label>{userField(`u-${u.id}`, u.username)}</div>
+                            <div className="fg"><label>Email</label><div className="ro">{u.email}</div></div>
                             <div className="fg"><label htmlFor={`m-${u.id}`}>Mobile</label><input id={`m-${u.id}`} name="mobile" defaultValue={u.mobile || ''} /></div>
-                            <div className="fg full"><label>Email</label><div className="ro">{u.email}</div></div>
                             <div className="fg full"><label htmlFor={`r-${u.id}`}>Role <span className="req">*</span></label><RoleSelect id={`r-${u.id}`} defaultValue={u.role} /></div>
                             <div className="fg full">
                               <label htmlFor={`p-${u.id}`}>New password <span className="hint">— leave blank to keep the current one</span></label>
