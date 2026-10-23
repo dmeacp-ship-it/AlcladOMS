@@ -31,7 +31,7 @@ export default async function Dispatch({ searchParams }) {
       </div>
 
       <div className="card">
-        <div className="tbl-top"><div className="tbl-ttl"><i className="ph ph-truck" />Delivery orders <span className="badge b-none">{d.rows.length}</span></div></div>
+        <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-truck" />Delivery orders <span className="badge b-none">{d.rows.length}</span></h2></div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>

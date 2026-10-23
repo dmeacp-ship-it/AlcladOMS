@@ -86,10 +86,10 @@ export default async function Plant({ searchParams }) {
 
       <div className="card">
         <div className="tbl-top">
-          <div className="tbl-ttl">
+          <h2 className="tbl-ttl">
             <i className="ph ph-factory" />{TABS[tab].label} lines
             <span className="badge b-none">{counts[tab] ?? 0}</span>
-          </div>
+          </h2>
           <form className="tbl-filters">
             {tab !== 'open' && <input type="hidden" name="tab" value={tab} />}
             <div className="sw">

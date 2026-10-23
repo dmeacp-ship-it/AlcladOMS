@@ -28,7 +28,7 @@ export default async function Activity({ searchParams }) {
   return (
     <div className="card">
       <div className="tbl-top">
-        <div className="tbl-ttl"><i className="ph ph-clock-counter-clockwise" />Activity <span className="badge b-none">{count ?? 0}</span></div>
+        <h2 className="tbl-ttl"><i className="ph ph-clock-counter-clockwise" />Activity <span className="badge b-none">{count ?? 0}</span></h2>
         <form className="tbl-filters">
           <div className="sw">
             <i className="ph ph-magnifying-glass" />

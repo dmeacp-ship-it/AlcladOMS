@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { db, filterOrders, findOrder, orderHistory, requireRole } from '@/lib/server'
+import { db, filterOrders, findOrder, orderCounts, orderHistory, requireRole } from '@/lib/server'
 import { DISPATCH, dmy, money, totals } from '@/lib/tas'
 import { ClickRow, DocView, DocsMenu } from '../ui'
 import OrderDialog from './OrderDialog'
@@ -38,15 +38,13 @@ export default async function Orders({ searchParams }) {
     .order('id', { ascending: false }).range((page - 1) * PAGE, page * PAGE)), status)
   if (term) q = q.or(`quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,doc_no.ilike.%${term}%`)
 
-  const [view, history, { data: orders, error }, ...counts] = await Promise.all([
+  const [view, history, { data: orders, error }, c] = await Promise.all([
     sp.view ? findOrder(sp.view, me) : null,
     /^\d+$/.test(sp.view || '') ? orderHistory(sp.view) : null, // shown only if findOrder allowed the order
     q,
-    ...TILES.map((t) => {
-      const c = own(db().from('orders').select('id', { count: 'exact', head: true }))
-      return filterOrders(c, t.status)
-    }),
+    orderCounts(me.role === 'sales' ? me.id : null), // sales users count only their own
   ])
+  const countOf = (s) => c[s || 'ALL'] ?? 0
   // One extra row was fetched to know whether a next page exists.
   const more = orders?.length > PAGE
   const rows = orders?.slice(0, PAGE)
@@ -59,10 +57,10 @@ export default async function Orders({ searchParams }) {
   return (
     <>
       {status !== 'ACTIVE' && <div className="stats">
-        {TILES.map((t, i) => (
+        {TILES.map((t) => (
           <Link key={t.label} href={t.status ? `/orders?status=${t.status}` : '/orders'} className={`stat${status === t.status ? ' on' : ''}`}>
             <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
-            <div className={`stat-n ${t.cls}`}>{counts[i].count ?? 0}</div>
+            <div className={`stat-n ${t.cls}`}>{countOf(t.status)}</div>
             <div className="stat-l">{t.label}</div>
           </Link>
         ))}
@@ -70,11 +68,11 @@ export default async function Orders({ searchParams }) {
 
       <div className="card">
         <div className="tbl-top">
-          <div className="tbl-ttl">
+          <h2 className="tbl-ttl">
             <i className="ph ph-list-checks" />
             {status === 'PENDING' ? 'Pending Approval' : TILES.find((t) => t.status === status)?.label ?? 'All Orders'}
-            <span className="badge b-none">{counts[TILES.findIndex((t) => t.status === status)]?.count ?? 0}</span>
-          </div>
+            <span className="badge b-none">{countOf(status)}</span>
+          </h2>
           <form className="tbl-filters">
             {status && <input type="hidden" name="status" value={status} />}
             <div className="sw">

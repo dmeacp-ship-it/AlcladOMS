@@ -9,7 +9,7 @@ export default function SalesTable({ title, icon, rows, nameLabel, showCode, emp
   return (
     <div className="card">
       <div className="tbl-top">
-        <div className="tbl-ttl"><i className={`ph ${icon}`} />{title} <span className="badge b-none">{rows.length}</span></div>
+        <h2 className="tbl-ttl"><i className={`ph ${icon}`} />{title} <span className="badge b-none">{rows.length}</span></h2>
         {children}
       </div>
       <div className="tbl-wrap">

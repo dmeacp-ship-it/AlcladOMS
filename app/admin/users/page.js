@@ -29,7 +29,7 @@ export default async function Users() {
   return (
     <div className="card">
       <div className="tbl-top">
-        <div className="tbl-ttl"><i className="ph ph-users-three" />Users <span className="badge b-none">{users?.length ?? 0}</span></div>
+        <h2 className="tbl-ttl"><i className="ph ph-users-three" />Users <span className="badge b-none">{users?.length ?? 0}</span></h2>
         <div className="tbl-filters">
           <Modal title="Add User" icon="ph-user-plus" label="Add User" btnIcon="ph-user-plus">
             <form action={createUser}>

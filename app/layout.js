@@ -2,7 +2,7 @@ import './globals.css'
 import '@phosphor-icons/web/regular'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { QUEUES, authClient, currentUser, db } from '@/lib/server'
+import { authClient, currentUser, orderCounts } from '@/lib/server'
 import { can } from '@/lib/tas'
 import Shell from './Shell'
 
@@ -25,15 +25,14 @@ export default async function RootLayout({ children }) {
   let nav = []
   let settings = []
   if (me) {
-    const count = async (f) => (await f(db().from('orders').select('id', { count: 'exact', head: true }))).count || 0
     // Active Orders badge = orders waiting on something this user's role does.
-    const waiting = await Promise.all([
-      can(me, 'plant') ? count(QUEUES.AWAIT_DISPATCH) : 0,
-      can(me, 'approver') ? count((q) => q.eq('status', 'PENDING')) : 0,
-      can(me, 'accounts') ? count(QUEUES.AWAIT_PI) : 0,
-      can(me, 'accounts') ? count(QUEUES.AWAIT_TAX) : 0,
-      can(me, 'operations') ? count(QUEUES.AWAIT_DO) : 0,
-    ])
+    const c = await orderCounts(null) // same arguments as the Orders page, so the cached result is shared
+    const waiting = [
+      can(me, 'plant') ? c.AWAIT_DISPATCH : 0,
+      can(me, 'approver') ? c.PENDING : 0,
+      can(me, 'accounts') ? c.AWAIT_PI + c.AWAIT_TAX : 0,
+      can(me, 'operations') ? c.AWAIT_DO : 0,
+    ]
     const toDispatch = waiting[0]
     const todo = waiting.reduce((a, b) => a + b, 0)
     nav = [

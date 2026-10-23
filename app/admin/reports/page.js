@@ -50,7 +50,7 @@ export default async function Reports({ searchParams }) {
       <div className="rcards">
         {cards.map((c) => (
           <Link key={c.key} href={`/admin/reports/${c.key}?${p.qs}`} className="rcard">
-            <div className="rcard-ttl"><i className={`ph ${c.icon}`} />{c.title}</div>
+            <h2 className="rcard-ttl"><i className={`ph ${c.icon}`} />{c.title}</h2>
             <div className="rcard-n">{c.n}</div>
             <div className="rcard-sub"><bdi>{c.sub}</bdi></div>
             <div className="rcard-go">Open report <i className="ph ph-arrow-right" /></div>

@@ -37,45 +37,25 @@ export default function PlantClient({ rows, isOpen, here }) {
     <>
       {/* Batch Selection Action Bar */}
       {selectedRows.length > 0 && (
-        <div
-          style={{
-            margin: '0 20px 14px',
-            padding: '10px 16px',
-            background: 'var(--fill)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--r-ctl)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="badge b-teal" style={{ fontSize: 13, padding: '4px 10px' }}>
+        <div className="sel-bar" role="region" aria-label="Selected lines">
+          <div className="row">
+            <span className="badge b-teal sel-count">
               <i className="ph ph-check-square" /> {selectedRows.length} item{selectedRows.length > 1 ? 's' : ''} selected
             </span>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => setSelectedIds(new Set())}
-            >
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
               Clear selection
             </button>
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="row">
             {singleOrder ? (
-              <>
-                <MarkReadyModal
-                  orderId={singleOrder.id}
-                  lines={selectedRows}
-                  back={here}
-                  label="Mark Selected Ready"
-                  btnClass="btn btn-success btn-sm"
-                  size="large"
-                />
-              </>
+              <MarkReadyModal
+                orderId={singleOrder.id}
+                lines={selectedRows}
+                back={here}
+                label="Mark Selected Ready"
+                btnClass="btn btn-success btn-sm"
+                size="large"
+              />
             ) : (
               <span className="muted text-sm">
                 <i className="ph ph-info" /> Items selected from {selectedOrderIds.length} orders. Select items from 1 order to mark ready.

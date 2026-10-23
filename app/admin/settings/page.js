@@ -2,7 +2,7 @@ import { requireRole } from '@/lib/server'
 import { getSettings } from '@/lib/settings'
 import { money } from '@/lib/tas'
 import { saveSettings } from '../actions'
-import { FileDrop, Submit } from '../../ui'
+import { FileDrop, Submit, UnsavedGuard } from '../../ui'
 
 export const metadata = { title: 'Company Settings' }
 
@@ -36,18 +36,19 @@ export default async function Settings() {
 
   return (
     <form action={saveSettings}>
+      <UnsavedGuard />
       <section className="fsec">
-        <div className="fsec-ttl"><i className="ph ph-buildings" />Company</div>
+        <h2 className="fsec-ttl"><i className="ph ph-buildings" />Company</h2>
         <div className="fgrid-2">{COMPANY_FIELDS.map(field)}</div>
       </section>
 
       <section className="fsec">
-        <div className="fsec-ttl"><i className="ph ph-bank" />Bank account (printed on quotes and PIs)</div>
+        <h2 className="fsec-ttl"><i className="ph ph-bank" />Bank account (printed on quotes and PIs)</h2>
         <div className="fgrid-2">{BANK_FIELDS.map(field)}</div>
       </section>
 
       <section className="fsec">
-        <div className="fsec-ttl"><i className="ph ph-file-text" />Documents</div>
+        <h2 className="fsec-ttl"><i className="ph ph-file-text" />Documents</h2>
         <div className="fgrid-2">
           <div className="fg full">
             <label>Letterhead</label>
@@ -67,7 +68,7 @@ export default async function Settings() {
       </section>
 
       <section className="fsec">
-        <div className="fsec-ttl"><i className="ph ph-hash" />VAT and number formats</div>
+        <h2 className="fsec-ttl"><i className="ph ph-hash" />VAT and number formats</h2>
         <div className="fgrid-3">
           <div className="fg">
             <label htmlFor="vat_pct">VAT % <span className="req">*</span></label>
@@ -95,7 +96,7 @@ export default async function Settings() {
       </section>
 
       <section className="fsec">
-        <div className="fsec-ttl"><i className="ph ph-seal-check" />Approval rules <span className="hint" style={{ textTransform: 'none', letterSpacing: 0 }}>— totals include VAT; leave blank to turn a rule off</span></div>
+        <h2 className="fsec-ttl"><i className="ph ph-seal-check" />Approval rules <span className="hint" style={{ textTransform: 'none', letterSpacing: 0 }}>— totals include VAT; leave blank to turn a rule off</span></h2>
         <div className="fgrid-2">
           <div className="fg">
             <label htmlFor="auto_approve_below">Auto-approve quotes below (SAR)</label>

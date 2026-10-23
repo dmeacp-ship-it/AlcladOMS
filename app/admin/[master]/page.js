@@ -61,10 +61,10 @@ export default async function Master({ params, searchParams }) {
   return (
     <div className="card">
       <div className="tbl-top">
-        <div className="tbl-ttl">
+        <h2 className="tbl-ttl">
           <i className={`ph ${master === 'items' ? 'ph-cube' : 'ph-buildings'}`} />{cfg.title}
           <span className="badge b-none">{count ?? 0}</span>
-        </div>
+        </h2>
         <div className="tbl-filters">
           <form className="sw">
             <i className="ph ph-magnifying-glass" />

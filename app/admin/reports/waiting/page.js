@@ -19,7 +19,7 @@ export default async function Waiting({ searchParams }) {
       <ReportsHead tab="waiting" p={p} periodless />
 
       <div className="card">
-        <div className="tbl-top"><div className="tbl-ttl"><i className="ph ph-clock" />Summary <span className="hint">— days since the previous step finished</span></div></div>
+        <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-clock" />Summary <span className="hint">— days since the previous step finished</span></h2></div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>Queue</th><th>With</th><th className="r">Total</th><th className="r">0–2 days</th><th className="r">3–7 days</th><th className="r">Over 7 days</th></tr></thead>
@@ -40,7 +40,7 @@ export default async function Waiting({ searchParams }) {
       {queues.map((q) => (
         <div className="card" id={q.key} key={q.key}>
           <div className="tbl-top">
-            <div className="tbl-ttl"><i className={`ph ${q.icon}`} />{q.label} <span className="badge b-none">{q.rows.length}</span></div>
+            <h2 className="tbl-ttl"><i className={`ph ${q.icon}`} />{q.label} <span className="badge b-none">{q.rows.length}</span></h2>
             <Link className="btn btn-ghost btn-sm" href={q.href}>Open in Orders<i className="ph ph-arrow-right" /></Link>
           </div>
           <div className="tbl-wrap">

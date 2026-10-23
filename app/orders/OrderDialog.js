@@ -1,6 +1,6 @@
 import { DISPATCH, PRODUCTION, balanceOf, can, dispatchOpen, dmy, int, money, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
-import { Modal, ModalFoot, PlantStatus, RouteDialog, DocView } from '../ui'
+import { FootMore, Modal, ModalFoot, PlantStatus, RouteDialog, DocView } from '../ui'
 import OrderActions from './OrderActions'
 
 // Order profile shown as a large dialog over the orders list (FMS viewOrderDetails).
@@ -87,7 +87,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
   const batches = o.batches || []
 
   const left = (
-    <div className="foot-left">
+    <FootMore>
       {['PENDING', 'APPROVED'].includes(o.status) && !batches.length && !o.do_date && can(me, 'approver') && (
         <Modal title={`Cancel ${o.quote_no}`} icon="ph-prohibit" label="Cancel Order" btnIcon="ph-prohibit" btnClass="btn btn-warn" size="small">
           <form action={cancelOrder}>
@@ -130,7 +130,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
           <ModalFoot label="Delete Order" icon="ph-trash" cls="btn-danger" />
         </form>
       </Modal>}
-    </div>
+    </FootMore>
   )
 
   const actions = <OrderActions o={o} me={me} back={back} openBatchPi={openBatchPi} />
@@ -147,7 +147,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       <div className={`banner ${tone}`}><i className={`ph ${icon}`} /><span>{text}</span></div>
 
       <div className="profile-section">
-        <div className="profile-section-ttl"><i className="ph ph-storefront" />Customer Details</div>
+        <h2 className="profile-section-ttl"><i className="ph ph-storefront" />Customer Details</h2>
         <div className="detail-grid">
           <Dr k="Customer" v={<bdi>{o.customer_name}</bdi>} span="span2" />
           <Dr k="Customer Code" v={o.customer_code} />
@@ -159,7 +159,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       </div>
 
       <div className="profile-section">
-        <div className="profile-section-ttl"><i className="ph ph-info" />Order Details</div>
+        <h2 className="profile-section-ttl"><i className="ph ph-info" />Order Details</h2>
         <div className="detail-grid">
           <Dr k="Quote Date" v={dmy(o.quote_date)} />
           <Dr k="Salesperson" v={o.salesperson_name} />
@@ -175,9 +175,9 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       {/* Batches list */}
       {batches.length > 0 && (
         <div className="profile-section">
-          <div className="profile-section-ttl">
+          <h2 className="profile-section-ttl">
             <i className="ph ph-truck" />Delivery Order &amp; Invoice Batches <span className="badge b-none">{batches.length}</span>
-          </div>
+          </h2>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
@@ -207,15 +207,9 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                     </td>
                     <td className="num">{money(b.transport)}</td>
                     <td className="nowrap r">
-                      <div className="row-acts" style={{ justifyContent: 'flex-end' }}>
-                        <a className="btn btn-ghost btn-sm" href={`/orders/${o.id}/print/do?batch=${b.id}`} target="_blank" title="Print Delivery Order">
-                          <i className="ph ph-truck" />DO PDF
-                        </a>
-                        {b.pi_no ? (
-                          <a className="btn btn-ghost btn-sm" href={`/orders/${o.id}/print/pi?batch=${b.id}`} target="_blank" title="Print Proforma Invoice">
-                            <i className="ph ph-receipt" />PI PDF
-                          </a>
-                        ) : null}
+                      <div className="row-acts">
+                        <DocView href={`/orders/${o.id}/print/do?batch=${b.id}`} icon="ph-truck" label="DO" title={`Delivery Order — ${b.do_no}`} cls="btn btn-ghost btn-sm" />
+                        {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice — ${b.pi_no}`} cls="btn btn-ghost btn-sm" />}
                       </div>
                     </td>
                   </tr>
@@ -228,10 +222,10 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
 
       {/* Items & status table */}
       <div className="profile-section">
-        <div className="profile-section-ttl">
+        <h2 className="profile-section-ttl">
           <i className="ph ph-package" />Items &amp; Dispatch Status <span className="badge b-none">{o.items.length}</span>
           {editPlant && <span className="ttl-hint">Change a line's plant status — it saves straight away.</span>}
-        </div>
+        </h2>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
@@ -297,7 +291,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
 
       {dispatches.length > 0 && (
         <div className="profile-section">
-          <div className="profile-section-ttl"><i className="ph ph-truck" />Dispatch History <span className="badge b-none">{dispatches.length}</span></div>
+          <h2 className="profile-section-ttl"><i className="ph ph-truck" />Dispatch History <span className="badge b-none">{dispatches.length}</span></h2>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
@@ -339,7 +333,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       )}
 
       <div className="profile-section">
-        <div className="profile-section-ttl"><i className="ph ph-files" />Documents</div>
+        <h2 className="profile-section-ttl"><i className="ph ph-files" />Documents</h2>
         <div className="docs">
           <DocView href={`/orders/${o.id}/print/quote`} icon="ph-file-text" label="Quotation" />
           {batches.map((b) => (
@@ -365,7 +359,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
 
       {events.length > 0 && (
         <div className="profile-section">
-          <div className="profile-section-ttl"><i className="ph ph-clock-counter-clockwise" />Timeline</div>
+          <h2 className="profile-section-ttl"><i className="ph ph-clock-counter-clockwise" />Timeline</h2>
           <ul className="timeline">
             {events.map((e) => (
               <li key={e.id}>

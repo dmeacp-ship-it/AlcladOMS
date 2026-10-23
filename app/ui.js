@@ -80,10 +80,65 @@ export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
   )
 }
 
-// Document chip that opens the printable page in a dialog instead of a new tab.
-export function DocView({ href, icon, label, cls = 'chip-link' }) {
+// Put inside a long form: once something is typed, leaving the page (link, back, refresh, closing the tab)
+// asks first. Submitting the form clears it.
+export function UnsavedGuard() {
+  const ref = useRef(null)
+  useEffect(() => {
+    const form = ref.current?.closest('form')
+    if (!form) return
+    let dirty = false
+    const mark = (e) => { if (e.isTrusted) dirty = true }
+    const clear = () => { dirty = false }
+    const unload = (e) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }
+    const leave = (e) => {
+      const a = e.target.closest?.('a[href]')
+      if (!dirty || !a || a.target === '_blank' || a.hasAttribute('download') || a.getAttribute('href').startsWith('#') || a.closest('dialog')) return
+      if (window.confirm('Leave this page? Your changes are not saved.')) dirty = false
+      else { e.preventDefault(); e.stopPropagation() }
+    }
+    form.addEventListener('input', mark)
+    form.addEventListener('change', mark)
+    form.addEventListener('submit', clear)
+    window.addEventListener('beforeunload', unload)
+    document.addEventListener('click', leave, true)
+    return () => {
+      form.removeEventListener('input', mark)
+      form.removeEventListener('change', mark)
+      form.removeEventListener('submit', clear)
+      window.removeEventListener('beforeunload', unload)
+      document.removeEventListener('click', leave, true)
+    }
+  }, [])
+  return <span ref={ref} hidden />
+}
+
+// Secondary actions of a dialog footer. Wide screens: shown inline. Phones: folded behind a "More" button
+// so the footer doesn't fill the screen. The list stays mounted (and visible while open), because the
+// confirm dialogs inside it can't open from a hidden element.
+export function FootMore({ children }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const out = (e) => { if (!ref.current?.contains(e.target) && !e.target.closest?.('dialog')) setOpen(false) }
+    document.addEventListener('mousedown', out)
+    return () => document.removeEventListener('mousedown', out)
+  }, [open])
   return (
-    <Modal title={label} icon={icon} label={label} btnIcon={cls === 'chip-link' ? icon : undefined} btnClass={cls} size="large">
+    <div ref={ref} className={`foot-more${open ? ' open' : ''}`}>
+      <button type="button" className="btn btn-ghost neutral foot-more-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <i className="ph ph-dots-three" />More
+      </button>
+      <div className="foot-left">{children}</div>
+    </div>
+  )
+}
+
+// Document chip that opens the printable page in a dialog instead of a new tab.
+export function DocView({ href, icon, label, title, cls = 'chip-link' }) {
+  return (
+    <Modal title={title || label} icon={icon} label={label} btnIcon={cls === 'doc-no' ? undefined : icon} btnClass={cls} size="large">
       <iframe
         src={href}
         title="Document"

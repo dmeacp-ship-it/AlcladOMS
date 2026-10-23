@@ -2,7 +2,7 @@
 import { startTransition, useActionState, useRef, useState } from 'react'
 import { createQuote, updateOrder } from '../actions'
 import { calcM2, describe, dmy, lineTotal, money, today, totals, vatPct } from '@/lib/tas'
-import { Combobox } from '../../ui'
+import { Combobox, UnsavedGuard } from '../../ui'
 
 const PICKS = ['brand', 'color_code', 'grade', 'core', 'skin', 'width', 'length', 'thickness']
 const blank = () => ({ brand: '', color_code: '', grade: '', core: '', skin: '', width: '', length: '', thickness: '', qty: '', price: '' })
@@ -66,6 +66,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
 
   return (
     <form onSubmit={submit}>
+      <UnsavedGuard />
       {state?.error && <div className="banner error shake"><i className="ph ph-warning-circle" /><span>{state.error}</span></div>}
       {edit && <input type="hidden" name="order_id" value={edit.id} />}
       {edit && (
@@ -76,7 +77,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
       {initial && !edit && <div className="banner info"><i className="ph ph-copy" /><span>Copied from an earlier quotation — check the lines and prices, then submit.</span></div>}
 
       <section className="fsec compact">
-        <div className="fsec-ttl"><i className="ph ph-identification-card" />Customer &amp; Order Information</div>
+        <h2 className="fsec-ttl"><i className="ph ph-identification-card" />Customer &amp; Order Information</h2>
         <div className="cust-order-row">
           <div className="fg">
             <label htmlFor="customer">Customer Name <span className="req">*</span></label>
@@ -171,10 +172,10 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
 
       <div className="card">
         <div className="tbl-top">
-          <div className="tbl-ttl">
+          <h2 className="tbl-ttl">
             <i className="ph ph-package" />
             Line Items <span className="badge b-none">{lines.length} {lines.length === 1 ? 'line' : 'lines'} · {filled} filled</span>
-          </div>
+          </h2>
           <div className="tbl-filters">
             <button type="button" className="btn btn-primary btn-sm" onClick={() => addRows(1)}>
               <i className="ph ph-plus" /> Add Row
