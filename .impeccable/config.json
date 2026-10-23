@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "var(--spring)",
+        "createdAt": "2026-10-23T08:32:30.047Z",
+        "reason": "false positive: --spring is cubic-bezier(0.32, 0.72, 0, 1), a plain ease-out with no overshoot; copied from the user's GAS FMS Stylesheet.html, which the user asked the app to follow"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-10-23T08:57:52.357Z",
+        "reason": "sanctioned exception: sidebar collapse (.sb width) and search-pill expand (.tsearch width) are copied from the user's GAS FMS Stylesheet.html, which the user asked the app to match exactly; both are short, one-off user-triggered transitions"
+      }
+    ]
+  }
+}

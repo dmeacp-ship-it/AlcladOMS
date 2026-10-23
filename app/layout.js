@@ -1,0 +1,60 @@
+import './globals.css'
+import '@phosphor-icons/web/regular'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import { QUEUES, authClient, currentUser, db } from '@/lib/server'
+import { can } from '@/lib/tas'
+import Shell from './Shell'
+
+export const metadata = { title: 'TAS Order Management' }
+
+// Runs before first paint so a saved dark theme / collapsed sidebar never flashes. No saved choice -> follow the OS.
+const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';if(localStorage.sb_collapsed==='true')d.dataset.sb='col'}catch(e){}"
+
+async function logout() {
+  'use server'
+  await (await authClient()).auth.signOut()
+  revalidatePath('/', 'layout')
+  redirect('/login')
+}
+
+export default async function RootLayout({ children }) {
+  const me = await currentUser()
+  let nav = []
+  if (me) {
+    const count = async (f) => (await f(db().from('orders').select('id', { count: 'exact', head: true }))).count || 0
+    // Active Orders badge = orders waiting on something this user's role does.
+    const waiting = await Promise.all([
+      can(me, 'plant') ? count(QUEUES.AWAIT_DISPATCH) : 0,
+      can(me, 'approver') ? count((q) => q.eq('status', 'PENDING')) : 0,
+      can(me, 'accounts') ? count(QUEUES.AWAIT_PI) : 0,
+      can(me, 'accounts') ? count(QUEUES.AWAIT_TAX) : 0,
+      can(me, 'operations') ? count(QUEUES.AWAIT_DO) : 0,
+    ])
+    const toDispatch = waiting[0]
+    const todo = waiting.reduce((a, b) => a + b, 0)
+    nav = [
+      { section: 'Workflow' },
+      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
+      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
+      { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
+      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
+      me.role === 'admin' && { section: 'Admin' },
+      me.role === 'admin' && { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
+      me.role === 'admin' && { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
+      me.role === 'admin' && { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
+    ].filter(Boolean)
+  }
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME }} />
+      </head>
+      <body>
+        {me ? (
+          <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} logout={logout}>{children}</Shell>
+        ) : children}
+      </body>
+    </html>
+  )
+}
