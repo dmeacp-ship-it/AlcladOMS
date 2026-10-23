@@ -1,4 +1,4 @@
-# TAS OMS — Quotation → Approval → Delivery Order → Plant Dispatch → Proforma Invoice
+ # TAS OMS — Quotation → Approval → Delivery Order → Plant Dispatch → Proforma Invoice
 
 Next.js 16 + Supabase rewrite of the "FMS- OMS SAUDI" Google Sheet / Apps Script workflow.
 The emailed one-click approval link is gone: users with the **approver** role approve or reject inside the app.
