@@ -33,6 +33,7 @@ html, body, h1, h2, h3, h4, p, ul, ol, li, figure, dl, dd, form, fieldset, legen
   --teal-bg: #E0EEF0; --teal-fg: #00707F;
   --purp-bg: #F1E9F5; --purp-fg: #8944AB;
   --org-bg: #F5EAE0;  --org-fg: #AD4E00;
+  --on-accent: #fff;  /* text and icons on solid red / green / amber (same in dark mode) */
   /* solid action buttons (white text, all ≥ 4.5:1) */
   --accent-press: #B00012;
   --btn-ok: #23873D;   --btn-ok-h: #1C6E31;
@@ -273,10 +274,13 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
 .btn-primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--accent) 60%, transparent); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-press); }
-.btn-ghost { background: var(--fill); color: var(--accentH); }
+/* Secondary buttons: neutral text, red only on the icon. Red text is kept for the primary action and for
+   destructive ones, so it never reads as a warning on everyday buttons (and stays readable in dark mode). */
+.btn-ghost { background: var(--fill); color: var(--text); }
+.btn-ghost i { color: var(--accentH); }
 .btn-ghost:hover:not(:disabled) { background: var(--fill-2); }
-.btn-ghost.danger { color: var(--red); }
-.btn-ghost.neutral { color: var(--text); }
+.btn-ghost.danger, .btn-ghost.danger i, .btn-ghost.red, .btn-ghost.red i { color: var(--bad-fg); }
+.btn-ghost.neutral i { color: var(--sub); }
 .btn-success { background: var(--btn-ok); color: var(--on-accent); box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--btn-ok) 45%, transparent); }
 .btn-success:hover:not(:disabled) { background: var(--btn-ok-h); }
 .btn-danger { background: var(--btn-bad); color: var(--on-accent); box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--btn-bad) 45%, transparent); }
