@@ -40,8 +40,8 @@ export default async function RootLayout({ children }) {
       { section: 'Workflow' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
-      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
+      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
       me.role === 'admin' && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
