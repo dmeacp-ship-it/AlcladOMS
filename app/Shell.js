@@ -160,7 +160,6 @@ export default function Shell({ me, nav, settings, logout, children }) {
             <div className="av" aria-hidden="true">{initials}</div>
             <div className="sb-ui">
               <div className="sb-uname">{me.full_name}</div>
-              <span className={`rtag rt-${me.role}`}>{me.role}</span>
             </div>
             <form action={logout}>
               <button className="logout-btn" title="Logout" aria-label="Logout"><i className="ph ph-power" /></button>
