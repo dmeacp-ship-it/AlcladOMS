@@ -42,6 +42,8 @@ export default function Shell({ me, nav, settings, logout, children }) {
   const [setOpen, setSetOpen] = useState(false)
   const setRef = useRef(null)
   useEffect(() => setSetOpen(false), [pathname])
+  // Report tabs scroll sideways on phones: keep the open one in view.
+  useEffect(() => { document.querySelector('.tabs .tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [pathname])
   useEffect(() => {
     if (!setOpen) return
     const out = (e) => { if (!setRef.current?.contains(e.target)) setSetOpen(false) }
@@ -96,6 +98,8 @@ export default function Shell({ me, nav, settings, logout, children }) {
       <LinkBusy />
       <i className={`ph ${n.icon}`} />
       <span className="ni-txt">{n.label}</span>
+      {/* Phone tab bar: one-word label so every icon sits on the same line */}
+      {n.short && <span className="ni-short">{n.short}</span>}
       {n.badge > 0 && <span className="ni-bd">{n.badge}</span>}
     </Link>
   )

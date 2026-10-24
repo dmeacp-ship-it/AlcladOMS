@@ -51,10 +51,10 @@ export default async function RootLayout({ children }) {
     const todo = waiting.reduce((a, b) => a + b, 0)
     nav = [
       { section: 'Workflow' },
-      { href: '/orders?status=ACTIVE', label: 'Active Orders', icon: 'ph-lightning', badge: todo },
-      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
-      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
-      { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
+      { href: '/orders?status=ACTIVE', label: 'Active Orders', short: 'Active', icon: 'ph-lightning', badge: todo },
+      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', short: 'New Quote', icon: 'ph-file-plus' },
+      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', short: 'Plant', icon: 'ph-factory', badge: toDispatch },
+      { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks' },
       ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.

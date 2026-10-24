@@ -1324,3 +1324,90 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
 @media screen and (max-width: 768px) { .doc { zoom: 0.95; } }
 @media screen and (max-width: 600px) { .doc { zoom: 0.72; } }
 @media screen and (max-width: 430px) { .doc { zoom: 0.5; } }
+
+/* ── Phones: compact pass (plant rows, quote form, reports, settings) ── */
+@media (max-width: 768px) {
+  /* Plant Dispatch: one slim row per line — quote · customer + status, material + balance,
+     then plant status and Mark Ready side by side. Ordered / Ready / Dispatched stay in the order itself. */
+  .plant-tbl tbody { padding: 0 12px 12px; }
+  .plant-tbl tr {
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "q st" "desc bal" "plant act";
+    gap: 6px 10px; padding: 10px 4px; margin: 0; border: 0; border-radius: 0; background: none; border-bottom: 1px solid var(--border);
+  }
+  .plant-tbl tr:last-child { border-bottom: 0; }
+  .plant-tbl .c-sel { top: 10px; left: 4px; width: 30px; padding: 0 !important; text-align: left !important; }
+  .plant-tbl tr:has(.c-sel) { padding-left: 36px; }
+  .plant-tbl tr:has(.c-sel) .c-q { padding-left: 0; }
+  .plant-tbl .c-q { display: flex !important; gap: 6px; align-items: baseline; min-width: 0; overflow: hidden; }
+  .plant-tbl .c-cust { display: none; }
+  .plant-tbl .c-q::after { content: attr(data-cust); }
+  .plant-tbl .c-desc { grid-area: desc; font-size: 12.5px; color: var(--sub); white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  .plant-tbl .c-desc * { white-space: nowrap !important; }
+  .plant-tbl .c-n { display: none; }
+  .plant-tbl .c-n[data-label="Balance"] { display: block; grid-area: bal; grid-column: auto; padding: 0; border: 0; font-size: 13px; text-align: right; }
+  .plant-tbl .c-n[data-label="Balance"]::before { content: "Bal "; font-size: 11px; }
+  .plant-tbl .c-plant { grid-area: plant; grid-column: auto; min-width: 0; }
+  .plant-tbl .c-act { grid-area: act; grid-column: auto; }
+  .plant-tbl .c-act .btn { width: auto; min-height: 40px; padding: 0 12px; }
+  .plant-tbl .c-act .muted.text-sm { display: block; max-width: 120px; font-size: 11.5px; text-align: right; }
+
+  /* Quotation form: tighter sections, line fields on a 6-track grid (2 or 3 a row) */
+  .fsec, .fsec.compact { padding: 14px; margin-bottom: 12px; }
+  .fsec-ttl, .fsec.compact .fsec-ttl { margin-bottom: 10px; padding-bottom: 8px; }
+  .fg { gap: 4px; }
+  .fg label { font-size: 12px; }
+  .tbl.lines tr { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding: 10px; margin: 0 10px 10px; }
+  .tbl.lines td { grid-column: span 3; }
+  .tbl.lines td:is(:nth-child(7), :nth-child(8), :nth-child(9), :nth-child(10), :nth-child(13), :nth-child(15)) { grid-column: span 2; }
+  .tbl.lines td:is(:nth-child(4), :nth-child(12)) { grid-column: 1 / -1; }
+  .tbl.lines td:nth-child(1) { grid-column: 1 / 4; }
+  .tbl.lines td:nth-child(17) { grid-column: 4 / -1; }
+  .tbl.lines td:nth-child(10) { order: 1; }
+  .tbl.lines td:nth-child(12) { order: 1; }
+  .tbl.lines td:nth-child(13), .tbl.lines td:nth-child(15) { order: 2; }
+  .tbl.lines td:nth-child(14), .tbl.lines td:nth-child(16) { order: 3; }
+  .tbl.lines td::before { font-size: 10.5px; margin-bottom: 2px; }
+  .tbl.lines td :is(input, select, .combobox input) { min-height: 40px; padding: 6px 8px; font-size: 16px; }
+
+  /* Reports + admin lists: denser label/value cards */
+  .tbl:not(.orders-tbl, .plant-tbl, .lines) tr { padding: 4px 12px; margin-bottom: 8px; }
+  .tbl:not(.orders-tbl, .plant-tbl, .lines) td { min-height: 32px; padding: 4px 0; font-size: 13px; }
+  .tbl:not(.orders-tbl, .plant-tbl, .lines) td::before { font-size: 11.5px; }
+  /* Period: From and To side by side with an icon-only Update; Download menu on the same line */
+  .page-head { gap: 8px; margin-bottom: 12px; }
+  .page-head form.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 6px; align-items: center; flex: 1 1 100%; }
+  .page-head form.row label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .page-head form.row input[type="date"] { width: 100% !important; min-width: 0; padding-left: 10px; padding-right: 6px; }
+  .page-head form.row button { width: 44px; padding: 0; justify-content: center; font-size: 0; }
+  .page-head form.row button i { font-size: 18px; }
+  .page-head .dl-menu { margin-left: auto; }
+  .rcards { grid-template-columns: 1fr; gap: 8px; margin-bottom: 14px; }
+  .rcard { padding: 12px 14px; gap: 2px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .rcard > :not(.rcard-n) { grid-column: 1; }
+  .rcard .rcard-n { grid-column: 2; grid-row: 1 / span 2; font-size: 20px; text-align: right; }
+  .rcard .rcard-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rcard .rcard-go { padding-top: 4px; }
+  .tabs { margin-bottom: 10px; }
+
+  /* Settings: short fields two a row; long ones (marked full, or with a textarea) full width */
+  .fgrid-2, .fgrid-3, .fgrid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .fg:has(textarea), .fg:has(.combobox), .fgrid-2 > .fg.full,
+  .fg:has(input[name*="EMAIL"], input[name*="IBAN"], input[name*="ADDRESS"]) { grid-column: 1 / -1; }
+}
+@media (max-width: 768px) {
+  .plant-tbl .c-q::after { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+}
+.ni-short { display: none; }
+@media (max-width: 768px) {
+  /* Bottom tab bar: icons on one line, short one-line labels under them */
+  .sb-nav .ni, .sb-set-btn { justify-content: flex-start; padding-top: 8px; }
+  .sb-nav .ni:has(.ni-short) .ni-txt { display: none !important; }
+  .ni-short { display: block; font-size: 11px; line-height: 1.15; text-align: center; white-space: nowrap; }
+}
+@media (max-width: 768px) {
+  /* Label/value cards: no row gaps, so the label stays level with a one-line value */
+  .tbl:not(.orders-tbl, .plant-tbl, .lines) td { row-gap: 0; }
+  /* Stat tiles grow to fit long numbers (1,226.38) instead of cutting them off */
+  .stats > .stat { flex: 0 0 auto; min-width: 112px; width: auto; }
+  .stat-n { white-space: nowrap; font-size: 22px; }
+}
