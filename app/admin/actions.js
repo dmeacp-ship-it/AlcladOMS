@@ -256,7 +256,10 @@ export async function addItemValue(fd) {
   if (!value) go(ITEMS, 'error', `Enter a ${d.label.toLowerCase()}.`)
   const name = d.nameHeader ? str(fd, 'name') : null
   if (d.nameHeader && !name) go(ITEMS, 'error', 'Enter the color name too.')
-  const { error } = await db().from('item_lists').upsert({ list: d.key, value, name }, { onConflict: 'list,value' })
+  // Duplicate check (case-insensitive): never overwrite an existing value, e.g. a colour code's name.
+  const { data: dup } = await db().from('item_lists').select('value, name').eq('list', d.key).ilike('value', value).maybeSingle()
+  if (dup) go(ITEMS, 'error', `${d.nameHeader ? 'Color code' : d.label} ${dup.value} already exists${dup.name ? ` (${dup.name})` : ''}.`)
+  const { error } = await db().from('item_lists').insert({ list: d.key, value, name })
   if (error) go(ITEMS, 'error', /item_lists/.test(error.message) ? 'Run migrate-010.sql in Supabase first.' : error.message)
   await logEvent(null, me, 'Item list changed', `${d.label}: added ${value}${name ? ` (${name})` : ''}`)
   go(ITEMS, 'ok', `${d.label} ${value} saved.`)
@@ -290,10 +293,14 @@ export async function importItemLists(fd) {
     for (const [i, r] of rows.entries()) {
       const value = cleanValue(d, r[d.header.toLowerCase()])
       if (value === null) go(ITEMS, 'error', `Row ${i + 2}, ${d.header}: "${r[d.header.toLowerCase()]}" is not a number above 0.`)
-      if (!value || seen.has(value)) continue
+      if (!value) continue
+      const k = value.toUpperCase()
+      // Colour codes must be unique in the file; other lists just drop repeats.
+      if (d.nameHeader && seen.has(k)) go(ITEMS, 'error', `Row ${i + 2}: color code ${value} appears more than once in the file.`)
+      if (seen.has(k)) continue
+      seen.add(k)
       const name = d.nameHeader ? r[d.nameHeader.toLowerCase()] || null : null
       if (d.nameHeader && !name) go(ITEMS, 'error', `Row ${i + 2}: color ${value} has no Color Name.`)
-      seen.add(value)
       out.push({ list: d.key, value, name })
     }
     if (!seen.size) go(ITEMS, 'error', `The ${d.header} column is empty — every list needs at least one value.`)
