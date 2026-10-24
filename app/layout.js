@@ -9,8 +9,9 @@ import Shell from './Shell'
 // Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
 export const metadata = { title: { default: 'TAS OMS', template: '%s · TAS OMS' } }
 
-// Runs before first paint so a saved dark theme / collapsed sidebar never flashes. No saved choice -> follow the OS.
-const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';if(localStorage.sb_collapsed==='true')d.dataset.sb='col'}catch(e){}"
+// Runs before first paint so a saved dark theme / collapsed sidebar never flashes; ?embed=1 (document viewer)
+// hides the app frame before anything is drawn. No saved choice -> follow the OS.
+const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';if(localStorage.sb_collapsed==='true')d.dataset.sb='col'}catch(e){}try{if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed')}catch(e){}"
 
 async function logout() {
   'use server'

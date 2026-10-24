@@ -186,7 +186,7 @@ export function DocView({ href, icon, label, title, cls = 'chip-link' }) {
   return (
     <Modal title={title || label} icon={icon} label={label} btnIcon={cls === 'doc-no' ? undefined : icon} btnClass={cls} size="large">
       <iframe
-        src={href}
+        src={`${href}${href.includes('?') ? '&' : '?'}embed=1`}
         title="Document"
         style={{ width: '100%', height: '75vh', border: 0, display: 'block' }}
         onLoad={(e) => { try { e.currentTarget.contentDocument.documentElement.classList.add('embed') } catch {} }}
