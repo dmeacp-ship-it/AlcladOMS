@@ -1202,3 +1202,83 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .sel-bar { position: sticky; bottom: 8px; z-index: 5; flex-wrap: wrap; }
   .ready-tbl :is(th, td):is(:nth-child(4), :nth-child(5)) { display: none; }
 }
+
+/* ── Phones: bottom tab bar, card lists ── */
+.tb-logout { display: none; }
+@media (max-width: 768px) {
+  .app { flex-direction: column; }
+  .main { order: 1; flex: 1; min-height: 0; }
+  .sb, :root[data-sb="col"] .sb {
+    order: 2; width: 100%; flex-direction: row; align-items: stretch; flex-shrink: 0;
+    padding: 4px 4px calc(4px + env(safe-area-inset-bottom)); box-shadow: inset 0 1px 0 var(--border);
+  }
+  .sb-nav-wrapper { flex: 1; flex-direction: row; overflow: visible; }
+  .sb-brand, .sb-user { display: none !important; }
+  .sb-nav, :root[data-sb="col"] .sb-nav { flex: 1; flex-direction: row; gap: 2px; padding: 0; }
+  .sb-nav .ni, .sb-set-btn, :root[data-sb="col"] .sb-nav .ni { flex: 1 1 0; min-width: 0; min-height: 52px; padding: 6px 2px; }
+  .sb-bottom-wrapper { flex-direction: row; padding: 0; }
+  .sb-set { margin: 0; display: flex; width: 64px; }
+  .sb-set-btn { width: 100%; }
+  .sb-pop, :root[data-sb="col"] .sb-pop { left: auto; right: 0; bottom: calc(100% + 10px); width: 220px; }
+  .ni-bd { top: 2px; right: calc(50% - 22px); }
+  .tb-logout { display: block; }
+  .content { padding-bottom: 24px; border-top-left-radius: 0; }
+  .stats { scroll-snap-type: x mandatory; }
+  .stats > * { scroll-snap-align: start; }
+
+  /* Orders list: one card per order */
+  .card > .tbl-wrap:has(.orders-tbl) { max-height: none; overflow: visible; }
+  .orders-tbl, .orders-tbl tbody { display: block; min-width: 0; width: 100%; }
+  .orders-tbl thead { display: none; }
+  .orders-tbl tbody { padding: 0 12px 12px; }
+  .orders-tbl tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center;
+    grid-template-areas: "q st" "cust cust" "date total" "sp qty" "do pi" "docs acts";
+    padding: 12px 14px; margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+  }
+  .orders-tbl td { display: block; padding: 0; border: 0; min-width: 0; }
+  .orders-tbl td, .tbl.orders-tbl td.nowrap, .tbl.lines td.nowrap { white-space: normal !important; }
+  .orders-tbl td:nth-child(1) { grid-area: q; }
+  .orders-tbl td:nth-child(2) { grid-area: date; font-size: 12.5px; }
+  .orders-tbl td:nth-child(3) { grid-area: cust; font-size: 15px; overflow-wrap: anywhere; }
+  .orders-tbl td:nth-child(4) { grid-area: sp; font-size: 12.5px; color: var(--sub); }
+  .orders-tbl td:nth-child(5) { grid-area: qty; text-align: right; font-size: 12.5px; }
+  .orders-tbl td:nth-child(6) { grid-area: total; text-align: right; font-size: 15px; }
+  .orders-tbl td:nth-child(7) { grid-area: st; }
+  .orders-tbl td:nth-child(8) { grid-area: do; }
+  .orders-tbl td:nth-child(9) { grid-area: pi; text-align: right; }
+  .orders-tbl td:nth-child(10) { grid-area: docs; }
+  .orders-tbl td:nth-child(11) { grid-area: acts; }
+  .orders-tbl td:nth-child(11) .row-acts { justify-content: flex-end; }
+  .orders-tbl td:is(:nth-child(8), :nth-child(9)):has(> .muted:only-child) { display: none; }
+
+  /* Quote lines: one card per line, two fields a row */
+  .card .tbl-wrap:has(.tbl.lines) { overflow: visible; }
+  .tbl.lines, .tbl.lines tbody { display: block; min-width: 0; width: 100%; }
+  .tbl.lines thead { display: none; }
+  .tbl.lines tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; padding: 12px; margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .tbl.lines tr:has(td[colspan]) { display: block; border: 0; background: none; }
+  .tbl.lines td { display: block; padding: 0; border: 0; white-space: normal; min-width: 0; text-align: left; }
+  .tbl.lines td :is(input, select, .combobox) { width: 100%; min-width: 0; }
+  .tbl.lines td::before { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 600; color: var(--sub); }
+  .tbl.lines td:nth-child(1) { font-weight: 700; align-self: center; }
+  .tbl.lines td:nth-child(1)::before { content: "Line"; display: inline; margin-right: 4px; }
+  .tbl.lines td:nth-child(17) { justify-self: end; grid-row: 1; grid-column: 2; }
+  .tbl.lines td:nth-child(2)::before { content: "Brand"; }
+  .tbl.lines td:nth-child(3)::before { content: "Color Code"; }
+  .tbl.lines td:nth-child(4)::before { content: "Color Name"; }
+  .tbl.lines td:nth-child(5)::before { content: "Grade"; }
+  .tbl.lines td:nth-child(6)::before { content: "Core"; }
+  .tbl.lines td:nth-child(7)::before { content: "Al Skin"; }
+  .tbl.lines td:nth-child(8)::before { content: "Width"; }
+  .tbl.lines td:nth-child(9)::before { content: "Length"; }
+  .tbl.lines td:nth-child(10)::before { content: "Thickness"; }
+  .tbl.lines td:nth-child(11)::before { content: "UoM"; }
+  .tbl.lines td:nth-child(12) { grid-column: 1 / -1; }
+  .tbl.lines td:nth-child(12)::before { content: "Material Description"; }
+  .tbl.lines td:nth-child(13)::before { content: "Qty (PCS)"; }
+  .tbl.lines td:nth-child(14)::before { content: "Total M2"; }
+  .tbl.lines td:nth-child(15)::before { content: "Unit Price"; }
+  .tbl.lines td:nth-child(16)::before { content: "Total (SAR)"; }
+  .tbl.lines td:is(:nth-child(4), :nth-child(11), :nth-child(12), :nth-child(14), :nth-child(16)):empty { display: none; }
+}

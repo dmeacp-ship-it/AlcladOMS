@@ -8,6 +8,9 @@ import { WARN, getUsage } from '@/lib/usage'
 import Shell from './Shell'
 
 // Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
+// viewport-fit=cover: the phone bottom tab bar pads itself for the home indicator (safe-area-inset-bottom).
+export const viewport = { viewportFit: 'cover' }
+
 export const metadata = { title: { default: 'TAS OMS', template: '%s · TAS OMS' } }
 
 // Runs before first paint so a saved dark theme / collapsed sidebar never flashes; ?embed=1 (document viewer)

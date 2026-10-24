@@ -185,6 +185,10 @@ export default function Shell({ me, nav, settings, logout, children }) {
             <button type="button" className="btn btn-ghost btn-sm btn-ic" onClick={toggleTheme} title="Toggle dark / light mode" aria-label="Toggle dark or light mode">
               <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} />
             </button>
+            {/* Phones: the sidebar becomes a bottom tab bar without the profile card, so logout sits here */}
+            <form action={logout} className="tb-logout">
+              <button className="btn btn-ghost btn-sm btn-ic" title="Logout" aria-label="Logout"><i className="ph ph-power" /></button>
+            </form>
             <button type="button" className={`btn btn-success btn-sm btn-ic${refreshing ? ' spinning' : ''}`} title="Refresh data" aria-label="Refresh data"
               onClick={() => startRefresh(() => router.refresh())}>
               <i className="ph ph-arrow-clockwise" />
