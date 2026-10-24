@@ -9,9 +9,16 @@ import Shell from './Shell'
 
 // Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
 // viewport-fit=cover: the phone bottom tab bar pads itself for the home indicator (safe-area-inset-bottom).
-export const viewport = { viewportFit: 'cover' }
+export const viewport = {
+  viewportFit: 'cover',
+  themeColor: [{ media: '(prefers-color-scheme: light)', color: '#F2F2F7' }, { media: '(prefers-color-scheme: dark)', color: '#000000' }],
+}
 
-export const metadata = { title: { default: 'TAS OMS', template: '%s · TAS OMS' } }
+export const metadata = {
+  title: { default: 'TAS OMS', template: '%s · TAS OMS' },
+  // iPhone "Add to Home Screen": open full screen with the app's name under the icon.
+  appleWebApp: { capable: true, title: 'TAS OMS', statusBarStyle: 'default' },
+}
 
 // Runs before first paint so a saved dark theme / collapsed sidebar never flashes; ?embed=1 (document viewer)
 // hides the app frame before anything is drawn. No saved choice -> follow the OS.
