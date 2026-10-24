@@ -10,7 +10,7 @@ const daysCell = (v) => (v == null ? <span className="muted">—</span> : v)
 
 // Delivery Orders dated in the period, with how long each step took.
 export default async function Dispatch({ searchParams }) {
-  await requireRole('admin')
+  await requireRole('manager') // admin + manager
   const p = period(await searchParams)
   const d = await dispatch(p)
   return (

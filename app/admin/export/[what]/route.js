@@ -84,10 +84,13 @@ const EXPORTS = {
   },
 }
 
+const REPORT_EXPORTS = ['orders', 'lines', 'dispatches', 'invoices']
+
 export async function GET(req, { params }) {
-  await requireRole('admin')
   const { what } = await params
   if (!EXPORTS[what]) notFound()
+  // Report downloads are open to managers too; masters and the activity log stay admin-only.
+  await requireRole(REPORT_EXPORTS.includes(what) ? 'manager' : 'admin')
   const sp = Object.fromEntries(new URL(req.url).searchParams)
   try {
     return csvResponse(`${what}-${today()}`, await EXPORTS[what](sp))

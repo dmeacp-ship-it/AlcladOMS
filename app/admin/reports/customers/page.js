@@ -8,7 +8,7 @@ export const metadata = { title: 'Customers · Reports' }
 
 // Every customer with quotes in the period, by approved value; ?q= narrows by name or code.
 export default async function Customers({ searchParams }) {
-  await requireRole('admin')
+  await requireRole('manager') // admin + manager
   const sp = await searchParams
   const p = period(sp)
   const term = String(sp.q || '').trim()

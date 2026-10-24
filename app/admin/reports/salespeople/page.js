@@ -7,7 +7,7 @@ export const metadata = { title: 'Salespeople · Reports' }
 
 // Every salesperson's quotes in the period, by quote date.
 export default async function Salespeople({ searchParams }) {
-  await requireRole('admin')
+  await requireRole('manager') // admin + manager
   const p = period(await searchParams)
   const { bySales } = await sales(p)
   return (

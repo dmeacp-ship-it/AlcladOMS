@@ -11,7 +11,7 @@ const Late = () => <i className="ph ph-warning" role="img" aria-label="Over 7 da
 
 // Everything waiting right now, per queue, oldest first. Over 7 days is shown in red.
 export default async function Waiting({ searchParams }) {
-  await requireRole('admin')
+  await requireRole('manager') // admin + manager
   const p = period(await searchParams)
   const queues = await waiting()
   return (

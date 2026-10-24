@@ -8,7 +8,7 @@ export const metadata = { title: 'Reports' }
 
 // Headline numbers for the period, and a card per report.
 export default async function Reports({ searchParams }) {
-  await requireRole('admin')
+  await requireRole('manager') // admin + manager
   const p = period(await searchParams)
   const [s, w, d] = await Promise.all([sales(p), waiting(), dispatch(p)])
   const waitingNow = w.reduce((n, q) => n + q.rows.length, 0)

@@ -43,7 +43,7 @@ export default async function RootLayout({ children }) {
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', icon: 'ph-file-plus' },
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', icon: 'ph-factory', badge: toDispatch },
       { href: '/orders', label: 'All Orders', icon: 'ph-list-checks' },
-      me.role === 'admin' && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
+      ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [

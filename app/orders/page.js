@@ -79,7 +79,7 @@ export default async function Orders({ searchParams }) {
               <i className="ph ph-magnifying-glass" />
               <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, DO/PI no" aria-label="Search this list" />
             </div>
-            {me.role === 'admin' && (
+            {['admin', 'manager'].includes(me.role) && (
               <a className="btn btn-ghost btn-sm" href={`/admin/export/orders?${new URLSearchParams({ ...(status && { status }), ...(term && { q: term }) })}`}>
                 <i className="ph ph-download-simple" />Export
               </a>
