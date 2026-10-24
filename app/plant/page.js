@@ -76,7 +76,7 @@ export default async function Plant({ searchParams }) {
     <>
       <div className="stats">
         {Object.entries(TABS).map(([k, t]) => (
-          <Link key={k} href={tabHref(k)} className={`stat${tab === k ? ' on' : ''}`}>
+          <Link prefetch={false} key={k} href={tabHref(k)} className={`stat${tab === k ? ' on' : ''}`}>
             <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
             <div className={`stat-n ${t.cls}`}>{counts[k] ?? 0}</div>
             <div className="stat-l">{t.label} lines</div>

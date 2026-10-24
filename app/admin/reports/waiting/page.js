@@ -41,7 +41,7 @@ export default async function Waiting({ searchParams }) {
         <div className="card" id={q.key} key={q.key}>
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className={`ph ${q.icon}`} />{q.label} <span className="badge b-none">{q.rows.length}</span></h2>
-            <Link className="btn btn-ghost btn-sm" href={q.href}>Open in Orders<i className="ph ph-arrow-right" /></Link>
+            <Link prefetch={false} className="btn btn-ghost btn-sm" href={q.href}>Open in Orders<i className="ph ph-arrow-right" /></Link>
           </div>
           <div className="tbl-wrap">
             <table className="tbl">
@@ -51,7 +51,7 @@ export default async function Waiting({ searchParams }) {
               <tbody>
                 {q.rows.map((r) => (
                   <tr key={`${r.id}-${r.ref || ''}`}>
-                    <td className="nowrap"><Link className="qno" href={`/orders?view=${r.id}`}>{r.quote_no}</Link></td>
+                    <td className="nowrap"><Link prefetch={false} className="qno" href={`/orders?view=${r.id}`}>{r.quote_no}</Link></td>
                     <td className="fw6"><bdi>{r.customer_name}</bdi></td>
                     <td className="nowrap">{r.salesperson_name}</td>
                     {(q.key === 'pi' || q.key === 'tax') && <td className="nowrap">{r.ref}</td>}

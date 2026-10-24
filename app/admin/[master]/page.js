@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { db, requireRole } from '@/lib/server'
-import { MASTERS, money } from '@/lib/tas'
-import { deleteMaster, importMaster, saveMaster } from '../actions'
+import { MASTERS } from '@/lib/tas'
+import { importMaster, saveMaster } from '../actions'
 import { FileDrop, Modal, ModalFoot } from '../../ui'
+import MasterFields, { MasterTable } from './MasterFields'
 
 const PAGE = 50
-const label = (c) => c.replace(/_/g, ' ').replace(/\b\w/g, (x) => x.toUpperCase()).replace(/\b(Cr|Vat|Uom)\b/g, (x) => x.toUpperCase())
-const WIDE = ['address', 'description']
 
 export async function generateMetadata({ params }) {
   return { title: MASTERS[(await params).master]?.title }
@@ -33,30 +32,13 @@ export default async function Master({ params, searchParams }) {
   ])
   const link = (p) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }) })}`
   const here = link(page)
-  const num = (c) => (cfg.numbers || []).includes(c)
-
-  const fields = (r) => (
-    <div className="fgrid-2">
-      {cfg.cols.map((c) => (
-        <div className={`fg${WIDE.includes(c) ? ' full' : ''}`} key={c}>
-          <label htmlFor={`${c}-${r?.id ?? 'new'}`}>
-            {label(c)}{c === 'credit_limit' && <span className="hint"> — SAR incl. VAT, blank = no limit</span>} {cfg.required.includes(c) && <span className="req">*</span>}
-          </label>
-          <input id={`${c}-${r?.id ?? 'new'}`} name={c} defaultValue={r?.[c] ?? ''} required={cfg.required.includes(c)}
-            {...(num(c) && { type: 'number', min: 0, step: 'any' })} />
-        </div>
-      ))}
-      {isCust && (
-        <div className="fg">
-          <label htmlFor={`sp-${r?.id ?? 'new'}`}>Assigned salesperson</label>
-          <select id={`sp-${r?.id ?? 'new'}`} name="salesperson_id" defaultValue={r?.salesperson_id || ''}>
-            <option value="">Anyone</option>
-            {people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-          </select>
-        </div>
-      )}
-    </div>
-  )
+  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers }
+  // Only what the table and its dialogs show goes to the browser.
+  const pick = (r) => ({
+    ...Object.fromEntries(['id', ...cfg.cols, ...(isCust ? ['salesperson_id'] : [])].map((c) => [c, r[c] ?? null])),
+    ...(isCust && { sp_name: r.sp?.full_name || null }),
+  })
+  const fields = (r) => <MasterFields cfg={form} row={r && pick(r)} people={isCust ? people : null} />
 
   return (
     <div className="card">
@@ -98,51 +80,8 @@ export default async function Master({ params, searchParams }) {
         </div>
       </div>
       <div className="tbl-wrap">
-        <table className="tbl">
-          <thead>
-            <tr>{cfg.cols.map((c) => <th key={c} className={num(c) ? 'r' : undefined}>{label(c)}</th>)}{isCust && <th>Salesperson</th>}<th className="r">Actions</th></tr>
-          </thead>
-          <tbody>
-            {rows?.map((r) => (
-              <tr key={r.id}>
-                {cfg.cols.map((c) => (
-                  <td key={c} className={c === 'name' || c === 'description' ? 'desc' : c === 'address' ? 'text-sm' : num(c) ? 'num' : 'nowrap'}
-                    style={c === 'address' ? { minWidth: 220 } : c === 'description' ? { minWidth: 260 } : undefined}>
-                    {r[c] == null ? <span className="muted">—</span> : c === 'credit_limit' ? money(r[c]) : r[c]}
-                  </td>
-                ))}
-                {isCust && <td className="nowrap">{r.sp?.full_name || <span className="muted">Anyone</span>}</td>}
-                <td>
-                  <div className="row-acts">
-                    <Modal title={`Edit ${one}`} icon="ph-pencil-simple" btnIcon="ph-pencil-simple" ariaLabel={`Edit ${r[cfg.search] || one}`}
-                      btnClass="btn btn-ghost btn-sm act-icon-btn">
-                      <form action={saveMaster}>
-                        <input type="hidden" name="table" value={master} />
-                        <input type="hidden" name="id" value={r.id} />
-                        <input type="hidden" name="back" value={here} />
-                        <div className="modal-body">{fields(r)}</div>
-                        <ModalFoot label="Save changes" icon="ph-check" />
-                      </form>
-                    </Modal>
-                    <Modal title={`Delete ${one}?`} icon="ph-warning-circle" btnIcon="ph-trash" ariaLabel={`Delete ${r[cfg.search] || one}`}
-                      btnClass="btn btn-ghost danger btn-sm act-icon-btn" size="small">
-                      <form action={deleteMaster}>
-                        <input type="hidden" name="table" value={master} />
-                        <input type="hidden" name="id" value={r.id} />
-                        <input type="hidden" name="back" value={here} />
-                        <div className="modal-body">
-                          <p><b>{r[cfg.search] || `#${r.id}`}</b> will be removed from the {cfg.title.toLowerCase()} master.</p>
-                          <p>Existing quotations keep their own copy of the details.</p>
-                        </div>
-                        <ModalFoot label="Delete" icon="ph-trash" cls="btn-danger" />
-                      </form>
-                    </Modal>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <MasterTable cfg={form} rows={(rows || []).map(pick)} people={isCust ? people : null}
+          table={master} title={cfg.title} search={cfg.search} here={here} />
         {!rows?.length && (
           <div className="empty">
             <i className="ph ph-magnifying-glass" />
@@ -153,11 +92,11 @@ export default async function Master({ params, searchParams }) {
       </div>
       {(count ?? 0) > PAGE && (
         <div className="tbl-foot center">
-          {page > 0 ? <Link className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Previous</Link> : <span />}
+          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Previous</Link> : <span />}
           <span className="spacer muted text-sm c">
             {page * PAGE + 1}–{Math.min((page + 1) * PAGE, count)} of {count}
           </span>
-          {(page + 1) * PAGE < count && <Link className="btn btn-ghost btn-sm" href={link(page + 1)}>Next<i className="ph ph-caret-right" /></Link>}
+          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}>Next<i className="ph ph-caret-right" /></Link>}
         </div>
       )}
     </div>

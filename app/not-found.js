@@ -6,7 +6,7 @@ export default function NotFound() {
       <i className="ph ph-magnifying-glass" />
       <h3>Not found</h3>
       <p>This page or order doesn't exist, or you don't have access to it.</p>
-      <Link href="/orders" className="btn btn-primary btn-sm"><i className="ph ph-arrow-left" />Back to Orders</Link>
+      <Link prefetch={false} href="/orders" className="btn btn-primary btn-sm"><i className="ph ph-arrow-left" />Back to Orders</Link>
     </div>
   )
 }

@@ -58,7 +58,7 @@ export default async function Orders({ searchParams }) {
     <>
       {status !== 'ACTIVE' && <div className="stats">
         {TILES.map((t) => (
-          <Link key={t.label} href={t.status ? `/orders?status=${t.status}` : '/orders'} className={`stat${status === t.status ? ' on' : ''}`}>
+          <Link prefetch={false} key={t.label} href={t.status ? `/orders?status=${t.status}` : '/orders'} className={`stat${status === t.status ? ' on' : ''}`}>
             <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
             <div className={`stat-n ${t.cls}`}>{countOf(t.status)}</div>
             <div className="stat-l">{t.label}</div>
@@ -107,7 +107,7 @@ export default async function Orders({ searchParams }) {
             <tbody>
               {rows?.map((o) => (
                 <ClickRow key={o.id} href={viewHref(o.id)}>
-                  <td className="nowrap"><Link href={viewHref(o.id)} scroll={false} className="qno">{o.quote_no}</Link></td>
+                  <td className="nowrap"><Link prefetch={false} href={viewHref(o.id)} scroll={false} className="qno">{o.quote_no}</Link></td>
                   <td className="nowrap muted">{dmy(o.quote_date)}</td>
                   <td className="nowrap fw6"><bdi>{o.customer_name}</bdi></td>
                   <td className="nowrap">{o.salesperson_name}</td>
@@ -147,9 +147,9 @@ export default async function Orders({ searchParams }) {
         </div>
         {(page > 1 || more) && (
           <div className="tbl-foot center">
-            {page > 1 && <Link className="btn btn-ghost btn-sm" href={pageHref(page - 1)}><i className="ph ph-caret-left" />Newer</Link>}
+            {page > 1 && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page - 1)}><i className="ph ph-caret-left" />Newer</Link>}
             <span className="spacer muted text-sm c">Page {page}</span>
-            {more && <Link className="btn btn-ghost btn-sm" href={pageHref(page + 1)}>Older<i className="ph ph-caret-right" /></Link>}
+            {more && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page + 1)}>Older<i className="ph ph-caret-right" /></Link>}
           </div>
         )}
       </div>

@@ -131,7 +131,7 @@ export default function PlantClient({ rows, isOpen, here }) {
                     </td>
                   )}
                   <td className="nowrap">
-                    <Link href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
+                    <Link prefetch={false} href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
                   </td>
                   <td className="nowrap fw6">
                     <bdi>{o?.customer_name}</bdi>

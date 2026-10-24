@@ -41,7 +41,7 @@ export default async function Reports({ searchParams }) {
           ['ph-truck', 'ca', d.toDo ?? '—', 'Days to first DO', 'dispatch'],
           ['ph-package', 'ct', int(d.pcs), 'PCS on DOs', 'dispatch'],
         ].map(([ic, cls, n, l, to]) => (
-          <Link key={l} href={`/admin/reports/${to}?${p.qs}`} className="stat">
+          <Link prefetch={false} key={l} href={`/admin/reports/${to}?${p.qs}`} className="stat">
             <i className={`ph ${ic} stat-ic ${cls}`} /><div className={`stat-n ${cls}`}>{n}</div><div className="stat-l">{l}</div>
           </Link>
         ))}
@@ -49,7 +49,7 @@ export default async function Reports({ searchParams }) {
 
       <div className="rcards">
         {cards.map((c) => (
-          <Link key={c.key} href={`/admin/reports/${c.key}?${p.qs}`} className="rcard">
+          <Link prefetch={false} key={c.key} href={`/admin/reports/${c.key}?${p.qs}`} className="rcard">
             <h2 className="rcard-ttl"><i className={`ph ${c.icon}`} />{c.title}</h2>
             <div className="rcard-n">{c.n}</div>
             <div className="rcard-sub"><bdi>{c.sub}</bdi></div>

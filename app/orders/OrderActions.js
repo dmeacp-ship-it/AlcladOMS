@@ -55,7 +55,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
 
       {/* Approved but nothing is marked ready yet: link directly to Plant Dispatch */}
       {approved && !sm && dispatchOpen(o) && readyLines.length === 0 && (
-        <Link href="/plant" className={`btn btn-ghost${size}`} title="Go to Plant Dispatch to update status and mark ready quantities">
+        <Link prefetch={false} href="/plant" className={`btn btn-ghost${size}`} title="Go to Plant Dispatch to update status and mark ready quantities">
           <i className="ph ph-factory" />Plant Dispatch
         </Link>
       )}

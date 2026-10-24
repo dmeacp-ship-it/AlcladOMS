@@ -89,8 +89,10 @@ export default function Shell({ me, nav, settings, logout, children }) {
   const [title, sub] = pathname === '/orders'
     ? LIST_TITLES[status] || LIST_TITLES['']
     : (PAGES.find(([re]) => re.test(pathname)) || [null, 'TAS OMS', '']).slice(1)
+  // prefetch={false} on every Link in the app: pages depend on the signed-in user and are never cached,
+  // so background prefetches only cost a login check and a server render each, without speeding anything up.
   const item = (n) => (
-    <Link key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}`} title={n.label}>
+    <Link prefetch={false} key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}`} title={n.label}>
       <LinkBusy />
       <i className={`ph ${n.icon}`} />
       <span className="ni-txt">{n.label}</span>
@@ -176,7 +178,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
             <span>{sub}</span>
           </div>
           <div className="tb-r">
-            <Form action="/orders" className="gsearch" role="search">
+            <Form action="/orders" prefetch={false} className="gsearch" role="search">
               <i className="ph ph-magnifying-glass" aria-hidden="true" />
               <input name="q" placeholder="Search quotes, customers…" aria-label="Search orders" />
             </Form>

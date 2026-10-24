@@ -27,7 +27,7 @@ export default async function Customers({ searchParams }) {
             <i className="ph ph-magnifying-glass" />
             <input className="tsearch" name="q" defaultValue={term} placeholder="Customer name or code" aria-label="Search customers" />
           </div>
-          {term && <Link className="btn btn-ghost btn-sm neutral" href={`/admin/reports/customers?${p.qs}`}>Clear</Link>}
+          {term && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href={`/admin/reports/customers?${p.qs}`}>Clear</Link>}
         </form>
       </SalesTable>
     </>

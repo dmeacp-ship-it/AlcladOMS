@@ -39,7 +39,7 @@ export default async function Activity({ searchParams }) {
           <input type="date" name="from" defaultValue={filters.from} aria-label="From date" style={{ width: 150 }} />
           <input type="date" name="to" defaultValue={filters.to} aria-label="To date" style={{ width: 150 }} />
           <button className="btn btn-ghost btn-sm"><i className="ph ph-funnel" />Filter</button>
-          {Object.keys(filters).length > 0 && <Link className="btn btn-ghost btn-sm neutral" href="/admin/activity">Clear</Link>}
+          {Object.keys(filters).length > 0 && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href="/admin/activity">Clear</Link>}
           <a className="btn btn-ghost btn-sm" href={`/admin/export/activity?${new URLSearchParams(filters)}`}><i className="ph ph-download-simple" />Export</a>
         </form>
       </div>
@@ -53,7 +53,7 @@ export default async function Activity({ searchParams }) {
                 <td className="nowrap muted">{stamp(e.at)}</td>
                 <td className="nowrap fw6">{e.by_name || <span className="muted">—</span>}</td>
                 <td className="nowrap">{e.action}</td>
-                <td className="nowrap">{e.order ? <Link className="qno" href={`/orders?view=${e.order_id}`}>{e.order.quote_no}</Link> : <span className="muted">—</span>}</td>
+                <td className="nowrap">{e.order ? <Link prefetch={false} className="qno" href={`/orders?view=${e.order_id}`}>{e.order.quote_no}</Link> : <span className="muted">—</span>}</td>
                 <td style={{ minWidth: 280 }}>{e.detail || <span className="muted">—</span>}</td>
               </tr>
             ))}
@@ -69,9 +69,9 @@ export default async function Activity({ searchParams }) {
       </div>
       {(count ?? 0) > PAGE && (
         <div className="tbl-foot center">
-          {page > 0 ? <Link className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Newer</Link> : <span />}
+          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Newer</Link> : <span />}
           <span className="spacer muted text-sm c">{page * PAGE + 1}–{Math.min((page + 1) * PAGE, count)} of {count}</span>
-          {(page + 1) * PAGE < count && <Link className="btn btn-ghost btn-sm" href={link(page + 1)}>Older<i className="ph ph-caret-right" /></Link>}
+          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}>Older<i className="ph ph-caret-right" /></Link>}
         </div>
       )}
     </div>

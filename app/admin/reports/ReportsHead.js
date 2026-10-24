@@ -15,7 +15,7 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
     <>
       <nav className="tabs" aria-label="Reports">
         {REPORTS.map((r) => (
-          <Link key={r.key} href={`/admin/reports${r.key ? `/${r.key}` : ''}?${p.qs}`} className={`tab${r.key === tab ? ' on' : ''}`} aria-current={r.key === tab ? 'page' : undefined}>
+          <Link prefetch={false} key={r.key} href={`/admin/reports${r.key ? `/${r.key}` : ''}?${p.qs}`} className={`tab${r.key === tab ? ' on' : ''}`} aria-current={r.key === tab ? 'page' : undefined}>
             <i className={`ph ${r.icon}`} />{r.label}
           </Link>
         ))}

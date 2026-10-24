@@ -2,7 +2,7 @@ import './globals.css'
 import '@phosphor-icons/web/regular'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { authClient, currentUser, orderCounts } from '@/lib/server'
+import { authClient, currentUser, orderCounts, sessionUserId } from '@/lib/server'
 import { can } from '@/lib/tas'
 import Shell from './Shell'
 
@@ -21,12 +21,14 @@ async function logout() {
 }
 
 export default async function RootLayout({ children }) {
-  const me = await currentUser()
+  // Profile and badge counts in parallel (one database round trip, not two); no counts when signed out.
+  // orderCounts(null): same arguments as the Orders page, so the cached result is shared.
+  const signedIn = !!(await sessionUserId())
+  const [me, c] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null])
   let nav = []
   let settings = []
   if (me) {
     // Active Orders badge = orders waiting on something this user's role does.
-    const c = await orderCounts(null) // same arguments as the Orders page, so the cached result is shared
     const waiting = [
       can(me, 'plant') ? c.AWAIT_DISPATCH : 0,
       can(me, 'approver') ? c.PENDING : 0,

@@ -46,7 +46,7 @@ export default async function Dispatch({ searchParams }) {
                 <tr key={r.id}>
                   <td className="nowrap fw6">{r.do_no}</td>
                   <td className="nowrap muted">{dmy(r.do_date)}</td>
-                  <td className="nowrap"><Link className="qno" href={`/orders?view=${r.order?.id}`}>{r.order?.quote_no}</Link></td>
+                  <td className="nowrap"><Link prefetch={false} className="qno" href={`/orders?view=${r.order?.id}`}>{r.order?.quote_no}</Link></td>
                   <td className="fw6"><bdi>{r.order?.customer_name}</bdi></td>
                   <td className="nowrap">{r.vehicle_no || <span className="muted">—</span>}</td>
                   <td className="num">{int(r.pcs)}</td>

@@ -30,7 +30,7 @@ export default async function PrintPage({ params, searchParams }) {
   return (
     <>
       <div className="page-head no-print">
-        <Link href={`/orders?view=${o.id}`} className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Back to {o.quote_no}</Link>
+        <Link prefetch={false} href={`/orders?view=${o.id}`} className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Back to {o.quote_no}</Link>
         <div className="acts">
           <span className="muted text-sm">Choose “Save as PDF” as the printer to get a PDF file.</span>
           <PrintButton />
