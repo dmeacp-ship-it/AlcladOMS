@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { authClient, currentUser, orderCounts, sessionUserId } from '@/lib/server'
 import { can } from '@/lib/tas'
+import { WARN, getUsage } from '@/lib/usage'
 import Shell from './Shell'
 
 // Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
@@ -55,6 +56,8 @@ export default async function RootLayout({ children }) {
       { href: '/admin/activity', label: 'Activity Log', icon: 'ph-clock-counter-clockwise' },
     ]
   }
+  // Admins see a warning on every page once any free-plan limit passes 80% (checked hourly).
+  const near = me?.role === 'admin' ? (await getUsage())?.filter((u) => u.share >= WARN) : null
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -62,7 +65,14 @@ export default async function RootLayout({ children }) {
       </head>
       <body>
         {me ? (
-          <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} settings={settings} logout={logout}>{children}</Shell>
+          <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} settings={settings} logout={logout}>
+            {near?.length > 0 && (
+              <a href="/admin/settings" className="banner warn no-print" style={{ marginBottom: 14 }}>
+                <i className="ph ph-warning" />Free plan nearly full: {near.map((u) => `${u.label} ${Math.round(u.share * 100)}%`).join(', ')}. See Company Settings.
+              </a>
+            )}
+            {children}
+          </Shell>
         ) : children}
       </body>
     </html>

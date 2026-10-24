@@ -1163,3 +1163,42 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
 .tip.below { transform: translate(-50%, 0); }
 .tip.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--text); }
 @keyframes tipIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Usage panel (Company Settings) */
+.usage { display: grid; gap: 12px; }
+.usage-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 13px; }
+.usage-bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--fill-2); overflow: hidden; }
+.usage-bar i { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.usage-bar.warn i { background: var(--yellow); }
+
+/* Plant Dispatch on a phone: each line becomes a card; numbers in one row, big status and action controls */
+@media (max-width: 768px) {
+  .card > .tbl-wrap:has(.plant-tbl) { max-height: none; overflow: visible; }
+  .plant-tbl, .plant-tbl tbody { display: block; min-width: 0; width: 100%; }
+  .plant-tbl thead { display: none; }
+  .plant-tbl tbody { padding: 0 12px 12px; }
+  .plant-tbl tr {
+    position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-areas: "q q st st" "cust cust cust cust" "desc desc desc desc" "n1 n2 n3 n4" "plant plant plant plant" "act act act act";
+    gap: 6px 8px; padding: 12px; margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+  }
+  .plant-tbl td, .plant-tbl td.nowrap, .plant-tbl td span { white-space: normal; }
+  .plant-tbl td { display: block; padding: 0; border: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+  .plant-tbl .c-sel { position: absolute; top: 10px; left: 10px; }
+  .plant-tbl tr:has(.c-sel) .c-q { padding-left: 36px; }
+  .plant-tbl .c-q { grid-area: q; }
+  .plant-tbl .c-st { grid-area: st; justify-self: end; align-self: center; }
+  .plant-tbl .c-cust { grid-area: cust; }
+  .plant-tbl .c-desc { grid-area: desc; font-size: 13px; }
+  .plant-tbl .c-n { background: var(--fill-2); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 15px; }
+  .plant-tbl .c-n::before { content: attr(data-label); display: block; font-size: 9.5px; font-weight: 500; color: var(--sub); text-transform: uppercase; letter-spacing: 0; }
+  .plant-tbl .c-plant { grid-area: plant; }
+  .plant-tbl .c-plant :is(.plant-st, select) { width: 100%; max-width: none; }
+  .plant-tbl .c-act { grid-area: act; }
+  .plant-tbl .c-act .row-acts { width: 100%; margin: 0; justify-content: stretch; }
+  .plant-tbl .c-act .row-acts > * { flex: 1; }
+  .plant-tbl .c-act .btn { width: 100%; justify-content: center; min-height: 44px; }
+  .plant-tbl .c-plant:has(> .muted:only-child), .plant-tbl .c-act:not(:has(*:not(.row-acts))) { display: none; }
+  .sel-bar { position: sticky; bottom: 8px; z-index: 5; flex-wrap: wrap; }
+  .ready-tbl :is(th, td):is(:nth-child(4), :nth-child(5)) { display: none; }
+}

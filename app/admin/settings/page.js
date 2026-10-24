@@ -3,6 +3,7 @@ import { getSettings } from '@/lib/settings'
 import { money } from '@/lib/tas'
 import { saveSettings } from '../actions'
 import { FileDrop, Submit, UnsavedGuard } from '../../ui'
+import UsagePanel from './UsagePanel'
 
 export const metadata = { title: 'Company Settings' }
 
@@ -37,6 +38,7 @@ export default async function Settings() {
   return (
     <form action={saveSettings}>
       <UnsavedGuard />
+      <UsagePanel />
       <section className="fsec">
         <h2 className="fsec-ttl"><i className="ph ph-buildings" />Company</h2>
         <div className="fgrid-2">{COMPANY_FIELDS.map(field)}</div>

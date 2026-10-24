@@ -24,7 +24,7 @@ export default function MarkReadyModal({ orderId, lines, back, label = 'Mark Rea
             the DO is generated from Active Orders.
           </p>
           <div className="tbl-wrap">
-            <table className="tbl">
+            <table className="tbl ready-tbl">
               <thead>
                 <tr>
                   <th>#</th>

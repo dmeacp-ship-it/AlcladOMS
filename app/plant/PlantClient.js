@@ -117,7 +117,7 @@ export default function PlantClient({ rows, isOpen, here }) {
               return (
                 <tr key={it.id} style={isSelected ? { background: 'var(--fill-2)' } : undefined}>
                   {isOpen && (
-                    <td style={{ textAlign: 'center' }}>
+                    <td className="c-sel" style={{ textAlign: 'center' }}>
                       {!isDone ? (
                         <input
                           type="checkbox"
@@ -130,18 +130,18 @@ export default function PlantClient({ rows, isOpen, here }) {
                       )}
                     </td>
                   )}
-                  <td className="nowrap">
+                  <td className="nowrap c-q">
                     <Link prefetch={false} href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
                   </td>
-                  <td className="nowrap fw6">
+                  <td className="nowrap fw6 c-cust">
                     <bdi>{o?.customer_name}</bdi>
                   </td>
-                  <td className="nowrap">
+                  <td className="nowrap c-desc">
                     <span>{it.description}</span>
                     {it.color_name && <span className="muted text-sm" style={{ marginLeft: 6 }}>({it.color_name})</span>}
                   </td>
-                  <td className="num">{int(it.qty)}</td>
-                  <td className="num">
+                  <td className="num c-n" data-label="Ordered">{int(it.qty)}</td>
+                  <td className="num c-n" data-label="Ready">
                     {rQty > 0 ? (
                       <span className="badge b-teal" title="Ready, DO not generated yet">{int(rQty)}</span>
                     ) : isReady ? (
@@ -150,11 +150,11 @@ export default function PlantClient({ rows, isOpen, here }) {
                       <span className="muted">—</span>
                     )}
                   </td>
-                  <td className="num">
+                  <td className="num c-n" data-label="Dispatched">
                     {int(it.dispatched_qty) || 0}
                   </td>
-                  <td className="num fw6">{int(bal)}</td>
-                  <td className="nowrap">
+                  <td className="num fw6 c-n" data-label="Balance">{int(bal)}</td>
+                  <td className="nowrap c-plant">
                     {isOpen && !isDone ? (
                       <form action={saveProduction}>
                         <input type="hidden" name="id" value={o?.id} />
@@ -170,10 +170,10 @@ export default function PlantClient({ rows, isOpen, here }) {
                       <span className="muted">—</span>
                     )}
                   </td>
-                  <td className="nowrap">
+                  <td className="nowrap c-st">
                     <span className={`badge ${stBadge}`}>{stLabel}</span>
                   </td>
-                  <td className="nowrap">
+                  <td className="nowrap c-act">
                     <div className="row-acts">
                       {isOpen && !isDone && (
                         <>
