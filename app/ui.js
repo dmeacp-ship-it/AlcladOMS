@@ -34,7 +34,7 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
   const name = ariaLabel || (typeof label === 'string' && label) || undefined
   return (
     <>
-      <button type="button" className={btnClass} onClick={() => setOpen(true)} aria-label={name} data-tip={name}>
+      <button type="button" className={btnClass} onClick={() => setOpen(true)} aria-label={name} title={name}>
         {btnIcon && <i className={`ph ${btnIcon}`} />}{label && <span className="btn-lbl">{label}</span>}
       </button>
       <dialog

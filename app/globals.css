@@ -1101,11 +1101,6 @@ select:focus { background-image: var(--chev-focus); }
 /* List row actions: icon only, label as a tooltip above the button (right-aligned so it never leaves the screen) */
 .row-acts.icons .btn { gap: 0; position: relative; }
 .row-acts.icons .btn .btn-lbl { display: none; }
-.row-acts.icons .btn[data-tip]:hover::after, .row-acts.icons .btn[data-tip]:focus-visible::after {
-  content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 20;
-  padding: 5px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap;
-  background: var(--text, #111); color: var(--card, #fff); box-shadow: 0 4px 12px rgba(0,0,0,.18); pointer-events: none;
-}
 
 /* Document opened inside a dialog: show the document only */
 html.embed .sb, html.embed .topbar, html.embed .no-print, html.embed #toasts { display: none !important; }
