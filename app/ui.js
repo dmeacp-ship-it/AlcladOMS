@@ -533,6 +533,7 @@ export function Combobox({
 
 const ROLE_HELP = {
   admin: 'Full system access, masters & users',
+  manager: 'Every workflow step, no settings, masters, users or edits',
   sales: 'Creates quotations, sees only their own',
   approver: 'Approves, rejects and cancels orders',
   operations: 'Issues Delivery Orders (DO)',

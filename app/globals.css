@@ -194,6 +194,7 @@ a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .rt-operations { background: var(--teal-bg); color: var(--teal-fg); }
 .rt-accounts { background: var(--purp-bg); color: var(--purp-fg); }
 .rt-plant { background: var(--org-bg); color: var(--org-fg); }
+.rt-manager { background: var(--purp-bg); color: var(--purp-fg); }
 .logout-btn {
   background: transparent; border: none; color: var(--red); font-size: 20px; cursor: pointer; padding: 6px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center; margin-left: auto; transition: background var(--t), transform 0.15s var(--spring);
