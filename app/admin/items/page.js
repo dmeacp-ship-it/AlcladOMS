@@ -55,8 +55,11 @@ export default async function Items() {
         {error && <div className="banner error" style={{ margin: '0 20px 16px' }} title={error.message}><i className="ph ph-warning-circle" />Couldn't load the item lists. Run migrate-010.sql in Supabase, then refresh.</div>}
       </div>
 
-      <div className="lists-grid">
-        {ITEM_LISTS.map((d) => (
+      {/* Colour (long, two fields) on the left; the eight short lists in an even grid on the right */}
+      <div className="items-layout">
+        {[ITEM_LISTS.filter((d) => d.nameHeader), ITEM_LISTS.filter((d) => !d.nameHeader)].map((group, gi) => (
+        <div key={gi} className={gi ? 'lists-grid' : 'lists-main'}>
+        {group.map((d) => (
           <section key={d.key} className={`fsec list-card${d.nameHeader ? ' wide' : ''}`}>
             <h2 className="fsec-ttl">{d.label} <span className="badge b-none">{lists[d.key].length}</span></h2>
             {d.nameHeader ? (
@@ -78,6 +81,8 @@ export default async function Items() {
             )}
             {add(d)}
           </section>
+        ))}
+        </div>
         ))}
       </div>
     </>
