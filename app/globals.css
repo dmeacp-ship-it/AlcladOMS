@@ -541,6 +541,14 @@ label, .lbl { font-size: 12px; font-weight: 600; color: var(--text); line-height
 .sw { position: relative; display: flex; align-items: center; }
 .sw i { position: absolute; left: 11px; color: var(--muted); font-size: 14px; pointer-events: none; }
 .tsearch { width: 240px; height: 34px; padding: 0 12px 0 32px; font-size: 12px; }
+/* List cards (Items, Customers, Orders, Activity…): the table scrolls inside the card, so the card title,
+   search/buttons and the column names stay in view. Short tables are unaffected. */
+.card > .tbl-wrap { max-height: calc(100dvh - 210px); overflow-y: auto; }
+.card > .tbl-wrap .tbl thead th {
+  position: sticky; top: 0; z-index: 2;
+  background-color: var(--card); background-image: linear-gradient(var(--fill-2), var(--fill-2)); /* opaque */
+  box-shadow: inset 0 -1px 0 var(--border);
+}
 /* Sideways only: 'contain' on both axes stopped the mouse wheel scrolling the page while over a table */
 .tbl-wrap { overflow-x: auto; overscroll-behavior-x: contain; border-top: 1px solid var(--border); }
 table { width: 100%; border-collapse: collapse; }
