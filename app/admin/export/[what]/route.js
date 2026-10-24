@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { db, fetchAll as all, filterOrders, requireRole } from '@/lib/server'
 import { activityQuery, stamp } from '@/lib/activity'
-import { csvResponse, toCSV } from '@/lib/csv'
-import { MASTERS, balanceOf, dmy, round2, totals, today } from '@/lib/tas'
+import { csvResponse, itemListsCSV, toCSV } from '@/lib/csv'
+import { ITEM_LISTS, MASTERS, balanceOf, dmy, round2, totals, today } from '@/lib/tas'
 
 // Excel downloads (CSV) for admins: /admin/export/<what>?from=YYYY-MM-DD&to=…&status=…&q=…
 const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '')
@@ -63,10 +63,19 @@ const EXPORTS = {
     const rows = await all(() => db().from('customers').select('*, sp:profiles(full_name)').order('id'))
     return toCSV(rows, [...MASTERS.customers.cols.map((c) => [c, (r) => r[c]]), ['salesperson', (r) => r.sp?.full_name]])
   },
+  // Item master in the sheet layout (one column per list); items-template = headers + one example row.
   items: async () => {
-    const rows = await all(() => db().from('items').select('*').order('id'))
-    return toCSV(rows, MASTERS.items.cols.map((c) => [c, (r) => r[c]]))
+    const rows = await all(() => db().from('item_lists').select('list, value, name').order('id'))
+    const lists = {}
+    for (const r of rows) (lists[r.list] ??= []).push(r)
+    for (const d of ITEM_LISTS) if (d.number) lists[d.key]?.sort((a, b) => a.value - b.value)
+    return itemListsCSV(lists, ITEM_LISTS)
   },
+  'items-template': async () => itemListsCSV({
+    brand: [{ value: 'ALUMAX' }], color: [{ value: 'AL4001', name: 'Industrial Ash' }], grade: [{ value: 'AL4025' }],
+    core: [{ value: 'NFR' }], skin: [{ value: '0.2' }], width: [{ value: '1250' }], length: [{ value: '5600' }],
+    thickness: [{ value: '4' }], uom: [{ value: 'M2' }],
+  }, ITEM_LISTS),
   activity: async (sp) => {
     const rows = await all(() => activityQuery(sp))
     return toCSV(rows, [

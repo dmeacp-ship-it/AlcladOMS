@@ -1133,3 +1133,21 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
 
 /* Row actions that may wrap onto a second line when the table is narrow (order dialog batch rows) */
 .row-acts.wrap { flex-wrap: wrap; white-space: normal; row-gap: 6px; }
+
+/* Items page: one card per list */
+.lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.lists-grid .list-card { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.lists-grid .list-card.wide { grid-column: span 2; }
+.lists-grid .fsec-ttl { margin-bottom: 0; }
+.vchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vchip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 12px; border-radius: 980px; background: var(--fill); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vchip-x { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: none; color: var(--sub); cursor: pointer; }
+.vchip-x:hover { background: var(--fill-2); color: var(--bad-fg); }
+.vchip-x:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+.color-list { max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+.color-list .tbl td, .color-list .tbl th { padding-top: 6px; padding-bottom: 6px; }
+.color-list .tbl th:first-child, .color-list .tbl td:first-child { padding-left: 14px; }
+.vadd { display: flex; gap: 8px; align-items: center; }
+.vadd input { padding: 7px 10px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 768px) { .lists-grid .list-card.wide { grid-column: auto; } .vadd { flex-wrap: wrap; } }

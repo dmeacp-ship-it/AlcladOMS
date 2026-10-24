@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { db, go, logEvent, requireRole } from '@/lib/server'
 import { parseCSV } from '@/lib/csv'
 import { DEFAULTS, getSettings } from '@/lib/settings'
-import { MASTERS, ROLES } from '@/lib/tas'
+import { ITEM_LISTS, MASTERS, ROLES } from '@/lib/tas'
 
 const str = (fd, k) => String(fd.get(k) || '').trim()
 // Back to the list page the dialog was opened from (keeps its search and paging).
@@ -231,4 +231,79 @@ export async function importMaster(fd) {
   await logEvent(null, me, `${cfg.title} imported`, `${what} · ${file.name}`)
   revalidatePath('/', 'layout')
   go(P, 'ok', `Imported: ${what}.`)
+}
+
+// ── Item master lists (Items page) ──
+const ITEMS = '/admin/items'
+const listDef = (k) => ITEM_LISTS.find((d) => d.key === k)
+const cleanValue = (d, v) => {
+  const s = String(v ?? '').trim()
+  if (!s) return ''
+  if (d.number) {
+    const n = Number(s.replace(/,/g, ''))
+    if (!(n > 0)) return null
+    return String(n)
+  }
+  return s
+}
+
+export async function addItemValue(fd) {
+  const me = await requireRole('admin')
+  const d = listDef(str(fd, 'list'))
+  if (!d) go(ITEMS, 'error', 'Unknown list.')
+  const value = cleanValue(d, fd.get('value'))
+  if (value === null) go(ITEMS, 'error', `${d.label} must be a number above 0.`)
+  if (!value) go(ITEMS, 'error', `Enter a ${d.label.toLowerCase()}.`)
+  const name = d.nameHeader ? str(fd, 'name') : null
+  if (d.nameHeader && !name) go(ITEMS, 'error', 'Enter the color name too.')
+  const { error } = await db().from('item_lists').upsert({ list: d.key, value, name }, { onConflict: 'list,value' })
+  if (error) go(ITEMS, 'error', /item_lists/.test(error.message) ? 'Run migrate-010.sql in Supabase first.' : error.message)
+  await logEvent(null, me, 'Item list changed', `${d.label}: added ${value}${name ? ` (${name})` : ''}`)
+  go(ITEMS, 'ok', `${d.label} ${value} saved.`)
+}
+
+export async function deleteItemValue(fd) {
+  const me = await requireRole('admin')
+  const id = str(fd, 'id')
+  const { data: row } = await db().from('item_lists').select('list, value, name').eq('id', id).maybeSingle()
+  if (!row) go(ITEMS, 'error', 'Already removed.')
+  const { error } = await db().from('item_lists').delete().eq('id', id)
+  if (error) go(ITEMS, 'error', error.message)
+  await logEvent(null, me, 'Item list changed', `${listDef(row.list)?.label}: removed ${row.value}${row.name ? ` (${row.name})` : ''}`)
+  go(ITEMS, 'ok', `${row.value} removed. Existing orders keep it.`)
+}
+
+// Upload the whole item master as CSV in the sheet layout: replaces every list with the file's columns.
+export async function importItemLists(fd) {
+  const me = await requireRole('admin')
+  const file = fd.get('file')
+  if (!file?.size) go(ITEMS, 'error', 'Choose a CSV file first.')
+  const rows = parseCSV(await file.text())
+  if (!rows.length) go(ITEMS, 'error', 'That file has no values under the header row.')
+  const head = Object.keys(rows[0])
+  const missing = ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).filter((h) => !head.includes(h.toLowerCase()))
+  if (missing.length) go(ITEMS, 'error', `Missing columns: ${missing.join(', ')}. Download the template for the right headers.`)
+
+  const out = []
+  for (const d of ITEM_LISTS) {
+    const seen = new Set()
+    for (const [i, r] of rows.entries()) {
+      const value = cleanValue(d, r[d.header.toLowerCase()])
+      if (value === null) go(ITEMS, 'error', `Row ${i + 2}, ${d.header}: "${r[d.header.toLowerCase()]}" is not a number above 0.`)
+      if (!value || seen.has(value)) continue
+      const name = d.nameHeader ? r[d.nameHeader.toLowerCase()] || null : null
+      if (d.nameHeader && !name) go(ITEMS, 'error', `Row ${i + 2}: color ${value} has no Color Name.`)
+      seen.add(value)
+      out.push({ list: d.key, value, name })
+    }
+    if (!seen.size) go(ITEMS, 'error', `The ${d.header} column is empty — every list needs at least one value.`)
+  }
+  const { error: e1 } = await db().from('item_lists').delete().gt('id', 0)
+  if (e1) go(ITEMS, 'error', /item_lists/.test(e1.message) ? 'Run migrate-010.sql in Supabase first.' : e1.message)
+  const { error: e2 } = await db().from('item_lists').insert(out)
+  if (e2) go(ITEMS, 'error', e2.message)
+  const counts = ITEM_LISTS.map((d) => `${out.filter((x) => x.list === d.key).length} ${d.label.toLowerCase()}`).join(', ')
+  await logEvent(null, me, 'Item master uploaded', `${counts} · ${file.name}`)
+  revalidatePath('/', 'layout')
+  go(ITEMS, 'ok', `Item master replaced: ${counts}.`)
 }

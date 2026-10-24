@@ -30,7 +30,7 @@ const PAGES = [
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it or choose “Save as PDF”'],
   [/^\/plant/, 'Plant Dispatch', 'Dispatch DO lines one by one — part quantities allowed'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
-  [/^\/admin\/items/, 'Items', 'Finished goods SKU master'],
+  [/^\/admin\/items/, 'Items', 'One list per column — quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
 ]
 
