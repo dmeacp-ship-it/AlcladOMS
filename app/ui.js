@@ -83,6 +83,33 @@ export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
 // One styled tooltip for the whole app. Any element with a title (or data-tip) gets it on hover and on
 // keyboard focus; the title moves to data-tip so the plain browser tooltip doesn't show as well.
 // position: fixed, so tables and dialogs can't clip it. Mounted once in the Shell.
+// Phones show tables as cards (globals.css "Phones: every other table"); each cell gets its column name
+// from the header as data-label. Runs again whenever the page changes (navigation, dialogs, new rows).
+export function TableLabels() {
+  useEffect(() => {
+    let raf = 0
+    const label = () => {
+      raf = 0
+      for (const t of document.querySelectorAll('table.tbl')) {
+        const heads = [...(t.tHead?.rows[0]?.cells || [])].map((th) => th.textContent.trim())
+        for (const tr of t.tBodies[0]?.rows || []) {
+          let i = 0
+          for (const td of tr.cells) {
+            const l = heads[i] || ''
+            if (td.dataset.label !== l) td.dataset.label = l
+            i += td.colSpan
+          }
+        }
+      }
+    }
+    const mo = new MutationObserver(() => { raf ||= requestAnimationFrame(label) })
+    label()
+    mo.observe(document.body, { childList: true, subtree: true })
+    return () => { mo.disconnect(); cancelAnimationFrame(raf) }
+  }, [])
+  return null
+}
+
 export function Tooltips() {
   const [tip, setTip] = useState(null)
   useEffect(() => {

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Form from 'next/form'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { LinkBusy, Tooltips } from './ui'
+import { LinkBusy, TableLabels, Tooltips } from './ui'
 
 const LIST_TITLES = {
   '': ['All Orders', 'Every quotation and order'],
@@ -199,6 +199,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
       </div>
 
       <Tooltips />
+      <TableLabels />
       <div id="toasts" role="status" aria-live="polite">
         {toast && (
           <div key={toast.id} className={`toast t-${toast.kind}`}>
