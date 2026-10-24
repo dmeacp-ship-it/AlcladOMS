@@ -1411,3 +1411,50 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .stats > .stat { flex: 0 0 auto; min-width: 112px; width: auto; }
   .stat-n { white-space: nowrap; font-size: 22px; }
 }
+
+/* ── Phones: dialogs as compact bottom sheets; tighter alerts and toasts ── */
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+@media (max-width: 768px) {
+  dialog.modal, dialog.modal.small, dialog.modal.large, dialog.modal.xl {
+    width: 100%; max-width: 100%; margin: auto 0 0; max-height: calc(100dvh - 24px);
+    border-radius: 20px 20px 0 0; border-bottom: 0;
+  }
+  dialog.modal[open] { animation: sheetUp 0.28s var(--ease-out) both; }
+  /* Grab handle: reads as a sheet */
+  dialog.modal::before { content: ""; display: block; width: 36px; height: 4px; margin: 6px auto 0; border-radius: 4px; background: var(--border); flex-shrink: 0; }
+  .modal-header { padding: 8px 8px 10px 16px; }
+  .modal-ttl { font-size: 15px; }
+  .modal-ttl .x { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; margin: -8px 0 -8px auto; }
+  .modal-header .status-tracker { margin-top: 8px; }
+  .modal-body { padding: 12px 16px 14px; gap: 12px; }
+  .modal-body > p { font-size: 13.5px; }
+  .modal-foot { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
+  /* One button: full width. Two: side by side, primary last (right) as on desktop */
+  .modal-foot > .btn, .modal-foot > :not(.foot-more) .btn { flex: 1 1 0; min-height: 44px; padding: 6px 10px; line-height: 1.2; }
+  .modal-foot > .btn:last-child { flex-grow: 1.7; }
+  .modal-foot > :is(form, span, div:not(.foot-more)) { display: flex; flex: 1 1 0; }
+  .modal-foot:has(> .btn:only-child) .btn { flex-basis: 100%; }
+  /* "More" stays a compact pill on the left; its menu items keep their own width */
+  .modal-foot .foot-more { flex: 0 0 auto; }
+  .modal-foot .foot-more-btn { width: auto; padding: 0 14px; min-height: 44px; }
+  .modal-foot .foot-more .foot-left > .btn { flex: none; min-height: 44px; padding: 0 14px; justify-content: flex-start; }
+  .modal-foot .foot-more-btn .ph-caret-up, .modal-foot .foot-more-btn .ph-caret-down { display: none; }
+  /* Order dialog details: label left, value right, one line each */
+  .detail-grid { display: block; }
+  .detail-grid .dr { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border); }
+  .detail-grid .dr:first-child { border-top: 0; }
+  .detail-grid .dk { flex: none; margin: 0; }
+  .detail-grid .dv { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  .profile-section { padding: 12px 14px; }
+  /* Banners and alerts */
+  .banner { padding: 10px 12px; gap: 8px; font-size: 12.5px; margin-bottom: 12px; border-radius: 12px; }
+  .banner i { font-size: 16px; }
+  /* Toasts: full width under the top bar, not a narrow pill */
+  #toasts { top: calc(8px + env(safe-area-inset-top)); left: 8px; right: 8px; transform: none; align-items: stretch; }
+  .toast { min-width: 0; max-width: none; border-radius: 14px; padding: 10px 8px 10px 14px; }
+  .toast-x { width: 36px; height: 36px; justify-content: center; align-items: center; }
+}
+@media (max-width: 768px) {
+  /* Users card: the avatar overlapped the "Name" label; the name alone is enough */
+  .tbl:not(.orders-tbl, .plant-tbl, .lines) td .av { display: none; }
+}
