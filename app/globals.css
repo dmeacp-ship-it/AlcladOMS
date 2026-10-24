@@ -1179,7 +1179,7 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .plant-tbl tbody { padding: 0 12px 12px; }
   .plant-tbl tr {
     position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-areas: "q q st st" "cust cust cust cust" "desc desc desc desc" "n1 n2 n3 n4" "plant plant plant plant" "act act act act";
+    grid-template-areas: "q q st st" "cust cust cust cust" "desc desc desc desc";
     gap: 6px 8px; padding: 12px; margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--card);
   }
   .plant-tbl td, .plant-tbl td.nowrap, .plant-tbl td span { white-space: normal; }
@@ -1190,11 +1190,12 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .plant-tbl .c-st { grid-area: st; justify-self: end; align-self: center; }
   .plant-tbl .c-cust { grid-area: cust; }
   .plant-tbl .c-desc { grid-area: desc; font-size: 13px; }
-  .plant-tbl .c-n { background: var(--fill-2); border-radius: 10px; padding: 6px 4px; text-align: center; font-size: 15px; }
-  .plant-tbl .c-n::before { content: attr(data-label); display: block; font-size: 9.5px; font-weight: 500; color: var(--sub); text-transform: uppercase; letter-spacing: 0; }
-  .plant-tbl .c-plant { grid-area: plant; }
+  /* One field per row: label left, value right */
+  .plant-tbl .c-n { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); font-size: 15px; }
+  .plant-tbl .c-n::before { content: attr(data-label); font-size: 13px; font-weight: 600; color: var(--sub); }
+  .plant-tbl .c-plant { grid-column: 1 / -1; }
   .plant-tbl .c-plant :is(.plant-st, select) { width: 100%; max-width: none; }
-  .plant-tbl .c-act { grid-area: act; }
+  .plant-tbl .c-act { grid-column: 1 / -1; }
   .plant-tbl .c-act .row-acts { width: 100%; margin: 0; justify-content: stretch; }
   .plant-tbl .c-act .row-acts > * { flex: 1; }
   .plant-tbl .c-act .btn { width: 100%; justify-content: center; min-height: 44px; }
@@ -1225,38 +1226,34 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .stats { scroll-snap-type: x mandatory; }
   .stats > * { scroll-snap-align: start; }
 
-  /* Orders list: one card per order */
   .card > .tbl-wrap:has(.orders-tbl) { max-height: none; overflow: visible; }
   .orders-tbl, .orders-tbl tbody { display: block; min-width: 0; width: 100%; }
   .orders-tbl thead { display: none; }
+  /* One slim row per order: quote no + status, customer + total; tap opens the order (actions live there) */
   .orders-tbl tbody { padding: 0 12px 12px; }
   .orders-tbl tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center;
-    grid-template-areas: "q st" "cust cust" "date total" "sp qty" "do pi" "docs acts";
-    padding: 12px 14px; margin-top: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--card);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto 14px; gap: 2px 10px; align-items: center;
+    grid-template-areas: "q st chev" "cust total chev";
+    min-height: 60px; padding: 10px 4px 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer;
   }
+  .orders-tbl tr:last-child { border-bottom: 0; }
+  .orders-tbl tr::after { content: "\203A"; grid-area: chev; font-size: 22px; line-height: 1; color: var(--sub); }
   .orders-tbl td { display: block; padding: 0; border: 0; min-width: 0; }
   .orders-tbl td, .tbl.orders-tbl td.nowrap, .tbl.lines td.nowrap { white-space: normal !important; }
   .orders-tbl td:nth-child(1) { grid-area: q; }
-  .orders-tbl td:nth-child(2) { grid-area: date; font-size: 12.5px; }
-  .orders-tbl td:nth-child(3) { grid-area: cust; font-size: 15px; overflow-wrap: anywhere; }
-  .orders-tbl td:nth-child(4) { grid-area: sp; font-size: 12.5px; color: var(--sub); }
-  .orders-tbl td:nth-child(5) { grid-area: qty; text-align: right; font-size: 12.5px; }
-  .orders-tbl td:nth-child(6) { grid-area: total; text-align: right; font-size: 15px; }
-  .orders-tbl td:nth-child(7) { grid-area: st; }
-  .orders-tbl td:nth-child(8) { grid-area: do; }
-  .orders-tbl td:nth-child(9) { grid-area: pi; text-align: right; }
-  .orders-tbl td:nth-child(10) { grid-area: docs; }
-  .orders-tbl td:nth-child(11) { grid-area: acts; }
-  .orders-tbl td:nth-child(11) .row-acts { justify-content: flex-end; }
-  .orders-tbl td:is(:nth-child(8), :nth-child(9)):has(> .muted:only-child) { display: none; }
+  .orders-tbl td:nth-child(1) .qno { min-height: 0; }
+  .tbl.orders-tbl td.nowrap:nth-child(3) { grid-area: cust; font-size: 14px; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  .orders-tbl td:nth-child(6) { grid-area: total; text-align: right; font-size: 14px; }
+  .orders-tbl td:nth-child(7) { grid-area: st; justify-self: end; }
+  .orders-tbl td:is(:nth-child(2), :nth-child(4), :nth-child(5), :nth-child(8), :nth-child(9), :nth-child(10), :nth-child(11)) { display: none; }
 
-  /* Quote lines: one card per line, two fields a row */
-  .card .tbl-wrap:has(.tbl.lines) { overflow: visible; }
+  /* Quote lines: one card per line, one field per row (line no + delete share the top row) */
+  .card .tbl-wrap:has(.tbl.lines) { overflow: visible; max-height: none; }
   .tbl.lines, .tbl.lines tbody { display: block; min-width: 0; width: 100%; }
   .tbl.lines thead { display: none; }
-  .tbl.lines tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; padding: 12px; margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .tbl.lines tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 12px; margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
   .tbl.lines tr:has(td[colspan]) { display: block; border: 0; background: none; }
+  .tbl.lines td:not(:nth-child(1), :nth-child(17)) { grid-column: 1 / -1; }
   .tbl.lines td { display: block; padding: 0; border: 0; white-space: normal; min-width: 0; text-align: left; }
   .tbl.lines td :is(input, select, .combobox) { width: 100%; min-width: 0; }
   .tbl.lines td::before { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 600; color: var(--sub); }
