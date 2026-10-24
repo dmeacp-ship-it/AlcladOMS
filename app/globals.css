@@ -1152,3 +1152,14 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
 .vadd input { flex: 1; min-width: 0; }
 @media (max-width: 1100px) { .items-layout { grid-template-columns: 1fr; } }
 @media (max-width: 768px) { .lists-grid { grid-template-columns: 1fr; } .vadd { flex-wrap: wrap; } }
+
+/* App tooltip (Tooltips in app/ui.js): dark pill with a small arrow, above the element (below near the top edge) */
+.tip {
+  position: fixed; z-index: 10002; transform: translate(-50%, -100%); max-width: 260px; padding: 6px 10px; border-radius: 8px;
+  background: var(--text); color: var(--card); font-size: 12px; font-weight: 600; line-height: 1.35; text-align: center;
+  box-shadow: var(--shadow-2); pointer-events: none; animation: tipIn 0.12s var(--ease-out) both;
+}
+.tip::after { content: ''; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--text); }
+.tip.below { transform: translate(-50%, 0); }
+.tip.below::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--text); }
+@keyframes tipIn { from { opacity: 0; } to { opacity: 1; } }

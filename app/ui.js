@@ -80,6 +80,44 @@ export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
   )
 }
 
+// One styled tooltip for the whole app. Any element with a title (or data-tip) gets it on hover and on
+// keyboard focus; the title moves to data-tip so the plain browser tooltip doesn't show as well.
+// position: fixed, so tables and dialogs can't clip it. Mounted once in the Shell.
+export function Tooltips() {
+  const [tip, setTip] = useState(null)
+  useEffect(() => {
+    let cur = null
+    const show = (e) => {
+      const el = e.target.closest?.('[title],[data-tip]')
+      if (!el || el === cur) return
+      if (el.title) { el.dataset.tip = el.title; el.removeAttribute('title') }
+      const text = el.dataset.tip
+      if (!text) return
+      cur = el
+      const r = el.getBoundingClientRect()
+      const below = r.top < 48
+      setTip({ text, x: Math.min(Math.max(r.left + r.width / 2, 90), innerWidth - 90), y: below ? r.bottom + 8 : r.top - 8, below })
+    }
+    const hide = (e) => {
+      if (!cur || (e.type !== 'scroll' && e.relatedTarget && cur.contains(e.relatedTarget))) return
+      cur = null
+      setTip(null)
+    }
+    document.addEventListener('pointerover', show)
+    document.addEventListener('focusin', show)
+    document.addEventListener('pointerout', hide)
+    document.addEventListener('focusout', hide)
+    document.addEventListener('scroll', hide, true)
+    document.addEventListener('pointerdown', hide)
+    return () => {
+      for (const [t, f] of [['pointerover', show], ['focusin', show], ['pointerout', hide], ['focusout', hide], ['pointerdown', hide]]) document.removeEventListener(t, f)
+      document.removeEventListener('scroll', hide, true)
+    }
+  }, [])
+  if (!tip) return null
+  return <div className={`tip${tip.below ? ' below' : ''}`} role="tooltip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>
+}
+
 // Put inside a long form: once something is typed, leaving the page (link, back, refresh, closing the tab)
 // asks first. Submitting the form clears it.
 export function UnsavedGuard() {
