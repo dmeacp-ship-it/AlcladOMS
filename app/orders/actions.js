@@ -121,7 +121,7 @@ export async function createQuote(_prev, fd) {
     await logEvent(order.id, { full_name: 'System' }, 'Approved', `Auto-approved: below SAR ${money(s.auto_approve_below)}`)
   }
   revalidatePath('/', 'layout')
-  redirect(`/orders?view=${order.id}&ok=${encodeURIComponent(`Quotation ${order.quote_no} ${auto ? 'auto-approved' : 'submitted for approval'}.`)}`)
+  redirect(`/orders?ok=${encodeURIComponent(`Quotation ${order.quote_no} ${auto ? 'auto-approved' : 'submitted for approval'}.`)}`)
 }
 
 // Approve / reject replaces the old one-click email links.
