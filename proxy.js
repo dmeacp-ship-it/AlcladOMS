@@ -17,7 +17,10 @@ export async function proxy(request) {
       },
     },
   })
-  const { data: { user } } = await supabase.auth.getUser()
+  // getClaims verifies the session token locally (JWT signing keys) instead of asking Supabase Auth each request;
+  // it refreshes an expired token itself. Deactivated users are still stopped by currentUser (profiles.active).
+  const { data } = await supabase.auth.getClaims()
+  const user = data?.claims?.sub ? { id: data.claims.sub } : null
   if (!user && request.nextUrl.pathname !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url))
   }

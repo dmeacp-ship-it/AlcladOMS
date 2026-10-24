@@ -34,7 +34,7 @@ export default async function Orders({ searchParams }) {
   const own = (q) => (me.role === 'sales' ? q.eq('salesperson_id', me.id) : q)
 
   let q = filterOrders(own(db().from('orders')
-    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, vat_rate, items:order_items(id, item_no, description, qty, price, total, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status), batches:order_batches(*, items:batch_items(*, order_item:order_items(*)))')
+    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, vat_rate, items:order_items(id, item_no, description, qty, price, total, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status), batches:order_batches(id, batch_no, do_no, do_date, pi_no, pi_date, tax_invoice_path, items:batch_items(id, do_qty, order_item:order_items(description, price)))')
     .order('id', { ascending: false }).range((page - 1) * PAGE, page * PAGE)), status)
   if (term) q = q.or(`quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,doc_no.ilike.%${term}%`)
 

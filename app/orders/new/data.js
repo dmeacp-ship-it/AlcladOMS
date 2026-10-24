@@ -1,20 +1,27 @@
+import { unstable_cache } from 'next/cache'
 import { QUEUES, db } from '@/lib/server'
 import { getSettings } from '@/lib/settings'
 import { totals } from '@/lib/tas'
 
+// Customers, item lists and salespeople change only through admin pages, so they stay in Next's data cache
+// until an admin saves anything (updateTag('masters') in app/admin/actions.js).
+const masters = unstable_cache(async () => {
+  const [{ data: customers }, { data: options }, { data: salespersons }] = await Promise.all([
+    db().from('customers').select('*').order('name'),
+    db().rpc('item_options'),
+    db().from('profiles').select('id, full_name').in('role', ['sales', 'admin']).eq('active', true).order('full_name'),
+  ])
+  return { customers: customers || [], options: options || {}, salespersons: salespersons || [] }
+}, ['quote-masters'], { tags: ['masters'] })
+
 // Everything the quotation form needs, for New Quotation and the admin Edit order page.
 // skipOrder: the order being edited, left out of its customer's open-orders total.
 export async function quoteFormData(me, skipOrder) {
-  // Sales users see the customers assigned to them plus unassigned ones.
-  let cq = db().from('customers').select('*').order('name')
-  if (me.role === 'sales') cq = cq.or(`salesperson_id.is.null,salesperson_id.eq.${me.id}`)
   // ponytail: Supabase returns max 1000 rows; switch the customer picker to search past that.
-  const [{ data: customers }, { data: options }, { data: salespersons }, s] = await Promise.all([
-    cq,
-    db().rpc('item_options'),
-    db().from('profiles').select('id, full_name').in('role', ['sales', 'admin']).eq('active', true).order('full_name'),
-    getSettings(),
-  ])
+  const [m, s] = await Promise.all([masters(), getSettings()])
+  // Sales users see the customers assigned to them plus unassigned ones.
+  const customers = me.role === 'sales' ? m.customers.filter((c) => !c.salesperson_id || c.salesperson_id === me.id) : m.customers
+  const { options, salespersons } = m
 
   // Credit: what each customer with a limit already has in open (active) orders.
   const limited = (customers || []).filter((c) => c.credit_limit != null).map((c) => c.id)

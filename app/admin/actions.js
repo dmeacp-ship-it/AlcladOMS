@@ -1,9 +1,13 @@
 'use server'
-import { revalidatePath } from 'next/cache'
-import { db, go, logEvent, requireRole } from '@/lib/server'
+import { revalidatePath, updateTag } from 'next/cache'
+import { db, go as redirectTo, logEvent, requireRole } from '@/lib/server'
 import { parseCSV } from '@/lib/csv'
 import { DEFAULTS, getSettings } from '@/lib/settings'
 import { ITEM_LISTS, MASTERS, ROLES } from '@/lib/tas'
+
+// Every admin action ends in go(): drop the cached masters (settings, customers, items, salespeople) there,
+// after the write, so the next page load reads them fresh.
+const go = (...a) => { updateTag('masters'); redirectTo(...a) }
 
 const str = (fd, k) => String(fd.get(k) || '').trim()
 // Back to the list page the dialog was opened from (keeps its search and paging).
