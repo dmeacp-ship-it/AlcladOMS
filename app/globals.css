@@ -826,7 +826,9 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
   .tb-l span, .gsearch { display: none; }
   .content { padding: 12px 12px 60px; border-top-left-radius: 16px; }
   .fgrid-2, .fgrid-3, .fgrid-4 { grid-template-columns: 1fr; }
-  .cust-order-row { grid-template-columns: 1fr; }
+  /* Customer and salesperson full width; Quote Date and Validity side by side */
+  .cust-order-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cust-order-row > :nth-child(-n+2) { grid-column: 1 / -1; }
   .fg.span2, .dr.span2 { grid-column: auto; }
   .tsearch, .tsearch:focus { width: 100%; }
   .sum { min-width: 0; width: 100%; }
@@ -1247,19 +1249,27 @@ button.chip-link { border: 0; cursor: pointer; font-family: inherit; background:
   .orders-tbl td:nth-child(7) { grid-area: st; justify-self: end; }
   .orders-tbl td:is(:nth-child(2), :nth-child(4), :nth-child(5), :nth-child(8), :nth-child(9), :nth-child(10), :nth-child(11)) { display: none; }
 
-  /* Quote lines: one card per line, one field per row (line no + delete share the top row) */
+  /* Quote lines: one card per line in two columns: Brand|Color, Grade|Core, Skin|Width, Length|Thickness,
+     description full width, Qty|Price, then the computed M2|Total */
   .card .tbl-wrap:has(.tbl.lines) { overflow: visible; max-height: none; }
   .tbl.lines, .tbl.lines tbody { display: block; min-width: 0; width: 100%; }
   .tbl.lines thead { display: none; }
-  .tbl.lines tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 12px; margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .tbl.lines tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
   .tbl.lines tr:has(td[colspan]) { display: block; border: 0; background: none; }
-  .tbl.lines td:not(:nth-child(1), :nth-child(17)) { grid-column: 1 / -1; }
+  .tbl.lines td:is(:nth-child(4), :nth-child(12)) { grid-column: 1 / -1; }
+  .tbl.lines td:nth-child(11) { display: none; }
+  .tbl.lines td:nth-child(15) { order: 1; }
+  .tbl.lines td:is(:nth-child(14), :nth-child(16)) { order: 2; }
+  .tbl.lines td:is(:nth-child(4), :nth-child(12), :nth-child(14), :nth-child(16)) { font-size: 13px; }
+  .tbl.lines td:nth-child(16) { text-align: right; }
+  .tbl.lines td:nth-child(16) { font-size: 15px; }
   .tbl.lines td { display: block; padding: 0; border: 0; white-space: normal; min-width: 0; text-align: left; }
   .tbl.lines td :is(input, select, .combobox) { width: 100%; min-width: 0; }
   .tbl.lines td::before { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 600; color: var(--sub); }
   .tbl.lines td:nth-child(1) { font-weight: 700; align-self: center; }
   .tbl.lines td:nth-child(1)::before { content: "Line"; display: inline; margin-right: 4px; }
   .tbl.lines td:nth-child(17) { justify-self: end; grid-row: 1; grid-column: 2; }
+  .tbl.lines td:nth-child(1) { grid-row: 1; grid-column: 1; }
   .tbl.lines td:nth-child(2)::before { content: "Brand"; }
   .tbl.lines td:nth-child(3)::before { content: "Color Code"; }
   .tbl.lines td:nth-child(4)::before { content: "Color Name"; }
