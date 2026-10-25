@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache'
-import { QUEUES, db } from '@/lib/server'
+import { QUEUES, batchQueues, db } from '@/lib/server'
 import { getSettings } from '@/lib/settings'
 import { totals } from '@/lib/tas'
 
@@ -27,7 +27,7 @@ export async function quoteFormData(me, skipOrder) {
   const limited = (customers || []).filter((c) => c.credit_limit != null).map((c) => c.id)
   const exposure = {}
   if (limited.length) {
-    const { data: open } = await QUEUES.ACTIVE(db().from('orders').select('id, customer_id, transport, vat_rate, items:order_items(total)').in('customer_id', limited))
+    const { data: open } = await QUEUES.ACTIVE(db().from('orders').select('id, customer_id, transport, vat_rate, items:order_items(total)').in('customer_id', limited), await batchQueues())
     for (const o of open || []) {
       if (String(o.id) === String(skipOrder)) continue
       exposure[o.customer_id] = (exposure[o.customer_id] || 0) + totals(o.items, o.transport, o.vat_rate).total

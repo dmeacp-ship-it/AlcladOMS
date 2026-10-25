@@ -31,7 +31,8 @@ export default async function Plant({ searchParams }) {
   const { data: allRows, error } = await q.order('order_id', { ascending: false }).order('item_no').limit(LIMIT)
 
   // Compute balance and ready state dynamically (safe against unmigrated balance_qty)
-  const rowsWithBal = (allRows || []).map((it) => {
+  // A short-closed order's balance will never ship, so its lines leave the plant's lists.
+  const rowsWithBal = (allRows || []).filter((it) => it.orders?.dispatch_status !== 'SHORT_CLOSED').map((it) => {
     const bal = balanceOf(it)
     const rQty = readyOf(it)
     const isReady = rQty > 0 && bal > 0

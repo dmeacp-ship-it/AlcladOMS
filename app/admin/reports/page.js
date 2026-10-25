@@ -3,6 +3,10 @@ import { requireRole } from '@/lib/server'
 import { dispatch, pct, period, sales, waiting } from '@/lib/reports'
 import { int, money } from '@/lib/tas'
 import ReportsHead from './ReportsHead'
+import { Chart, weekOf, weeks } from './Charts'
+
+// Tiles show money short (SAR 141.3k) so it fits; the full figure is in the tooltip and the reports.
+const sar = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1)}k` : money(n))
 
 export const metadata = { title: 'Reports' }
 
@@ -15,6 +19,11 @@ export default async function Reports({ searchParams }) {
   const overdue = w.reduce((n, q) => n + q.old, 0)
   const top = (list) => list.slice(0, 3).map((g) => g.name).join(', ')
   const n = (k, one, many) => `${k} ${k === 1 ? one : many}`
+  // Weekly series for the two charts
+  const wk = weeks(p.from, p.to)
+  const sum = (rows, keyOf, valOf) => wk.map((w) => ({ label: w.label, value: rows.filter((r) => keyOf(r) === w.key).reduce((t, r) => t + valOf(r), 0) }))
+  const valueWeeks = sum(s.orders.filter((o) => o.status === 'APPROVED'), (o) => weekOf(o.quote_date), s.totalOf)
+  const pcsWeeks = sum(d.rows, (r) => weekOf(r.do_date), (r) => r.pcs)
 
   const cards = [
     { key: 'salespeople', icon: 'ph-user', title: 'Salespeople', n: `SAR ${money(s.value)}`,
@@ -24,7 +33,7 @@ export default async function Reports({ searchParams }) {
     { key: 'waiting', icon: 'ph-clock', title: 'Waiting now', n: `${waitingNow} waiting`,
       sub: overdue ? `${overdue} waiting more than 7 days.` : 'Nothing has waited more than 7 days.' },
     { key: 'dispatch', icon: 'ph-truck', title: 'Dispatch', n: `${int(d.pcs)} PCS`,
-      sub: `${n(d.rows.length, 'DO', 'DOs')} ·${d.toDo ?? '—'} days approval → first DO · ${d.toPi ?? '—'} days DO → PI` },
+      sub: `${n(d.rows.length, 'DO', 'DOs')} · ${d.toDo ?? '—'} days approval → first DO · ${d.toPi ?? '—'} days DO → PI` },
   ]
 
   return (
@@ -36,15 +45,22 @@ export default async function Reports({ searchParams }) {
           ['ph-file-text', 'ca', s.orders.length, 'Quotes', 'salespeople'],
           ['ph-seal-check', 'cg', s.approved, 'Approved', 'salespeople'],
           ['ph-percent', 'co', pct(s.approved, s.decided), 'Win rate', 'salespeople'],
-          ['ph-currency-circle-dollar', 'cg', money(s.value), 'Approved SAR', 'customers'],
+          ['ph-currency-circle-dollar', 'cg', sar(s.value), 'Approved SAR', 'customers', `SAR ${money(s.value)}`],
           ['ph-clock', overdue ? 'cr' : 'co', waitingNow, 'Waiting now', 'waiting'],
           ['ph-truck', 'ca', d.toDo ?? '—', 'Days to first DO', 'dispatch'],
           ['ph-package', 'ct', int(d.pcs), 'PCS on DOs', 'dispatch'],
-        ].map(([ic, cls, n, l, to]) => (
-          <Link prefetch={false} key={l} href={`/admin/reports/${to}?${p.qs}`} className="stat">
+        ].map(([ic, cls, n, l, to, full]) => (
+          <Link prefetch={false} key={l} href={`/admin/reports/${to}?${p.qs}`} className="stat" title={full}>
             <i className={`ph ${ic} stat-ic ${cls}`} /><div className={`stat-n ${cls}`}>{n}</div><div className="stat-l">{l}</div>
           </Link>
         ))}
+      </div>
+
+      <div className="charts">
+        <Chart title="Approved value per week (SAR)" kind="line" unit="SAR" points={valueWeeks}
+          summary={`Approved value per week from ${p.from} to ${p.to}: ${valueWeeks.map((w) => `${w.label} SAR ${money(w.value)}`).join(', ')}`} />
+        <Chart title="Pieces on Delivery Orders per week" kind="bar" unit="PCS" points={pcsWeeks}
+          summary={`Pieces on Delivery Orders per week: ${pcsWeeks.map((w) => `${w.label} ${w.value}`).join(', ')}`} />
       </div>
 
       <div className="rcards">

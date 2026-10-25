@@ -24,6 +24,10 @@ export async function proxy(request) {
   if (!user && request.nextUrl.pathname !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url))
   }
+  // Already signed in: the sign-in page would only show inside the app, so go to the orders instead.
+  if (user && request.nextUrl.pathname === '/login' && request.method === 'GET') {
+    return NextResponse.redirect(new URL('/orders', request.url))
+  }
   const headers = new Headers(request.headers) // includes any refreshed session cookie
   headers.delete('x-tas-user')
   if (user) headers.set('x-tas-user', user.id)

@@ -38,7 +38,7 @@ export default async function Users() {
                   <div className="fg"><label htmlFor="nu-name">Full name <span className="req">*</span></label><input id="nu-name" name="full_name" required /></div>
                   <div className="fg"><label htmlFor="nu-user">Username <span className="hint">— optional, to sign in without the email</span></label>{userField('nu-user')}</div>
                   <div className="fg"><label htmlFor="nu-email">Email <span className="req">*</span></label><input id="nu-email" name="email" type="email" required autoComplete="off" /></div>
-                  <div className="fg"><label htmlFor="nu-mobile">Mobile</label><input id="nu-mobile" name="mobile" /></div>
+                  <div className="fg"><label htmlFor="nu-mobile">Mobile</label><input id="nu-mobile" name="mobile" type="tel" inputMode="tel" /></div>
                   <div className="fg full">
                     <label htmlFor="nu-pw">Password <span className="req">*</span> <span className="hint">— at least 8 characters</span></label>
                     <PasswordInput id="nu-pw" name="password" minLength={8} required autoComplete="new-password" />
@@ -52,26 +52,26 @@ export default async function Users() {
         </div>
       </div>
       <div className="tbl-wrap">
-        <table className="tbl">
+        <table className="tbl users-tbl">
           <thead>
             <tr><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th>Last sign-in</th><th className="r">Actions</th></tr>
           </thead>
           <tbody>
             {users?.map((u) => (
               <tr key={u.id}>
-                <td>
+                <td className="c-name">
                   <div className="row" style={{ flexWrap: 'nowrap' }}>
                     <div className="av sm" aria-hidden="true">{initials(u.full_name)}</div>
                     <span className="desc">{u.full_name}{u.id === me.id && <span className="muted text-sm"> (you)</span>}</span>
                   </div>
                 </td>
-                <td>{u.username || <span className="muted">—</span>}</td>
-                <td>{u.email}</td>
-                <td>{u.mobile || <span className="muted">—</span>}</td>
-                <td><span className={`rtag rt-${u.role}`} style={{ marginTop: 0 }}>{u.role}</span></td>
-                <td><span className={`badge ${u.active ? 'b-ok' : 'b-none'}`}>{u.active ? 'Active' : 'Disabled'}</span></td>
-                <td className="nowrap muted" title={lastSeen[u.id] ? stamp(lastSeen[u.id]) : undefined}>{ago(lastSeen[u.id]) || '—'}</td>
-                <td>
+                <td className="c-user">{u.username || <span className="muted">—</span>}</td>
+                <td className="c-email">{u.email}</td>
+                <td className="c-mobile">{u.mobile || <span className="muted">—</span>}</td>
+                <td className="c-role"><span className={`rtag rt-${u.role}`} style={{ marginTop: 0 }}>{u.role}</span></td>
+                <td className="c-status"><span className={`badge ${u.active ? 'b-ok' : 'b-none'}`}>{u.active ? 'Active' : 'Disabled'}</span></td>
+                <td className="nowrap muted c-seen" title={lastSeen[u.id] ? stamp(lastSeen[u.id]) : undefined}>{ago(lastSeen[u.id]) || '—'}</td>
+                <td className="c-act">
                   <div className="row-acts">
                     <Modal title={`Edit ${u.full_name}`} icon="ph-pencil-simple" btnIcon="ph-pencil-simple" ariaLabel={`Edit ${u.full_name}`}
                       btnClass="btn btn-ghost btn-sm act-icon-btn">
@@ -82,7 +82,7 @@ export default async function Users() {
                             <div className="fg"><label htmlFor={`n-${u.id}`}>Full name <span className="req">*</span></label><input id={`n-${u.id}`} name="full_name" defaultValue={u.full_name} required /></div>
                             <div className="fg"><label htmlFor={`u-${u.id}`}>Username</label>{userField(`u-${u.id}`, u.username)}</div>
                             <div className="fg"><label>Email</label><div className="ro">{u.email}</div></div>
-                            <div className="fg"><label htmlFor={`m-${u.id}`}>Mobile</label><input id={`m-${u.id}`} name="mobile" defaultValue={u.mobile || ''} /></div>
+                            <div className="fg"><label htmlFor={`m-${u.id}`}>Mobile</label><input id={`m-${u.id}`} name="mobile" type="tel" inputMode="tel" defaultValue={u.mobile || ''} /></div>
                             <div className="fg full"><label htmlFor={`r-${u.id}`}>Role <span className="req">*</span></label><RoleSelect id={`r-${u.id}`} defaultValue={u.role} /></div>
                             <div className="fg full">
                               <label htmlFor={`p-${u.id}`}>New password <span className="hint">— leave blank to keep the current one</span></label>

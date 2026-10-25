@@ -21,16 +21,18 @@ export default async function Master({ params, searchParams }) {
   const sp = await searchParams
   const page = Math.max(0, parseInt(sp.page) || 0)
   const term = String(sp.q || '').trim()
+  const sort = ['name', 'code'].includes(sp.sort) ? sp.sort : 'id'
   const one = cfg.title.slice(0, -1)
 
   const isCust = master === 'customers'
-  let q = db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' }).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
+  let q = db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' }).order(sort).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
   if (term) q = q.ilike(cfg.search, `%${term}%`)
   const [{ data: rows, count }, { data: people }] = await Promise.all([
     q,
     isCust ? db().from('profiles').select('id, full_name').in('role', ['sales', 'admin']).eq('active', true).order('full_name') : { data: [] },
   ])
-  const link = (p) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }) })}`
+  const link = (p, s = sort) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }), ...(s !== 'id' && { sort: s }) })}`
+  const sorts = isCust ? Object.fromEntries(['code', 'name'].map((c) => [c, { href: link(0, c), dir: sort === c ? 'ascending' : 'none' }])) : {}
   const here = link(page)
   const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers }
   // Only what the table and its dialogs show goes to the browser.
@@ -71,7 +73,7 @@ export default async function Master({ params, searchParams }) {
                 <p>{isCust
                   ? 'Customers are matched on code: new codes are added, existing ones are updated. Salesperson can be a name, email or username.'
                   : 'Rows are added; an item whose description is already in the master is skipped.'}</p>
-                <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" />
+                <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" maxMB={4} />
               </div>
               <ModalFoot label="Import" icon="ph-upload-simple" />
             </form>
@@ -81,7 +83,7 @@ export default async function Master({ params, searchParams }) {
       </div>
       <div className="tbl-wrap">
         <MasterTable cfg={form} rows={(rows || []).map(pick)} people={isCust ? people : null}
-          table={master} title={cfg.title} search={cfg.search} here={here} />
+          table={master} title={cfg.title} search={cfg.search} here={here} sorts={sorts} />
         {!rows?.length && (
           <div className="empty">
             <i className="ph ph-magnifying-glass" />

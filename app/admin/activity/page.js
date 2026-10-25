@@ -19,7 +19,7 @@ export default async function Activity({ searchParams }) {
   const actions = [...new Set((names || []).map((r) => r.action))].sort()
   const link = (p) => `/admin/activity?${new URLSearchParams({ ...filters, ...(p && { page: p }) })}`
   const select = (name, label, list) => (
-    <select name={name} defaultValue={filters[name] || ''} aria-label={label} style={{ width: 170 }}>
+    <select name={name} defaultValue={filters[name] || ''} aria-label={label} className="flt-sel">
       <option value="">{label}</option>
       {list.map((v) => <option key={v}>{v}</option>)}
     </select>
@@ -29,15 +29,18 @@ export default async function Activity({ searchParams }) {
     <div className="card">
       <div className="tbl-top">
         <h2 className="tbl-ttl"><i className="ph ph-clock-counter-clockwise" />Activity <span className="badge b-none">{count ?? 0}</span></h2>
-        <form className="tbl-filters">
+        {/* Phones: the filters fold behind one button that says how many are on */}
+        <input type="checkbox" id="flt-toggle" className="flt-toggle sr-only" aria-label="Show filters" />
+        <label htmlFor="flt-toggle" className="btn btn-ghost btn-sm flt-btn"><i className="ph ph-funnel" />Filters{Object.keys(filters).length ? ` (${Object.keys(filters).length})` : ''}</label>
+        <form className="tbl-filters flt-body">
           <div className="sw">
             <i className="ph ph-magnifying-glass" />
             <input className="tsearch" name="q" defaultValue={filters.q} placeholder="Search details, e.g. Q-2026-001" aria-label="Search activity" />
           </div>
           {select('user', 'All users', users)}
           {select('action', 'All actions', actions)}
-          <input type="date" name="from" defaultValue={filters.from} aria-label="From date" style={{ width: 150 }} />
-          <input type="date" name="to" defaultValue={filters.to} aria-label="To date" style={{ width: 150 }} />
+          <input type="date" name="from" defaultValue={filters.from} aria-label="From date" className="flt-date" />
+          <input type="date" name="to" defaultValue={filters.to} aria-label="To date" className="flt-date" />
           <button className="btn btn-ghost btn-sm"><i className="ph ph-funnel" />Filter</button>
           {Object.keys(filters).length > 0 && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href="/admin/activity">Clear</Link>}
           <a className="btn btn-ghost btn-sm" href={`/admin/export/activity?${new URLSearchParams(filters)}`}><i className="ph ph-download-simple" />Export</a>
@@ -45,16 +48,16 @@ export default async function Activity({ searchParams }) {
       </div>
       {error && <div className="banner error" style={{ margin: '0 20px 16px' }} title={error.message}><i className="ph ph-warning-circle" />Couldn't load the activity log. Press Refresh to try again.</div>}
       <div className="tbl-wrap">
-        <table className="tbl">
+        <table className="tbl activity-tbl">
           <thead><tr><th>When</th><th>User</th><th>Action</th><th>Order</th><th>Details</th></tr></thead>
           <tbody>
             {rows?.map((e) => (
               <tr key={e.id}>
-                <td className="nowrap muted">{stamp(e.at)}</td>
-                <td className="nowrap fw6">{e.by_name || <span className="muted">—</span>}</td>
-                <td className="nowrap">{e.action}</td>
-                <td className="nowrap">{e.order ? <Link prefetch={false} className="qno" href={`/orders?view=${e.order_id}`}>{e.order.quote_no}</Link> : <span className="muted">—</span>}</td>
-                <td style={{ minWidth: 280 }}>{e.detail || <span className="muted">—</span>}</td>
+                <td className="nowrap muted c-when">{stamp(e.at)}</td>
+                <td className="nowrap fw6 c-user">{e.by_name || <span className="muted">—</span>}</td>
+                <td className="nowrap c-action">{e.action}</td>
+                <td className="nowrap c-order">{e.order ? <Link prefetch={false} className="qno" href={`/orders?view=${e.order_id}`}>{e.order.quote_no}</Link> : <span className="muted">—</span>}</td>
+                <td className="c-detail">{e.detail || <span className="muted">—</span>}</td>
               </tr>
             ))}
           </tbody>

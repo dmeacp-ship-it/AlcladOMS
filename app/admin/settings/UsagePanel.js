@@ -5,10 +5,11 @@ const fmt = (k, n) => (k === 'mau' ? n.toLocaleString('en') : n >= 1e9 ? `${(n /
 // Free-plan usage, admins only (Company Settings).
 export default async function UsagePanel() {
   const rows = await getUsage()
+  if (!rows) console.warn('Usage panel: run supabase/migrate-012.sql to enable it.')
   return (
     <section className="fsec">
       <h2 className="fsec-ttl"><i className="ph ph-gauge" />Free plan usage</h2>
-      {!rows ? <p className="muted text-sm">Run supabase/migrate-012.sql in Supabase to see usage here.</p> : (
+      {!rows ? <p className="muted text-sm">Usage figures aren't available yet.</p> : (
         <div className="usage">
           {rows.map((r) => (
             <div key={r.key} className="usage-row">

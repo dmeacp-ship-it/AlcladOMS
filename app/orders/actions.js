@@ -1,10 +1,10 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { QUEUES, db, findOrder, getOrder, go, logEvent, requireRole } from '@/lib/server'
+import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, requireRole } from '@/lib/server'
 import { removeInvoices, saveInvoice } from '@/lib/drive'
 import { getSettings } from '@/lib/settings'
-import { DISPATCH, PRODUCTION, calcM2, describe, dispatchOpen, dmy, int, lineTotal, money, readyOf, today, totals } from '@/lib/tas'
+import { DISPATCH, PRODUCTION, calcM2, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
 
 const num = (v) => (String(v ?? '').trim() === '' ? NaN : Number(v))
 // After an action, land back where it was started: the order dialog, the list row or the plant page.
@@ -70,7 +70,7 @@ const snapshot = (c) => ({
 // Credit check for the timeline: open orders of the customer plus this one, against its limit.
 async function creditNote(c, total, skipOrder) {
   if (c.credit_limit == null) return ''
-  const { data: open } = await QUEUES.ACTIVE(db().from('orders').select('id, transport, vat_rate, items:order_items(total)').eq('customer_id', c.id))
+  const { data: open } = await QUEUES.ACTIVE(db().from('orders').select('id, transport, vat_rate, items:order_items(total)').eq('customer_id', c.id), await batchQueues())
   const used = (open || []).filter((o) => String(o.id) !== String(skipOrder))
     .reduce((s, o) => s + totals(o.items, o.transport, o.vat_rate).total, 0) + total
   return used > Number(c.credit_limit) ? ` · over credit limit: SAR ${money(used)} of ${money(c.credit_limit)}` : ''
@@ -149,7 +149,7 @@ export async function decide(fd) {
   if (!data?.length) go(back(fd, id), 'error', 'This quotation is no longer pending.')
   await logEvent(id, me, approve ? 'Approved' : 'Rejected', approve ? null : reason)
   revalidatePath('/', 'layout')
-  go(back(fd, id), 'ok', `Quotation ${data[0].quote_no} ${approve ? 'APPROVED' : 'REJECTED'}.`)
+  go(back(fd, id), 'ok', `Quotation ${data[0].quote_no} ${approve ? 'approved' : 'rejected'}.`)
 }
 
 // Plant status per order line (Pending, Under Production, Ready for Dispatch, Coil N/A).
@@ -195,58 +195,64 @@ export async function saveProduction(fd) {
       await db().from('order_items').update({ ready_qty: readyQty }).eq('id', it.id)
     } catch {}
 
-    changes.push(`Line ${it.item_no}: ${v}${v === 'Ready for Dispatch' ? ` (${readyQty} PCS ready)` : coil ? ` (coil ${dmy(coil)})` : ''}`)
+    changes.push(`Line ${it.item_no}: ${v}${v === 'Ready for Dispatch' ? ` (${readyQty} PCS ready)` : coil ? ` (coil ${day(coil)})` : ''}`)
   }
   if (changes.length) await logEvent(o.id, me, 'Plant status', changes.join('; '))
   revalidatePath('/', 'layout')
   go(path, 'ok', 'Plant status saved.')
 }
 
-// Mark lines ready for dispatch (called by plant or operations).
+// Mark lines ready for dispatch (plant or operations). The Plant Dispatch selection may hold lines of
+// several orders: each order is checked and logged on its own.
 export async function markReady(fd) {
   const me = await requireRole()
-  const id = fd.get('id')
-  const o = await getOrder(id, me)
-  const path = back(fd, o.id)
-  if (o.status !== 'APPROVED') go(path, 'error', 'Only approved orders can be marked ready for dispatch.')
+  const ids = [...new Set(fd.getAll('id').map(String))]
+  const path = back(fd, ids[0])
+  let lines = 0
+  for (const id of ids) {
+    const o = await getOrder(id, me)
+    if (o.status !== 'APPROVED') go(path, 'error', `${o.quote_no} is not approved, so its lines can't be marked ready.`)
+    const changes = []
+    for (const it of o.items) {
+      const raw = fd.get('ready_' + it.id)
+      if (raw === null) continue
+      const q = num(raw)
+      if (isNaN(q) || q < 0) continue
+      const balance = Math.max(0, Number(it.qty) - (Number(it.dispatched_qty) || 0))
+      // Input is the quantity to ADD on top of what is already ready (not yet on a DO).
+      const curReady = Number(it.ready_qty != null ? it.ready_qty : (it.delivered_qty || 0))
+      const added = Math.min(q, Math.max(0, balance - curReady))
+      const validQty = curReady + added
 
-  const changes = []
-  for (const it of o.items) {
-    const raw = fd.get('ready_' + it.id)
-    if (raw === null) continue
-    const q = num(raw)
-    if (isNaN(q) || q < 0) continue
-    const balance = Math.max(0, Number(it.qty) - (Number(it.dispatched_qty) || 0))
-    // Input is the quantity to ADD on top of what is already ready (not yet on a DO).
-    const curReady = Number(it.ready_qty != null ? it.ready_qty : (it.delivered_qty || 0))
-    const added = Math.min(q, Math.max(0, balance - curReady))
-    const validQty = curReady + added
+      // 1. Update delivered_qty (guaranteed column in Supabase)
+      await db().from('order_items').update({ delivered_qty: validQty }).eq('id', it.id)
 
-    // 1. Update delivered_qty (guaranteed column in Supabase)
-    await db().from('order_items').update({ delivered_qty: validQty }).eq('id', it.id)
-
-    // 2. Try updating production_status
-    try {
-      const pTest = await db().from('order_items').update({ production_status: 'Ready for Dispatch' }).eq('id', it.id)
-      if (pTest.error) {
+      // 2. Try updating production_status
+      try {
+        const pTest = await db().from('order_items').update({ production_status: 'Ready for Dispatch' }).eq('id', it.id)
+        if (pTest.error) {
+          await db().from('order_items').update({ production_status: validQty > 0 ? 'Under Production' : 'Pending' }).eq('id', it.id)
+        }
+      } catch {
         await db().from('order_items').update({ production_status: validQty > 0 ? 'Under Production' : 'Pending' }).eq('id', it.id)
       }
-    } catch {
-      await db().from('order_items').update({ production_status: validQty > 0 ? 'Under Production' : 'Pending' }).eq('id', it.id)
+
+      // 3. Try ready_qty if migrated
+      try {
+        await db().from('order_items').update({ ready_qty: validQty }).eq('id', it.id)
+      } catch {}
+
+      if (added > 0) changes.push(`Line ${it.item_no}: +${added} PCS ready (${validQty} total)`)
     }
-
-    // 3. Try ready_qty if migrated
-    try {
-      await db().from('order_items').update({ ready_qty: validQty }).eq('id', it.id)
-    } catch {}
-
-    if (added > 0) changes.push(`Line ${it.item_no}: +${added} PCS ready (${validQty} total)`)
+    if (changes.length) {
+      await logEvent(o.id, me, 'Marked ready for dispatch', changes.join('; '))
+      lines += changes.length
+    }
   }
 
-  if (!changes.length) go(path, 'error', 'No ready quantities were provided.')
-  await logEvent(o.id, me, 'Marked ready for dispatch', changes.join('; '))
+  if (!lines) go(path, 'error', 'Enter how many pieces are ready on at least one line.')
   revalidatePath('/', 'layout')
-  go(path, 'ok', `${changes.length} line(s) marked ready for dispatch.`)
+  go(path, 'ok', `${plural(lines, 'line')} marked ready for dispatch.`)
 }
 
 // Generate Delivery Order (Batch) and record physical dispatch (merged flow).
@@ -377,7 +383,7 @@ export async function generateBatchDO(fd) {
   }
 
   const truckDesc = [vehicle_no && `Vehicle ${vehicle_no}`, transporter, lr_no && `LR ${lr_no}`, driver && `Driver ${driver}`].filter(Boolean).join(' · ')
-  await logEvent(o.id, me, 'DO generated & dispatched', `${doNo} · ${lines.length} lines · ${truckDesc || 'No truck details'}`)
+  await logEvent(o.id, me, 'DO generated & dispatched', `${doNo} · ${plural(lines.length, 'line')} · ${truckDesc || 'No truck details'}`)
 
   revalidatePath('/', 'layout')
   redirect(`/orders?view=${o.id}&open_batch_pi=${batchId}&ok=${encodeURIComponent(`Delivery Order ${doNo} generated & dispatched.`)}`)
@@ -525,7 +531,7 @@ export async function undoDispatch(fd) {
   if (o.status !== 'APPROVED') go(path, 'error', 'Only approved orders can change.')
   const { data: st, error } = await db().rpc('undo_dispatch', { p_dispatch: d.id })
   if (error) go(path, 'error', error.message)
-  await logEvent(o.id, me, 'Dispatch undone', `Line ${d.item?.item_no}: ${d.qty} PCS of ${dmy(d.dispatch_date)}`)
+  await logEvent(o.id, me, 'Dispatch undone', `Line ${d.item?.item_no}: ${d.qty} PCS of ${day(d.dispatch_date)}`)
   revalidatePath('/', 'layout')
   go(path, 'ok', `Dispatch undone - ${DISPATCH[st]?.[0] || 'Done'}.`)
 }

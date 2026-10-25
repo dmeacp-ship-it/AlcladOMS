@@ -271,6 +271,31 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   buttons use the document viewer; plant selection bar as a class; idle blurs and `transition: all` removed;
   `--on-accent` token.
 
+### 2026-10-25 — 19. Two-pass audit (Impeccable + UI/UX Pro Max, 51 findings) — all fixed
+- **Queues per DO batch:** `batchQueues()` in `lib/server.js`; AWAIT_PI / AWAIT_TAX / ACTIVE also count orders
+  with a DO batch missing its PI or a PI batch missing its tax invoice. `migrate-013.sql` (optional) does the
+  same in `order_counts()` and returns `V: 2`; until it runs the app counts those three queues itself. The
+  order dialog's tracker and next-step banner read the batches ("Tax invoice 2 of 3").
+- **Desktop:** orders table cut to 8 columns (Docs merged, qty under total, names wrap) and fits 1280+;
+  quote number and Actions pinned when a table scrolls; sidebar starts as a rail at 769–1365 px (logo opens
+  it, `localStorage.sb = open|col`); quote lines as two rows (inputs + description), cards at ≤ 1100 px.
+- **Dialogs:** order profile reordered (items first, customer + timeline folded, Documents section only for
+  legacy orders); Mark Ready shows the quantity right after the material and works across orders; typing in a
+  dialog then Esc / backdrop / ✕ asks "Discard what you typed?"; delete of an order with documents needs the
+  quote number typed; 4 MB / 1 MB file limits checked before upload; dialogs close with a 170 ms exit.
+- **Menus:** combobox menu is fixed to the window (not clipped by dialogs), flips up, names wrap; tooltips only
+  for icon-only controls and never on touch; Delete / Short Close red in More; errors stay until dismissed
+  (`role="alert"`); entry animations use `backwards` fill so no transform is left on dialogs (it trapped fixed
+  menus).
+- **Phones:** five tabs max (More holds Reports, admin pages, theme, Log out); phone layout also for a phone in
+  landscape (`(max-height: 500px) and (pointer: coarse)`); 16 px body; 44 px fields; queue tiles as chips;
+  compact rows for plant, order lines, customers, users, activity (filters behind a button); colour list as
+  chips with a filter; drag the sheet header down to close.
+- **System:** type in rem (12 px floor, less uppercase), motion tokens 150/250/350 ms, z-index scale, one
+  on-screen date format (`day()`), status words in sentence case (`STATUS`, `DISPATCH`), `app/loading.js`
+  and `app/error.js`, sortable orders / customers / report tables, two weekly charts on Reports, offline notice,
+  `/login` redirects signed-in users, Plant badge counts open lines.
+
 ---
 
 ## 5. Architecture
@@ -342,6 +367,7 @@ when opened (not stored), so editing company details changes how old documents p
 - Customer codes in the seed were generated (`CUS-001…`); the source file had none.
 - Theme / collapsed-sidebar preference is per browser (localStorage).
 - `order_counts()` (SQL) and `QUEUES` (JS) define the same queues — change both together.
+- Long admin tables still scroll inside their card on desktop so the column headers stay in view.
 
 ## 8. Design-check exceptions (`.impeccable/config.json`)
 - `bounce-easing` for `var(--spring)` — false positive: the curve has no overshoot (copied from FMS).

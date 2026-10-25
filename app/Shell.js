@@ -7,15 +7,15 @@ import { LinkBusy, TableLabels, Tooltips } from './ui'
 
 const LIST_TITLES = {
   '': ['All Orders', 'Every quotation and order'],
-  ACTIVE: ['Active Orders', 'Orders still in progress — approve, DO, dispatch, PI and tax invoice right here'],
+  ACTIVE: ['Active Orders', 'Orders still in progress: approve, DO, PI and tax invoice from here'],
   PENDING: ['Pending Approval', 'Quotations waiting for a decision'],
   APPROVED: ['Approved Orders', 'Approved quotations in progress'],
   REJECTED: ['Rejected Quotations', 'Duplicate one to resubmit it'],
   CANCELLED: ['Cancelled Orders', 'Orders cancelled before delivery'],
   AWAIT_DO: ['Awaiting DO', 'Approved orders that need a Delivery Order'],
   AWAIT_DISPATCH: ['Awaiting Dispatch', 'DOs the plant has not fully dispatched yet'],
-  AWAIT_PI: ['Awaiting PI', 'Orders with a DO that need a Proforma Invoice'],
-  AWAIT_TAX: ['Awaiting Tax Invoice', 'Invoiced orders without an uploaded tax invoice'],
+  AWAIT_PI: ['Awaiting PI', 'Delivery Orders that need a Proforma Invoice'],
+  AWAIT_TAX: ['Awaiting Tax Invoice', 'Proforma Invoices without an uploaded tax invoice'],
 }
 const PAGES = [
   [/^\/orders\/new/, 'New Quotation', 'Pick the customer and line items, then submit for approval'],
@@ -27,31 +27,46 @@ const PAGES = [
   [/^\/admin\/reports\/waiting/, 'Reports · Waiting', 'What is waiting right now, and for how long'],
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
   [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
-  [/^\/orders\/\d+\/print/, 'Print Document', 'Print it or choose “Save as PDF”'],
-  [/^\/plant/, 'Plant Dispatch', 'Dispatch DO lines one by one — part quantities allowed'],
+  [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
+  [/^\/plant/, 'Plant Dispatch', 'Update production and mark finished pieces ready'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
-  [/^\/admin\/items/, 'Items', 'One list per column — quotes combine them'],
+  [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
 ]
 
-// Sidebar + topbar around every signed-in page, as in the FMS app.
-export default function Shell({ me, nav, settings, logout, children }) {
-  const pathname = usePathname()
-  const inSettings = settings.some((s) => pathname.startsWith(s.href))
-  // Settings popover: closes on navigation, outside click and Esc.
-  const [setOpen, setSetOpen] = useState(false)
-  const setRef = useRef(null)
-  useEffect(() => setSetOpen(false), [pathname])
-  // Report tabs scroll sideways on phones: keep the open one in view.
-  useEffect(() => { document.querySelector('.tabs .tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [pathname])
+// Closes a popover on outside press and Esc while it is open.
+function useDismiss(open, setOpen, ref) {
   useEffect(() => {
-    if (!setOpen) return
-    const out = (e) => { if (!setRef.current?.contains(e.target)) setSetOpen(false) }
-    const esc = (e) => { if (e.key === 'Escape') setSetOpen(false) }
+    if (!open) return
+    const out = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', out)
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc) }
-  }, [setOpen])
+  }, [open, setOpen, ref])
+}
+
+// Sidebar + topbar around every signed-in page, as in the FMS app. On phones the sidebar becomes a bottom
+// tab bar of at most five tabs: the main pages plus More, which holds Reports, the admin pages and Log out.
+export default function Shell({ me, nav, settings, logout, children }) {
+  const pathname = usePathname()
+  const inSettings = settings.some((s) => pathname.startsWith(s.href))
+  const [setOpen, setSetOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const setRef = useRef(null)
+  const moreRef = useRef(null)
+  useEffect(() => { setSetOpen(false); setMoreOpen(false) }, [pathname])
+  useDismiss(setOpen, setSetOpen, setRef)
+  useDismiss(moreOpen, setMoreOpen, moreRef)
+  // Report tabs scroll sideways on phones: keep the open one in view.
+  useEffect(() => { document.querySelector('.tabs .tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [pathname])
+  // After moving to another page, start keyboard and screen-reader users at its content (not on the first load).
+  const firstPath = useRef(pathname)
+  useEffect(() => {
+    if (pathname === firstPath.current) return
+    firstPath.current = null
+    if (!document.querySelector('dialog[open]')) document.getElementById('main')?.focus({ preventScroll: true })
+  }, [pathname])
   const sp = useSearchParams()
   const status = sp.get('status') || ''
   const router = useRouter()
@@ -63,9 +78,17 @@ export default function Shell({ me, nav, settings, logout, children }) {
   }, [refreshing])
   const [dark, setDark] = useState(false)
   const [toast, setToast] = useState(null)
+  const [online, setOnline] = useState(true)
   useEffect(() => setDark(document.documentElement.dataset.theme === 'dark'), [])
+  useEffect(() => {
+    const on = () => setOnline(navigator.onLine)
+    on()
+    addEventListener('online', on)
+    addEventListener('offline', on)
+    return () => { removeEventListener('online', on); removeEventListener('offline', on) }
+  }, [])
 
-  // ?ok= / ?error= from a server action -> island toast, then drop them from the URL.
+  // ?ok= / ?error= from a server action -> toast, then drop them from the URL.
   const msg = sp.get('error') || sp.get('ok')
   const kind = sp.get('error') ? 'error' : 'success'
   useEffect(() => {
@@ -74,11 +97,12 @@ export default function Shell({ me, nav, settings, logout, children }) {
     const url = new URL(window.location.href)
     url.searchParams.delete('ok')
     url.searchParams.delete('error')
-    window.history.replaceState(null, '', url)
+    window.history.replaceState(window.history.state, '', url)
   }, [msg, kind])
+  // Success messages leave by themselves; errors stay until they are dismissed.
   useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), toast.kind === 'error' ? 7000 : 4000)
+    if (toast?.kind !== 'success') return
+    const t = setTimeout(() => setToast(null), 4000)
     return () => clearTimeout(t)
   }, [toast])
 
@@ -94,22 +118,26 @@ export default function Shell({ me, nav, settings, logout, children }) {
   // prefetch={false} on every Link in the app: pages depend on the signed-in user and are never cached,
   // so background prefetches only cost a login check and a server render each, without speeding anything up.
   const item = (n) => (
-    <Link prefetch={false} key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}`} title={n.label}>
+    <Link prefetch={false} key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}${n.more ? ' phone-more' : ''}`}
+      aria-current={active(n.href) ? 'page' : undefined} title={n.label}>
       <LinkBusy />
       <i className={`ph ${n.icon}`} />
       <span className="ni-txt">{n.label}</span>
       {/* Phone tab bar: one-word label so every icon sits on the same line */}
       {n.short && <span className="ni-short">{n.short}</span>}
-      {n.badge > 0 && <span className="ni-bd">{n.badge}</span>}
+      {n.badge > 0 && <span className="ni-bd" aria-label={`${n.badge} waiting`}>{n.badge}</span>}
     </Link>
   )
+  const moreItems = [...nav.filter((n) => n.more), ...settings]
+  // Phone tab bar: the main pages plus More, all the same width
+  const tabs = nav.filter((n) => n.href && !n.more).length + 1
   const initials = me.full_name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
+  // The logo collapses the sidebar to a rail, or opens it again. Between 769 and 1365 px it starts as a rail.
   function toggleSb() {
-    const col = document.documentElement.dataset.sb !== 'col'
-    if (col) document.documentElement.dataset.sb = 'col'
-    else delete document.documentElement.dataset.sb
-    try { localStorage.sb_collapsed = col } catch {}
+    const isRail = document.querySelector('.sb').getBoundingClientRect().width < 120
+    document.documentElement.dataset.sb = isRail ? 'open' : 'col'
+    try { localStorage.sb = isRail ? 'open' : 'col'; localStorage.removeItem('sb_collapsed') } catch {}
   }
 
   // Circular reveal from the click point (FMS toggleTheme).
@@ -129,7 +157,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
     document.startViewTransition(apply).ready.then(() => {
       document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-        { duration: 500, easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)', pseudoElement: '::view-transition-new(root)' },
+        { duration: 400, easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)', pseudoElement: '::view-transition-new(root)' },
       )
     })
   }
@@ -137,7 +165,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
-      <aside className="sb" aria-label="Main navigation">
+      <aside className="sb" aria-label="Main navigation" style={{ '--tabs': tabs }}>
         <div className="sb-nav-wrapper">
           <button type="button" className="sb-brand" onClick={toggleSb} aria-label="Collapse or expand the sidebar">
             {/* Same mark as the favicon (app/icon.svg) */}
@@ -163,13 +191,36 @@ export default function Shell({ me, nav, settings, logout, children }) {
               </button>
             </div>
           )}
+          {/* Phones only: the fifth tab */}
+          <div ref={moreRef} className="sb-more">
+            <button type="button" className={`ni sb-more-btn${moreItems.some((n) => active(n.href)) ? ' active' : ''}`}
+              aria-expanded={moreOpen} aria-controls="more-sheet" onClick={() => setMoreOpen(!moreOpen)}>
+              <i className="ph ph-dots-three-circle" />
+              <span className="ni-short">More</span>
+            </button>
+            {moreOpen && (
+              <>
+                <div className="more-scrim" aria-hidden="true" onClick={() => setMoreOpen(false)} />
+                <nav id="more-sheet" className="more-sheet" aria-label="More">
+                  <div className="more-user"><div className="av sm" aria-hidden="true">{initials}</div><b>{me.full_name}</b><span className={`rtag rt-${me.role}`}>{me.role}</span></div>
+                  {moreItems.length > 0 && <div className="more-list">{moreItems.map(item)}</div>}
+                  <button type="button" className="ni" onClick={(e) => { toggleTheme(e); setMoreOpen(false) }}>
+                    <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} /><span className="ni-txt">{dark ? 'Light mode' : 'Dark mode'}</span>
+                  </button>
+                  <form action={logout} className="more-logout">
+                    <button className="ni danger"><i className="ph ph-sign-out" /><span className="ni-txt">Log out</span></button>
+                  </form>
+                </nav>
+              </>
+            )}
+          </div>
           <div className="sb-user">
             <div className="av" aria-hidden="true">{initials}</div>
             <div className="sb-ui">
               <div className="sb-uname">{me.full_name}</div>
             </div>
             <form action={logout}>
-              <button className="logout-btn" title="Logout" aria-label="Logout"><i className="ph ph-power" /></button>
+              <button className="logout-btn" title="Log out" aria-label="Log out"><i className="ph ph-power" /></button>
             </form>
           </div>
         </div>
@@ -184,30 +235,40 @@ export default function Shell({ me, nav, settings, logout, children }) {
           <div className="tb-r">
             <Form action="/orders" prefetch={false} className="gsearch" role="search">
               <i className="ph ph-magnifying-glass" aria-hidden="true" />
-              <input name="q" placeholder="Search quotes, customers…" aria-label="Search orders" />
+              <input name="q" type="search" placeholder="Search quotes, customers…" aria-label="Search orders" />
             </Form>
-            <button type="button" className="btn btn-ghost btn-sm btn-ic" onClick={toggleTheme} title="Toggle dark / light mode" aria-label="Toggle dark or light mode">
+            <button type="button" className="btn btn-ghost btn-sm btn-ic tb-theme" onClick={toggleTheme} title="Dark or light mode" aria-label="Switch between dark and light mode">
               <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} />
             </button>
-            {/* Phones: the sidebar becomes a bottom tab bar without the profile card, so logout sits here */}
-            <form action={logout} className="tb-logout">
-              <button className="btn btn-ghost btn-sm btn-ic" title="Logout" aria-label="Logout"><i className="ph ph-power" /></button>
-            </form>
             <button type="button" className={`btn btn-success btn-sm btn-ic${refreshing ? ' spinning' : ''}`} title="Refresh data" aria-label="Refresh data"
               onClick={() => startRefresh(() => router.refresh())}>
               <i className="ph ph-arrow-clockwise" />
             </button>
           </div>
         </header>
-        <main id="main" className="content" tabIndex={-1}>{children}</main>
+        <main id="main" className="content" tabIndex={-1}>
+          {!online && (
+            <div className="banner warn offline" role="status"><i className="ph ph-wifi-slash" />You're offline. Pages and changes can't load or save until the connection is back.</div>
+          )}
+          {children}
+        </main>
       </div>
 
       <Tooltips />
       <TableLabels />
       <div id="toasts" role="status" aria-live="polite">
-        {toast && (
-          <div key={toast.id} className={`toast t-${toast.kind}`}>
-            <i className={`ph ${toast.kind === 'error' ? 'ph-warning-circle' : 'ph-check-circle'}`} />
+        {toast?.kind === 'success' && (
+          <div key={toast.id} className="toast t-success">
+            <i className="ph ph-check-circle" />
+            <span className="toast-msg">{toast.msg}</span>
+            <button type="button" className="toast-x" onClick={() => setToast(null)} aria-label="Dismiss"><i className="ph ph-x" /></button>
+          </div>
+        )}
+      </div>
+      <div id="toast-errors" role="alert">
+        {toast?.kind === 'error' && (
+          <div key={toast.id} className="toast t-error">
+            <i className="ph ph-warning-circle" />
             <span className="toast-msg">{toast.msg}</span>
             <button type="button" className="toast-x" onClick={() => setToast(null)} aria-label="Dismiss"><i className="ph ph-x" /></button>
           </div>

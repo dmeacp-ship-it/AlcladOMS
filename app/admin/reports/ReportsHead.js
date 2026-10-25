@@ -29,7 +29,7 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
             <input id="from" type="date" name="from" defaultValue={p.from} style={{ width: 160 }} />
             <label htmlFor="to" className="sub">to</label>
             <input id="to" type="date" name="to" defaultValue={p.to} style={{ width: 160 }} />
-            <button className="btn btn-ghost btn-sm"><i className="ph ph-arrow-clockwise" />Update</button>
+            <button className="btn btn-ghost btn-sm" aria-label="Show this period"><i className="ph ph-check" />Apply</button>
           </form>
         )}
         {exports.length > 0 && (

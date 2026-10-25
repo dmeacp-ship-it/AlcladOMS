@@ -1,10 +1,14 @@
 'use client'
 // Small interactive pieces shared by the server-rendered pages (FMS look & feel).
-import { createContext, useContext, useEffect, useId, useRef, useState, useTransition } from 'react'
-import { useFormStatus } from 'react-dom'
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from 'react'
+import { createPortal, useFormStatus } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useLinkStatus } from 'next/link'
 import { ROLES } from '@/lib/tas'
+
+// Same breakpoint as the phone layout in globals.css (narrow, or a phone held sideways).
+export const PHONE = '(max-width: 768px), (max-height: 500px) and (pointer: coarse)'
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
 // Thin red bar along the top of the window while something is loading (FMS #topProgress).
 function useBusy(busy) {
@@ -20,7 +24,55 @@ export function LinkBusy() {
   return null
 }
 
-const CloseCtx = createContext(() => {})
+// Plays the dialog's closing animation (shorter than its opening one), then closes it.
+function closeAnimated(d, done) {
+  if (!d?.open || d.classList.contains('closing')) return
+  if (reducedMotion()) { d.close(); return done?.() }
+  d.classList.add('closing')
+  setTimeout(() => { d.classList.remove('closing'); d.close(); done?.() }, 170)
+}
+
+// Phones: drag a sheet down by its header to close it, like the grab handle suggests.
+function useSheetDrag(ref, onClose) {
+  useEffect(() => {
+    const d = ref.current
+    const head = d?.querySelector('.modal-header')
+    if (!head) return
+    let y0 = null
+    let x0 = 0
+    let dy = 0
+    const down = (e) => {
+      if (!matchMedia(PHONE).matches || e.button || e.target.closest('button,a,input,select,textarea')) return
+      y0 = e.clientY; x0 = e.clientX; dy = 0
+    }
+    const move = (e) => {
+      if (y0 == null) return
+      dy = e.clientY - y0
+      if (Math.abs(e.clientX - x0) > Math.abs(dy) && dy < 12) { y0 = null; return } // sideways: the tracker scrolls
+      if (dy > 0) { d.style.transition = 'none'; d.style.transform = `translateY(${dy}px)` }
+    }
+    const up = () => {
+      if (y0 == null) return
+      y0 = null
+      d.style.transition = ''
+      d.style.transform = ''
+      if (dy > 90) onClose()
+    }
+    head.addEventListener('pointerdown', down)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      head.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  })
+}
+
+// close(): Cancel / after saving. request(): Esc, backdrop, ✕ and drag, which ask first when something was typed.
+const CloseCtx = createContext({ close: () => {}, request: () => {} })
 
 // FMS-style dialog on a native <dialog>: header / body / foot, closes on Esc, backdrop click or Cancel.
 // Children are the form: <form action={...}><div className="modal-body">…</div><ModalFoot …/></form>
@@ -28,8 +80,20 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
   const ref = useRef(null)
   const tid = useId()
   const [open, setOpen] = useState(defaultOpen)
-  useEffect(() => { if (open && !ref.current.open) ref.current.showModal() }, [open])
-  const close = () => ref.current?.close()
+  const dirty = useRef(false)
+  useEffect(() => {
+    if (!open) return
+    if (!ref.current.open) ref.current.showModal()
+    // Typed text inside the dialog's form: closing by accident asks first. data-nodirty fields don't count.
+    const d = ref.current
+    const mark = (e) => { if (e.isTrusted && e.target.closest('form') && !e.target.closest('[data-nodirty]')) dirty.current = true }
+    d.addEventListener('input', mark)
+    d.addEventListener('change', mark)
+    return () => { d.removeEventListener('input', mark); d.removeEventListener('change', mark) }
+  }, [open])
+  const close = () => closeAnimated(ref.current)
+  const request = () => { if (!dirty.current || window.confirm('Discard what you typed?')) close() }
+  useSheetDrag(ref, request)
   // label can be JSX (DocView): only plain text may become an aria-label / tooltip.
   const name = ariaLabel || (typeof label === 'string' && label) || undefined
   return (
@@ -41,15 +105,16 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
         ref={ref}
         className={`modal${size ? ` ${size}` : ''}`}
         aria-labelledby={tid}
-        onClose={() => setOpen(false)}
-        onMouseDown={(e) => { if (e.target === ref.current) close() }}
+        onCancel={(e) => { if (e.target === ref.current) { e.preventDefault(); request() } }}
+        onClose={(e) => { if (e.target === ref.current) { dirty.current = false; setOpen(false) } }}
+        onMouseDown={(e) => { if (e.target === ref.current) request() }}
       >
         {open && (
-          <CloseCtx.Provider value={close}>
+          <CloseCtx.Provider value={{ close, request }}>
             <div className="modal-header">
               <div className="modal-ttl">
                 <i className={`ph ${icon}`} /><span id={tid} className="modal-ttl-txt">{title}</span>
-                <button type="button" className="btn-link x" onClick={close} aria-label="Close" tabIndex={-1}><i className="ph ph-x" /></button>
+                <button type="button" className="btn-link x" onClick={request} aria-label="Close"><i className="ph ph-x" /></button>
               </div>
             </div>
             {children}
@@ -61,8 +126,8 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
 }
 
 // Cancel + submit row. The submit shows a spinner while the server action runs and closes the dialog when it is done.
-export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
-  const close = useContext(CloseCtx)
+export function ModalFoot({ label, icon, cls = 'btn-primary', disabled = false }) {
+  const { close } = useContext(CloseCtx)
   const { pending } = useFormStatus()
   const was = useRef(false)
   useEffect(() => {
@@ -72,7 +137,7 @@ export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
   return (
     <div className="modal-foot">
       <button type="button" className="btn btn-ghost" onClick={close} disabled={pending}>Cancel</button>
-      <button className={`btn ${cls}`} disabled={pending}>
+      <button className={`btn ${cls}`} disabled={pending || disabled}>
         {pending ? <span className="spin" /> : icon && <i className={`ph ${icon}`} />}
         {pending ? 'Working…' : label}
       </button>
@@ -80,17 +145,50 @@ export function ModalFoot({ label, icon, cls = 'btn-primary' }) {
   )
 }
 
-// One styled tooltip for the whole app. Any element with a title (or data-tip) gets it on hover and on
+// Body + footer of a destructive dialog. With a word, the button stays off until that word is typed.
+export function TypeToConfirm({ word, label, icon = 'ph-trash', children }) {
+  const [v, setV] = useState('')
+  const id = useId()
+  const ok = !word || v.trim().toUpperCase() === word.toUpperCase()
+  return (
+    <>
+      <div className="modal-body">
+        {children}
+        {word && (
+          <div className="fg" data-nodirty>
+            <label htmlFor={id}>Type <b>{word}</b> to confirm</label>
+            <input id={id} value={v} onChange={(e) => setV(e.target.value)} autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+          </div>
+        )}
+      </div>
+      <ModalFoot label={label} icon={icon} cls="btn-danger" disabled={!ok} />
+    </>
+  )
+}
+
+// A submit button that asks first (small destructive actions inside plain forms).
+export function ConfirmButton({ message, children, ...props }) {
+  return <button {...props} onClick={(e) => { if (!window.confirm(message)) e.preventDefault() }}>{children}</button>
+}
+
+// One styled tooltip for the whole app. Any element with a title (or data-tip) gets it on mouse hover and on
 // keyboard focus; the title moves to data-tip so the plain browser tooltip doesn't show as well.
-// position: fixed, so tables and dialogs can't clip it. Mounted once in the Shell.
+// Skipped when the element already shows the same words (sidebar labels) and on touch screens, where a tap
+// would leave it hanging over the next thing. position: fixed and kept inside the window.
 // Phones show tables as cards (globals.css "Phones: every other table"); each cell gets its column name
 // from the header as data-label. Runs again whenever the page changes (navigation, dialogs, new rows).
 export function TableLabels() {
   useEffect(() => {
     let raf = 0
+    let retry = 0
+    // Rows still streaming in aren't hydrated by React yet; touching them would make React report a
+    // mismatch, so those tables are labelled a moment later.
+    const hydrated = (el) => Object.keys(el).some((k) => k.startsWith('__reactFiber'))
     const label = () => {
       raf = 0
       for (const t of document.querySelectorAll('table.tbl')) {
+        if (t.classList.contains('lines')) continue // quote lines label their own cells
+        if (!hydrated(t)) { clearTimeout(retry); retry = setTimeout(label, 150); continue }
         const heads = [...(t.tHead?.rows[0]?.cells || [])].map((th) => th.textContent.trim())
         for (const tr of t.tBodies[0]?.rows || []) {
           let i = 0
@@ -102,47 +200,61 @@ export function TableLabels() {
         }
       }
     }
-    const mo = new MutationObserver(() => { raf ||= requestAnimationFrame(label) })
+    const mo = new MutationObserver((list) => {
+      if (list.every((m) => m.target.closest?.('.tip'))) return
+      raf ||= requestAnimationFrame(label)
+    })
     label()
     mo.observe(document.body, { childList: true, subtree: true })
-    return () => { mo.disconnect(); cancelAnimationFrame(raf) }
+    return () => { mo.disconnect(); cancelAnimationFrame(raf); clearTimeout(retry) }
   }, [])
   return null
 }
 
 export function Tooltips() {
   const [tip, setTip] = useState(null)
+  const tipRef = useRef(null)
   useEffect(() => {
     let cur = null
+    const hover = matchMedia('(hover: hover) and (pointer: fine)')
     const show = (e) => {
       const el = e.target.closest?.('[title],[data-tip]')
       if (!el || el === cur) return
       if (el.title) { el.dataset.tip = el.title; el.removeAttribute('title') }
+      if (e.type === 'pointerover' && (e.pointerType !== 'mouse' || !hover.matches)) return
+      if (e.type === 'focusin' && !el.matches(':focus-visible')) return
       const text = el.dataset.tip
       if (!text) return
+      const shown = (el.innerText || '').split('\n')[0].trim().toLowerCase()
+      if (shown && text.toLowerCase().startsWith(shown)) return
       cur = el
       const r = el.getBoundingClientRect()
       const below = r.top < 48
-      setTip({ text, x: Math.min(Math.max(r.left + r.width / 2, 90), innerWidth - 90), y: below ? r.bottom + 8 : r.top - 8, below })
+      setTip({ text, x: r.left + r.width / 2, y: below ? r.bottom + 8 : r.top - 8, below })
     }
     const hide = (e) => {
       if (!cur || (e.type !== 'scroll' && e.relatedTarget && cur.contains(e.relatedTarget))) return
       cur = null
       setTip(null)
     }
-    document.addEventListener('pointerover', show)
-    document.addEventListener('focusin', show)
-    document.addEventListener('pointerout', hide)
-    document.addEventListener('focusout', hide)
+    const evts = [['pointerover', show], ['focusin', show], ['pointerout', hide], ['focusout', hide], ['pointerdown', hide]]
+    for (const [t, f] of evts) document.addEventListener(t, f)
     document.addEventListener('scroll', hide, true)
-    document.addEventListener('pointerdown', hide)
     return () => {
-      for (const [t, f] of [['pointerover', show], ['focusin', show], ['pointerout', hide], ['focusout', hide], ['pointerdown', hide]]) document.removeEventListener(t, f)
+      for (const [t, f] of evts) document.removeEventListener(t, f)
       document.removeEventListener('scroll', hide, true)
     }
   }, [])
+  // Centre on the element, but never past the window edges.
+  useLayoutEffect(() => {
+    const t = tipRef.current
+    if (!t || !tip) return
+    const w = t.offsetWidth
+    t.style.left = `${Math.min(Math.max(tip.x - w / 2, 8), innerWidth - w - 8)}px`
+    t.style.setProperty('--arrow', `${Math.min(Math.max(tip.x - parseFloat(t.style.left), 10), w - 10)}px`)
+  }, [tip])
   if (!tip) return null
-  return <div className={`tip${tip.below ? ' below' : ''}`} role="tooltip" style={{ left: tip.x, top: tip.y }}>{tip.text}</div>
+  return <div ref={tipRef} className={`tip${tip.below ? ' below' : ''}`} role="tooltip" style={{ top: tip.y }}>{tip.text}</div>
 }
 
 // Put inside a long form: once something is typed, leaving the page (link, back, refresh, closing the tab)
@@ -153,8 +265,8 @@ export function UnsavedGuard() {
     const form = ref.current?.closest('form')
     if (!form) return
     let dirty = false
-    const mark = (e) => { if (e.isTrusted) dirty = true }
-    const clear = () => { dirty = false }
+    const mark = (e) => { if (e.isTrusted) dirty = true; form.dataset.dirty = dirty ? '1' : '' }
+    const clear = () => { dirty = false; delete form.dataset.dirty }
     const unload = (e) => { if (dirty) { e.preventDefault(); e.returnValue = '' } }
     const leave = (e) => {
       const a = e.target.closest?.('a[href]')
@@ -215,14 +327,15 @@ export function DocView({ href, icon, label, title, cls = 'chip-link' }) {
       <iframe
         src={`${href}${href.includes('?') ? '&' : '?'}embed=1`}
         title="Document"
-        style={{ width: '100%', height: '75vh', border: 0, display: 'block' }}
+        className="doc-frame"
         onLoad={(e) => { try { e.currentTarget.contentDocument.documentElement.classList.add('embed') } catch {} }}
       />
       <div className="modal-foot">
+        <a className="btn btn-ghost" href={href} target="_blank" rel="noreferrer"><i className="ph ph-arrow-square-out" />Open in a new tab</a>
         <button type="button" className="btn btn-primary" onClick={(e) => {
           const f = e.currentTarget.closest('dialog').querySelector('iframe')
           try { f.contentWindow.print() } catch { window.open(href, '_blank') }
-        }}><i className="ph ph-download-simple" />Download PDF</button>
+        }}><i className="ph ph-printer" />Print or save as PDF</button>
       </div>
     </Modal>
   )
@@ -245,12 +358,12 @@ export function DocsMenu({ o }) {
       ].filter(Boolean), pending: '' }].filter((g) => g.docs.length)
   const n = 1 + groups.reduce((t, g) => t + g.docs.length, 0)
   return (
-    <Modal title={`Documents — ${o.quote_no}`} icon="ph-files" label={`Docs (${n})`} btnIcon="ph-files" btnClass="chip-link" size="small">
+    <Modal title={`Documents for ${o.quote_no}`} icon="ph-files" label={`Docs (${n})`} btnIcon="ph-files" btnClass="chip-link" size="small">
       <div className="modal-body docs-menu">
         <div className="docs-grp"><div className="docs-ttl">Quotation</div><DocView href={`${base}/print/quote`} icon="ph-file-text" label="Quote" /></div>
         {groups.map((g) => (
           <div key={g.key} className="docs-grp">
-            <div className="docs-ttl">{g.title}</div>
+            <div className="docs-ttl doc-ref">{g.title}</div>
             <div className="docs">{g.docs.map((d) => <DocView key={d.href} {...d} />)}{g.pending && <span className="muted text-sm">{g.pending}</span>}</div>
           </div>
         ))}
@@ -262,7 +375,7 @@ export function DocsMenu({ o }) {
 // Plant status pill for an order line that saves as soon as it changes (FMS .status-sel).
 // Coil N/A asks for expected date; Ready for Dispatch asks for ready quantity.
 const PILL = { Pending: 's-planning', 'Under Production': 's-prod', 'Ready for Dispatch': 's-ready', 'Coil N/A': 's-coil' }
-export function PlantStatus({ id, value, coil, options, readyQty, balance }) {
+export function PlantStatus({ id, value, coil, options }) {
   const [v, setV] = useState(value)
   useEffect(() => { setV(value) }, [value])
   const { pending } = useFormStatus()
@@ -273,7 +386,7 @@ export function PlantStatus({ id, value, coil, options, readyQty, balance }) {
         name={`production_${id}`}
         value={v}
         disabled={pending}
-        aria-label="Plant status"
+        aria-label="Production"
         className={`status-sel ${PILL[v] || ''}`}
         onChange={(e) => { setV(e.target.value); save(e) }}
       >
@@ -287,55 +400,113 @@ export function PlantStatus({ id, value, coil, options, readyQty, balance }) {
   )
 }
 
-// Drag-and-drop / click file picker (FMS .file-drop).
-export function FileDrop({ name, accept, hint, required = true }) {
+// Drag-and-drop / click file picker (FMS .file-drop). maxMB: too-big files are refused before uploading.
+export function FileDrop({ name, accept, hint, required = true, maxMB }) {
   const [file, setFile] = useState(null)
   const [drag, setDrag] = useState(false)
+  const mb = file ? file.size / 1048576 : 0
+  const tooBig = maxMB && mb > maxMB
   return (
-    <label className={`file-drop${drag ? ' drag' : ''}`} onDragEnter={() => setDrag(true)} onDragLeave={() => setDrag(false)} onDrop={() => setDrag(false)}>
-      <input type="file" name={name} accept={accept} required={required} onChange={(e) => setFile(e.target.files[0] || null)} />
-      <i className={`ph ${file ? 'ph-file-text' : 'ph-upload-simple'}`} />
+    <label className={`file-drop${drag ? ' drag' : ''}${tooBig ? ' bad' : ''}`} onDragEnter={() => setDrag(true)} onDragLeave={() => setDrag(false)} onDrop={() => setDrag(false)}>
+      <input type="file" name={name} accept={accept} required={required} onChange={(e) => {
+        const f = e.target.files[0] || null
+        setFile(f)
+        const big = maxMB && f && f.size / 1048576 > maxMB
+        e.target.setCustomValidity(big ? `This file is ${(f.size / 1048576).toFixed(1)} MB; the limit is ${maxMB} MB.` : '')
+      }} />
+      <i className={`ph ${tooBig ? 'ph-warning-circle' : file ? 'ph-file-text' : 'ph-upload-simple'}`} />
       <p>{file ? file.name : 'Click to choose, or drop a file here'}</p>
-      <small>{file ? `${(file.size / 1048576).toFixed(2)} MB` : hint}</small>
+      <small role={tooBig ? 'alert' : undefined}>
+        {tooBig ? `${mb.toFixed(1)} MB is over the ${maxMB} MB limit. Choose a smaller file.` : file ? `${mb.toFixed(2)} MB` : hint}
+      </small>
     </label>
   )
 }
 
+// What shows the moment an order is clicked, until its dialog arrives from the server.
+function DialogSkeleton() {
+  return createPortal(
+    <div className="dlg-skel" role="status" aria-label="Opening order…">
+      <div className="dlg-skel-box">
+        <div className="skeleton" style={{ width: '42%', height: 18 }} />
+        <div className="dlg-skel-steps">{[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="skeleton" />)}</div>
+        <div className="skeleton" style={{ height: 44 }} />
+        <div className="skeleton" style={{ height: 120 }} />
+        <div className="skeleton" style={{ width: '70%', height: 14 }} />
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // Whole table row opens the order (FMS tr.clickable); links inside the row still work on their own.
+// The quote number link goes the same way, so the row shows it is opening; Ctrl / ⌘ click still opens a tab.
 export function ClickRow({ href, children }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   useBusy(pending)
+  const open = () => {
+    // Lets the dialog close with Back instead of adding the list to the history a second time.
+    try { sessionStorage.dlgFrom = JSON.stringify({ url: location.pathname + location.search, at: Date.now() }) } catch {}
+    start(() => router.push(href, { scroll: false }))
+  }
   return (
-    <tr className="clickable" onClick={(e) => { if (!e.target.closest('a,button,input,select,textarea,label,dialog')) start(() => router.push(href, { scroll: false })) }}>
+    <tr
+      className={`clickable${pending ? ' opening' : ''}`}
+      aria-busy={pending || undefined}
+      onClickCapture={(e) => {
+        if (!e.target.closest('a.qno') || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return
+        e.preventDefault()
+        e.stopPropagation()
+        open()
+      }}
+      onClick={(e) => { if (!e.target.closest('a,button,input,select,textarea,label,dialog')) open() }}
+    >
       {children}
+      {pending && <DialogSkeleton />}
     </tr>
   )
 }
 
 // A dialog that is its own URL (?view=…), like the FMS order profile: Esc, backdrop or Close go back to the list.
+// Opened from the list, closing steps Back (no duplicate history entry); opened from a link or after an
+// action inside it, closing replaces the URL with the list.
 export function RouteDialog({ title, icon, header, footer, closeHref, children }) {
   const ref = useRef(null)
   const tid = useId()
   const router = useRouter()
   const [pending, start] = useTransition()
+  const back = useRef(null)
   useBusy(pending)
-  useEffect(() => { if (!ref.current.open) ref.current.showModal() }, [])
-  const close = () => start(() => router.replace(closeHref, { scroll: false }))
+  useEffect(() => {
+    if (!ref.current.open) ref.current.showModal()
+    // Read, not removed here (React runs this twice in development); a marker older than 15 s is stale.
+    let from = null
+    try { from = JSON.parse(sessionStorage.dlgFrom || 'null') } catch {}
+    back.current = from?.url === closeHref && Date.now() - from.at < 15000 ? history.length : null
+  }, [closeHref])
+  const leave = () => start(() => {
+    try { sessionStorage.removeItem('dlgFrom') } catch {}
+    if (back.current === history.length) router.back()
+    else router.replace(closeHref, { scroll: false })
+  })
+  // Every way of closing ends in the dialog's close event, which updates the URL.
+  const close = () => closeAnimated(ref.current)
+  useSheetDrag(ref, close)
   return (
     <dialog
       ref={ref}
-      className="modal xl"
+      className="modal xl route"
       aria-labelledby={tid}
       onCancel={(e) => { if (e.target === ref.current) { e.preventDefault(); close() } }}
-      // Browsers may close it without a cancel event (e.g. one Esc closing grouped dialogs): keep the URL in step.
-      onClose={(e) => { if (e.target === ref.current) close() }}
+      // Also covers browsers closing it without a cancel event (e.g. one Esc closing grouped dialogs).
+      onClose={(e) => { if (e.target === ref.current) leave() }}
       onMouseDown={(e) => { if (e.target === ref.current) close() }}
     >
       <div className="modal-header">
         <div className="modal-ttl">
           <i className={`ph ${icon}`} /><span id={tid} className="modal-ttl-txt">{title}</span>
-          <button type="button" className="btn-link x" onClick={close} aria-label="Close" tabIndex={-1}><i className="ph ph-x" /></button>
+          <button type="button" className="btn-link x" onClick={close} aria-label="Close"><i className="ph ph-x" /></button>
         </div>
         {header}
       </div>
@@ -374,12 +545,29 @@ export function PasswordInput(props) {
 export function PrintButton() {
   return (
     <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()}>
-      <i className="ph ph-printer" />Print / Save as PDF
+      <i className="ph ph-printer" />Print or save as PDF
     </button>
   )
 }
 
-// ── Beautiful Searchable Combobox & Dropdown ──
+// Live filter for a long chip list (Items → Color): hides chips whose text doesn't match.
+export function ChipFilter({ target, label }) {
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    const t = q.trim().toLowerCase()
+    for (const c of document.querySelectorAll(`#${target} .vchip`)) c.hidden = !!t && !c.textContent.toLowerCase().includes(t)
+  }, [q, target])
+  return (
+    <div className="sw chip-filter">
+      <i className="ph ph-magnifying-glass" />
+      <input className="tsearch" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={label} aria-label={label} data-nodirty />
+    </div>
+  )
+}
+
+// ── Searchable combobox ──
+// The menu is fixed to the window (not to the field's box), so dialogs and scrolling cards can't cut it
+// off; it opens upward when there is more room above.
 export function Combobox({
   id,
   name,
@@ -389,20 +577,26 @@ export function Combobox({
   options = [],
   placeholder = 'Select…',
   required = false,
+  requiredMsg = 'Choose one of the options.',
   disabled = false,
   className = '',
+  wide = false,
 }) {
   const isControlled = value !== undefined
   const [selectedVal, setSelectedVal] = useState(isControlled ? value : defaultValue)
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlightIdx, setHighlightIdx] = useState(0)
+  const [invalid, setInvalid] = useState(false)
+  const [pos, setPos] = useState(null)
   const wrapRef = useRef(null)
+  const boxRef = useRef(null)
   const inputRef = useRef(null)
   const menuRef = useRef(null)
   const triggerRef = useRef(null)
   const refocus = useRef(false)
   const listId = useId()
+  const errId = useId()
 
   // Opening moves focus into the search box; closing with a key or a pick hands it back to the trigger.
   useEffect(() => {
@@ -415,6 +609,25 @@ export function Combobox({
   useEffect(() => {
     if (isControlled) setSelectedVal(value)
   }, [isControlled, value])
+  useEffect(() => { if (selectedVal) setInvalid(false) }, [selectedVal])
+
+  // Place the menu under (or over) the field, and keep it there while the page or a dialog scrolls.
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const place = () => {
+      const r = boxRef.current.getBoundingClientRect()
+      const below = innerHeight - r.bottom - 12
+      const above = r.top - 12
+      const up = below < 400 && above > below
+      const width = Math.min(Math.max(r.width, wide ? 440 : 0), innerWidth - 16)
+      const left = Math.min(Math.max(r.left, 8), innerWidth - width - 8)
+      setPos({ left, width, maxHeight: Math.min(400, up ? above : below), ...(up ? { bottom: innerHeight - r.top + 6 } : { top: r.bottom + 6 }) })
+    }
+    place()
+    addEventListener('resize', place)
+    addEventListener('scroll', place, true)
+    return () => { removeEventListener('resize', place); removeEventListener('scroll', place, true) }
+  }, [isOpen, wide])
 
   const normOptions = options.map((opt) =>
     typeof opt === 'object' && opt !== null
@@ -490,10 +703,17 @@ export function Combobox({
   return (
     <div className={`combobox-wrap ${className}`} ref={wrapRef}
       onBlur={(e) => { if (isOpen && !wrapRef.current.contains(e.relatedTarget)) close(false) }}>
-      {/* Real (not type=hidden) input so the browser's required check still runs; it sits invisibly under the field. */}
-      {name && <input className="combobox-req" tabIndex={-1} aria-hidden="true" name={name} value={selectedVal || ''} required={required} onChange={() => {}} />}
+      {/* Real (not type=hidden) input so the browser's required check still runs; it sits invisibly under the field.
+          Its own error bubble would point at nothing, so the field shows the message itself. */}
+      {name && <input className="combobox-req" tabIndex={-1} aria-hidden="true" name={name} value={selectedVal || ''} required={required}
+        onChange={() => {}} onInvalid={(e) => {
+          e.preventDefault()
+          setInvalid(true)
+          if (!document.activeElement?.closest('.combobox-box.invalid')) triggerRef.current?.focus()
+        }} />}
       <div
-        className={`combobox-box ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}
+        ref={boxRef}
+        className={`combobox-box ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''} ${invalid ? 'invalid' : ''}`}
         onMouseDown={(e) => { if (isOpen && e.target !== inputRef.current) e.preventDefault() }} // keep focus in the search box
         onClick={() => { if (!disabled) isOpen ? close(true) : openMenu() }}
       >
@@ -527,6 +747,8 @@ export function Combobox({
             aria-haspopup="listbox"
             aria-expanded="false"
             aria-controls={listId}
+            aria-invalid={invalid || undefined}
+            aria-describedby={invalid ? errId : undefined}
             disabled={disabled}
             className={`combobox-display ${!selectedOpt ? 'placeholder' : ''}`}
             onKeyDown={(e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); openMenu() } }}
@@ -554,9 +776,10 @@ export function Combobox({
           <i className={`ph ph-caret-down combobox-arrow ${isOpen ? 'rotated' : ''}`} aria-hidden="true" />
         </div>
       </div>
+      {invalid && <span className="field-err" id={errId} role="alert"><i className="ph ph-warning-circle" />{requiredMsg}</span>}
 
-      {isOpen && (
-        <div className="combobox-menu" ref={menuRef} role="listbox" id={listId}>
+      {isOpen && pos && (
+        <div className="combobox-menu" ref={menuRef} role="listbox" id={listId} style={pos}>
           {filtered.length === 0 ? (
             <div className="combobox-empty">
               <i className="ph ph-magnifying-glass" /> No matching options
@@ -580,7 +803,7 @@ export function Combobox({
                 >
                   <div className="combobox-opt-text">
                     <div className="combobox-opt-line">
-                      <span className="combobox-opt-label">{opt.label}</span>
+                      <span className="combobox-opt-label"><bdi>{opt.label}</bdi></span>
                       {opt.badge && <span className="badge b-blue">{opt.badge}</span>}
                     </div>
                     {opt.sub && <div className="combobox-opt-sub">{opt.sub}</div>}
@@ -611,7 +834,6 @@ export function RoleSelect({ id, name = 'role', value, defaultValue, required = 
     value: r,
     label: r.charAt(0).toUpperCase() + r.slice(1),
     sub: ROLE_HELP[r] || r,
-    badge: r,
   }))
   return (
     <Combobox
@@ -620,6 +842,7 @@ export function RoleSelect({ id, name = 'role', value, defaultValue, required = 
       defaultValue={value || defaultValue || 'sales'}
       options={options}
       required={required}
+      requiredMsg="Choose a role."
       placeholder="Select role…"
     />
   )

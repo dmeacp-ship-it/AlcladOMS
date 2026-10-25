@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { db, fetchAll as all, filterOrders, requireRole } from '@/lib/server'
+import { batchQueues, db, fetchAll as all, filterOrders, requireRole } from '@/lib/server'
 import { activityQuery, stamp } from '@/lib/activity'
 import { csvResponse, itemListsCSV, toCSV } from '@/lib/csv'
 import { ITEM_LISTS, MASTERS, balanceOf, dmy, round2, totals, today } from '@/lib/tas'
@@ -16,8 +16,9 @@ const orderTotal = (o) => totals(o.items || [], o.transport, o.vat_rate)
 const EXPORTS = {
   orders: async (sp) => {
     const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
+    const b = await batchQueues()
     const rows = await all(() => {
-      let q = period(filterOrders(db().from('orders').select('*, items:order_items(qty, total), batches:order_batches(do_no, pi_no)'), sp.status || ''), 'quote_date', sp).order('id')
+      let q = period(filterOrders(db().from('orders').select('*, items:order_items(qty, total), batches:order_batches(do_no, pi_no)'), sp.status || '', b), 'quote_date', sp).order('id')
       if (term) q = q.or(`quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,doc_no.ilike.%${term}%`)
       return q
     })

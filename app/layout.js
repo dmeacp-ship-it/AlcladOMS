@@ -2,7 +2,7 @@ import './globals.css'
 import '@phosphor-icons/web/regular'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { authClient, currentUser, orderCounts, sessionUserId } from '@/lib/server'
+import { authClient, currentUser, openLineCount, orderCounts, sessionUserId } from '@/lib/server'
 import { can } from '@/lib/tas'
 import { WARN, getUsage } from '@/lib/usage'
 import Shell from './Shell'
@@ -20,9 +20,9 @@ export const metadata = {
   appleWebApp: { capable: true, title: 'TAS OMS', statusBarStyle: 'default' },
 }
 
-// Runs before first paint so a saved dark theme / collapsed sidebar never flashes; ?embed=1 (document viewer)
-// hides the app frame before anything is drawn. No saved choice -> follow the OS.
-const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';if(localStorage.sb_collapsed==='true')d.dataset.sb='col'}catch(e){}try{if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed')}catch(e){}"
+// Runs before first paint so a saved dark theme / sidebar choice never flashes; ?embed=1 (document viewer)
+// hides the app frame before anything is drawn. No saved choice -> follow the OS (theme) and the screen width (sidebar).
+const THEME = "try{var d=document.documentElement,t=localStorage.theme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))d.dataset.theme='dark';var s=localStorage.sb||(localStorage.sb_collapsed==='true'?'col':'');if(s)d.dataset.sb=s}catch(e){}try{if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed')}catch(e){}"
 
 async function logout() {
   'use server'
@@ -37,6 +37,7 @@ export default async function RootLayout({ children }) {
   // orderCounts(null): same arguments as the Orders page, so the cached result is shared.
   const signedIn = !!(await sessionUserId())
   const [me, c] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null])
+  const lines = me && can(me, 'plant') ? await openLineCount() : 0
   let nav = []
   let settings = []
   if (me) {
@@ -47,15 +48,16 @@ export default async function RootLayout({ children }) {
       can(me, 'accounts') ? c.AWAIT_PI + c.AWAIT_TAX : 0,
       can(me, 'operations') ? c.AWAIT_DO : 0,
     ]
-    const toDispatch = waiting[0]
     const todo = waiting.reduce((a, b) => a + b, 0)
     nav = [
       { section: 'Workflow' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', short: 'Active', icon: 'ph-lightning', badge: todo },
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', short: 'New Quote', icon: 'ph-file-plus' },
-      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', short: 'Plant', icon: 'ph-factory', badge: toDispatch },
+      // Badge in lines, the unit the Plant Dispatch page counts in.
+      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', short: 'Plant', icon: 'ph-factory', badge: lines },
       { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks' },
-      ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar' },
+      // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
+      ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', more: true },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [

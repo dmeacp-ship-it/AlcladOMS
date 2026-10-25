@@ -1,15 +1,17 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { PRODUCTION, balanceOf, int, readyOf } from '@/lib/tas'
+import { PRODUCTION, balanceOf, int, plural, readyOf } from '@/lib/tas'
 import { saveProduction } from '../orders/actions'
 import { PlantStatus } from '../ui'
 import MarkReadyModal from './MarkReadyModal'
 
+// Plant lines: tick lines (from one order or several) and mark them ready together, or one at a time.
 export default function PlantClient({ rows, isOpen, here }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
-  const openRows = (rows || []).filter((r) => balanceOf(r) > 0)
+  // Lines that can still take ready pieces.
+  const openRows = (rows || []).filter((r) => balanceOf(r) - readyOf(r) > 0)
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
@@ -20,48 +22,25 @@ export default function PlantClient({ rows, isOpen, here }) {
     })
   }
 
-  const toggleAll = () => {
-    if (selectedIds.size === openRows.length && openRows.length > 0) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(openRows.map((r) => r.id)))
-    }
-  }
+  const allOn = openRows.length > 0 && openRows.every((r) => selectedIds.has(r.id))
+  const toggleAll = () => setSelectedIds(allOn ? new Set() : new Set(openRows.map((r) => r.id)))
 
-  // Selected items details
   const selectedRows = (rows || []).filter((r) => selectedIds.has(r.id))
-  const selectedOrderIds = Array.from(new Set(selectedRows.map((r) => r.order_id)))
-  const singleOrder = selectedOrderIds.length === 1 ? selectedRows[0]?.orders : null
+  const orderCount = new Set(selectedRows.map((r) => r.order_id)).size
 
   return (
     <>
-      {/* Batch Selection Action Bar */}
       {selectedRows.length > 0 && (
         <div className="sel-bar" role="region" aria-label="Selected lines">
           <div className="row">
             <span className="badge b-teal sel-count">
-              <i className="ph ph-check-square" /> {selectedRows.length} item{selectedRows.length > 1 ? 's' : ''} selected
+              <i className="ph ph-check-square" /> {plural(selectedRows.length, 'line')}{orderCount > 1 ? ` from ${orderCount} orders` : ''} selected
             </span>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedIds(new Set())}>
               Clear selection
             </button>
           </div>
-          <div className="row">
-            {singleOrder ? (
-              <MarkReadyModal
-                orderId={singleOrder.id}
-                lines={selectedRows}
-                back={here}
-                label="Mark Selected Ready"
-                btnClass="btn btn-success btn-sm"
-                size="large"
-              />
-            ) : (
-              <span className="muted text-sm">
-                <i className="ph ph-info" /> Items selected from {selectedOrderIds.length} orders. Select items from 1 order to mark ready.
-              </span>
-            )}
-          </div>
+          <MarkReadyModal lines={selectedRows} back={here} label="Mark selected ready" btnClass="btn btn-success btn-sm" />
         </div>
       )}
 
@@ -70,25 +49,18 @@ export default function PlantClient({ rows, isOpen, here }) {
           <thead>
             <tr>
               {isOpen && (
-                <th style={{ width: 38, textAlign: 'center' }}>
-                  <input
-                    type="checkbox"
-                    aria-label="Select all"
-                    checked={openRows.length > 0 && selectedIds.size === openRows.length}
-                    onChange={toggleAll}
-                  />
+                <th className="c-sel">
+                  <input type="checkbox" aria-label="Select every line that can be marked ready" checked={allOn} onChange={toggleAll} disabled={!openRows.length} />
                 </th>
               )}
               <th>Quote No</th>
               <th>Customer</th>
-              <th>Material Description</th>
-              <th className="r">Ordered</th>
-              <th className="r">Ready</th>
-              <th className="r">Dispatched</th>
+              <th>Material</th>
               <th className="r">Balance</th>
-              <th>Plant Status</th>
-              <th>Status</th>
-              <th className="r">Action</th>
+              <th className="r">Ready</th>
+              <th>Production</th>
+              <th>Dispatch</th>
+              <th className="r c-act-h">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -99,9 +71,10 @@ export default function PlantClient({ rows, isOpen, here }) {
               const isSelected = selectedIds.has(it.id)
               const rQty = readyOf(it)
               const isReady = rQty > 0 && !isDone
+              const canAdd = bal - rQty > 0
               const displayStatus = isReady ? 'Ready for Dispatch' : (it.production_status || 'Pending')
 
-              let stLabel = 'Pending'
+              let stLabel = 'Not yet'
               let stBadge = 'b-none'
               if (isDone) {
                 stLabel = 'Dispatched'
@@ -115,56 +88,43 @@ export default function PlantClient({ rows, isOpen, here }) {
               }
 
               return (
-                <tr key={it.id} style={isSelected ? { background: 'var(--fill-2)' } : undefined}>
+                <tr key={it.id} className={isSelected ? 'selected' : undefined}>
                   {isOpen && (
-                    <td className="c-sel" style={{ textAlign: 'center' }}>
-                      {!isDone ? (
+                    <td className="c-sel">
+                      {canAdd ? (
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleSelect(it.id)}
-                          aria-label={`Select line ${it.item_no}`}
+                          aria-label={`Select ${o?.quote_no} line ${it.item_no}`}
                         />
                       ) : (
-                        <i className="ph ph-check muted" />
+                        <i className="ph ph-check muted" aria-label="Nothing left to mark ready" />
                       )}
                     </td>
                   )}
-                  <td className="nowrap c-q" data-cust={o?.customer_name}>
+                  <td className="nowrap c-q">
                     <Link prefetch={false} href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
                   </td>
-                  <td className="nowrap fw6 c-cust">
+                  <td className="fw6 c-cust">
                     <bdi>{o?.customer_name}</bdi>
                   </td>
-                  <td className="nowrap c-desc">
-                    <span>{it.description}</span>
-                    {it.color_name && <span className="muted text-sm" style={{ marginLeft: 6 }}>({it.color_name})</span>}
+                  <td className="c-desc">
+                    <span className="mat-name">{it.description}</span>
+                    <span className="mat-sub">
+                      {[it.color_name, `Ordered ${int(it.qty)}`, `Dispatched ${int(it.dispatched_qty) || 0}`].filter(Boolean).join(' · ')}
+                    </span>
                   </td>
-                  <td className="num c-n" data-label="Ordered">{int(it.qty)}</td>
-                  <td className="num c-n" data-label="Ready">
-                    {rQty > 0 ? (
-                      <span className="badge b-teal" title="Ready, DO not generated yet">{int(rQty)}</span>
-                    ) : isReady ? (
-                      <span className="badge b-teal">{int(bal)} PCS</span>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
+                  <td className="num fw6 c-n c-bal" data-label="Balance">{int(bal)}</td>
+                  <td className="num c-n c-ready" data-label="Ready">
+                    {rQty > 0 ? <span className="badge b-teal" title="Ready, DO not generated yet">{int(rQty)}</span> : <span className="muted">0</span>}
                   </td>
-                  <td className="num c-n" data-label="Dispatched">
-                    {int(it.dispatched_qty) || 0}
-                  </td>
-                  <td className="num fw6 c-n" data-label="Balance">{int(bal)}</td>
                   <td className="nowrap c-plant">
                     {isOpen && !isDone ? (
                       <form action={saveProduction}>
                         <input type="hidden" name="id" value={o?.id} />
                         <input type="hidden" name="back" value={here} />
-                        <PlantStatus
-                          id={it.id}
-                          value={displayStatus}
-                          coil={it.coil_date}
-                          options={PRODUCTION}
-                        />
+                        <PlantStatus id={it.id} value={displayStatus} coil={it.coil_date} options={PRODUCTION} />
                       </form>
                     ) : (
                       <span className="muted">—</span>
@@ -175,21 +135,16 @@ export default function PlantClient({ rows, isOpen, here }) {
                   </td>
                   <td className="nowrap c-act">
                     <div className="row-acts">
-                      {isOpen && !isDone && (
-                        <>
-                          {bal - rQty > 0 ? (
-                            <MarkReadyModal
-                              orderId={o?.id}
-                              lines={[it]}
-                              back={here}
-                              label={rQty > 0 ? `Add Ready (${int(bal - rQty)} left)` : 'Mark Ready'}
-                              btnClass="btn btn-success btn-sm"
-                            />
-                          ) : (
-                            <span className="muted text-sm">All ready — generate DO in Active Orders</span>
-                          )}
-                        </>
-                      )}
+                      {isOpen && !isDone && (canAdd ? (
+                        <MarkReadyModal
+                          lines={[it]}
+                          back={here}
+                          label={rQty > 0 ? `Add ready (${int(bal - rQty)} left)` : 'Mark ready'}
+                          btnClass="btn btn-success btn-sm"
+                        />
+                      ) : (
+                        <span className="muted text-sm">All ready: generate the DO in Active Orders</span>
+                      ))}
                     </div>
                   </td>
                 </tr>
@@ -201,7 +156,7 @@ export default function PlantClient({ rows, isOpen, here }) {
           <div className="empty">
             <i className="ph ph-factory" />
             <h3>No lines here</h3>
-            <p>{isOpen ? 'All approved order items have been dispatched.' : 'Nothing dispatched yet.'}</p>
+            <p>{isOpen ? 'Nothing is waiting for the plant right now.' : 'Nothing has been dispatched yet.'}</p>
           </div>
         )}
       </div>

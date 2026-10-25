@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { findOrder, getOrder, requireRole } from '@/lib/server'
+import { findOrder, requireRole } from '@/lib/server'
 import { getSettings } from '@/lib/settings'
 import Doc, { docReady } from './Doc'
 import { PrintButton } from '../../../../ui'
@@ -23,16 +22,26 @@ export default async function PrintPage({ params, searchParams }) {
   const me = await requireRole()
   const { id, doc } = await params
   const sp = await searchParams
-  const o = await getOrder(id, me)
-  const batch = pickBatch(o, sp?.batch)
+  const o = await findOrder(id, me)
+  const batch = o && pickBatch(o, sp?.batch)
 
-  if (!docReady(doc, o, batch)) notFound()
+  // Under the "Print Document" heading, say what is missing instead of a bare "Not found".
+  if (!o || !docReady(doc, o, batch)) {
+    return (
+      <div className="empty">
+        <i className="ph ph-file-dashed" />
+        <h3>This document isn't available</h3>
+        <p>{o ? `It hasn't been generated for ${o.quote_no} yet.` : "The order doesn't exist, or you don't have access to it."}</p>
+        <Link prefetch={false} href={o ? `/orders?view=${o.id}` : '/orders'} className="btn btn-primary btn-sm"><i className="ph ph-arrow-left" />{o ? `Back to ${o.quote_no}` : 'Back to Orders'}</Link>
+      </div>
+    )
+  }
   return (
     <>
       <div className="page-head no-print">
         <Link prefetch={false} href={`/orders?view=${o.id}`} className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Back to {o.quote_no}</Link>
         <div className="acts">
-          <span className="muted text-sm">Choose “Save as PDF” as the printer to get a PDF file.</span>
+          <span className="muted text-sm print-hint">Choose “Save as PDF” as the printer to get a PDF file.</span>
           <PrintButton />
         </div>
       </div>

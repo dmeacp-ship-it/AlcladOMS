@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { requireRole } from '@/lib/server'
 import { period, waiting } from '@/lib/reports'
-import { dmy } from '@/lib/tas'
+import { day } from '@/lib/tas'
 import ReportsHead from '../ReportsHead'
 
 export const metadata = { title: 'Waiting · Reports' }
@@ -55,7 +55,7 @@ export default async function Waiting({ searchParams }) {
                     <td className="fw6"><bdi>{r.customer_name}</bdi></td>
                     <td className="nowrap">{r.salesperson_name}</td>
                     {(q.key === 'pi' || q.key === 'tax') && <td className="nowrap">{r.ref}</td>}
-                    <td className="nowrap muted">{r.since ? dmy(String(r.since).slice(0, 10)) : '—'}</td>
+                    <td className="nowrap muted">{r.since ? day(r.since) : '—'}</td>
                     <td className={`num${r.age > 7 ? ' red fw6' : ''}`}>{r.age > 7 && <Late />}{r.age}</td>
                   </tr>
                 ))}

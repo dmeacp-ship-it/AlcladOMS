@@ -33,15 +33,16 @@ export default async function LoginPage({ searchParams }) {
     <div className="login-wrap">
       <div className="login-box">
         <div className="login-logo">
-          <div className="logo-ic"><i className="ph ph-factory" /></div>
+          {/* Same mark as the sidebar and the favicon */}
+          <div className="logo-ic"><svg viewBox="12 16 40 34" aria-hidden="true"><path d="M12 50V30l11 7v-7l11 7v-7l11 7V16h7v34z" /></svg></div>
           <div>
-            <h2>TAS OMS</h2>
+            <h1>TAS OMS</h1>
             <p>TAS International Manufacturing Co.</p>
           </div>
         </div>
-        <div className="login-ttl">Welcome back</div>
+        <h2 className="login-ttl">Welcome back</h2>
         <div className="login-sub">Sign in with the account your admin created.</div>
-        {sp.error && <div className="banner error shake"><i className="ph ph-warning-circle" />{sp.error}</div>}
+        {sp.error && <div className="banner error shake" role="alert"><i className="ph ph-warning-circle" />{sp.error}</div>}
         <form action={login}>
           <div className="lg">
             <label htmlFor="login">Email or username</label>

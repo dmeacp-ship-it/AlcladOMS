@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { balanceOf, can, dispatchOpen, int, money, readyOf, today, totals } from '@/lib/tas'
-import { decide, deleteOrder, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
+import { decide, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
 import { FileDrop, Modal, ModalFoot } from '../ui'
 
 // Order actions: Approve/Reject, Plant Dispatch link, Generate DO (when ready), Generate PI per batch, Tax Invoice.
@@ -45,7 +45,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
               <input type="hidden" name="decision" value="approve" />
               <div className="modal-body">
                 <p>Approve the quotation for <b><bdi>{o.customer_name}</bdi></b> worth <b>SAR {money(t.total)}</b> (incl. VAT)?</p>
-                <p>Order will immediately go to Plant Dispatch for production status and ready quantities.</p>
+                <p>The order then appears in Plant Dispatch, where the plant updates production and marks finished pieces ready.</p>
               </div>
               <ModalFoot label="Approve" icon="ph-check-circle" cls="btn-success" />
             </form>
@@ -63,7 +63,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
       {/* Generate DO & Dispatch: ONLY appears when plant has marked items ready for dispatch */}
       {approved && readyLines.length > 0 && (
         <Modal
-          title={`Generate Delivery Order & Dispatch — ${o.quote_no}`}
+          title={`Generate Delivery Order for ${o.quote_no}`}
           icon="ph-truck"
           label={`Generate DO (${int(readyLines.reduce((n, it) => n + Math.min(readyOf(it), balanceOf(it)), 0))} PCS Ready)`}
           btnIcon="ph-truck"
@@ -73,21 +73,18 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
           <form action={generateBatchDO}>
             {Hidden}
             <div className="modal-body">
-              <p>
-                Generating Delivery Order for items marked ready for dispatch.
-                Quantities are prefilled with the ready quantity confirmed by the plant.
-              </p>
+              <p>Lines the plant marked ready. Each DO quantity starts at the ready quantity; change it if less is going on this truck.</p>
               <div className="tbl-wrap">
                 <table className="tbl">
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Material Description</th>
+                      <th>Material</th>
+                      <th>DO qty (PCS)</th>
+                      <th className="r">Ready</th>
+                      <th className="r">Balance</th>
                       <th className="r">Ordered</th>
                       <th className="r">Dispatched</th>
-                      <th className="r">Balance</th>
-                      <th className="r">Ready</th>
-                      <th>DO Qty (PCS)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -98,16 +95,13 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
                       return (
                         <tr key={it.id}>
                           <td className="muted">{it.item_no}</td>
-                          <td className="desc">{it.description}</td>
-                          <td className="num">{int(it.qty)}</td>
-                          <td className="num">{int(it.dispatched_qty) || 0}</td>
-                          <td className="num fw6">{int(balance)}</td>
-                          <td className="num fw6" style={{ color: 'var(--teal-fg)' }}>{int(defVal)} PCS</td>
+                          <td className="desc wrap">{it.description}</td>
                           <td>
                             <input
                               className="qty"
                               name={`qty_${it.id}`}
                               type="number"
+                              inputMode="numeric"
                               min="1"
                               max={balance}
                               step="1"
@@ -116,6 +110,10 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
                               aria-label={`DO qty line ${it.item_no}`}
                             />
                           </td>
+                          <td className="num fw6">{int(rQty)}</td>
+                          <td className="num">{int(balance)}</td>
+                          <td className="num">{int(it.qty)}</td>
+                          <td className="num">{int(it.dispatched_qty) || 0}</td>
                         </tr>
                       )
                     })}
@@ -124,9 +122,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
               </div>
 
               <div style={{ marginTop: 16 }}>
-                <h4 style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                  <i className="ph ph-truck" /> Dispatch &amp; Transport Details
-                </h4>
+                <h3 className="sub-ttl"><i className="ph ph-truck" />Dispatch and transport details</h3>
                 <div className="fgrid">
                   <div className="fg">
                     <label htmlFor={`dd-${o.id}`}>Dispatch Date <span className="req">*</span></label>
@@ -150,7 +146,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
                   </div>
                   <div className="fg">
                     <label htmlFor={`tp-${o.id}`}>Transport Charges (SAR)</label>
-                    <input id={`tp-${o.id}`} type="number" step="0.01" min="0" name="transport" placeholder="0.00" />
+                    <input id={`tp-${o.id}`} type="number" inputMode="decimal" step="0.01" min="0" name="transport" placeholder="0.00" />
                   </div>
                 </div>
               </div>
@@ -171,27 +167,6 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
         return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace' : 'Upload'} Invoice${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
       })}
 
-      {/* Delete order (admin only) */}
-      {sm && me.role === 'admin' && (
-        <Modal
-          title={`Delete Order — ${o.quote_no}`}
-          icon="ph-trash"
-          label=""
-          btnIcon="ph-trash"
-          btnClass="btn btn-ghost btn-sm red"
-          ariaLabel="Delete Order"
-          size="small"
-        >
-          <form action={deleteOrder}>
-            <input type="hidden" name="id" value={o.id} />
-            <div className="modal-body">
-              <p>Permanently delete order <b>{o.quote_no}</b>?</p>
-              <p className="text-sm red" style={{ marginTop: 8 }}>This will remove the order and all related items and batches.</p>
-            </div>
-            <ModalFoot label="Delete" icon="ph-trash" cls="btn-danger" />
-          </form>
-        </Modal>
-      )}
     </>
   )
 }
@@ -200,7 +175,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
 export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-sm', autoOpen }) {
   return (
     <Modal
-      title={`Generate Proforma Invoice — ${batch.do_no || `Batch #${batch.batch_no}`}`}
+      title={`Generate Proforma Invoice for ${batch.do_no || `Batch #${batch.batch_no}`}`}
       icon="ph-receipt"
       label={label}
       btnIcon="ph-receipt"
@@ -230,7 +205,7 @@ export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-s
                 {(batch.items || []).map((bi, idx) => (
                   <tr key={bi.id}>
                     <td className="muted">{idx + 1}</td>
-                    <td className="desc">{bi.order_item?.description || 'Item'}</td>
+                    <td className="desc wrap">{bi.order_item?.description || 'Item'}</td>
                     <td className="num fw6">{int(bi.do_qty)}</td>
                     <td className="num">{money(bi.order_item?.price)}</td>
                     <td>
@@ -238,6 +213,7 @@ export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-s
                         className="qty"
                         name={`qty_${bi.id}`}
                         type="number"
+                        inputMode="numeric"
                         min="0"
                         max={bi.do_qty}
                         step="1"
@@ -251,6 +227,7 @@ export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-s
                         className="qty"
                         name={`price_${bi.id}`}
                         type="number"
+                        inputMode="decimal"
                         min="0"
                         step="0.01"
                         defaultValue={bi.order_item?.price || 0}
@@ -279,7 +256,7 @@ export function TaxAction({ o, b, back, label, size = ' btn-sm' }) {
   const cur = b ? b.tax_invoice_path : o.tax_invoice_path
   return (
     <Modal
-      title={`${cur ? 'Replace' : 'Upload'} Tax Invoice — ${b?.pi_no || o.quote_no}`}
+      title={`${cur ? 'Replace' : 'Upload'} tax invoice for ${b?.pi_no || o.quote_no}`}
       icon="ph-upload-simple"
       label={label || (cur ? 'Replace invoice' : 'Upload invoice')}
       btnIcon="ph-upload-simple"
@@ -290,7 +267,7 @@ export function TaxAction({ o, b, back, label, size = ' btn-sm' }) {
         <input type="hidden" name="back" value={back} />
         {b && <input type="hidden" name="batch_id" value={b.id} />}
         <div className="modal-body">
-          <FileDrop name="file" accept="application/pdf,image/*" hint="PDF or image, max 4 MB" />
+          <FileDrop name="file" accept="application/pdf,image/*" hint="PDF or image, max 4 MB" maxMB={4} />
           {cur && <p>The file already uploaded will be replaced.</p>}
         </div>
         <ModalFoot label="Upload" icon="ph-upload-simple" />

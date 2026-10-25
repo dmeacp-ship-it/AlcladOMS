@@ -54,8 +54,8 @@ export default async function Settings() {
         <div className="fgrid-2">
           <div className="fg full">
             <label>Letterhead</label>
-            <img src={`/letterhead?v=${s.letterhead_v || 0}`} alt="Current letterhead" style={{ maxWidth: '100%', border: '1px solid var(--border)', borderRadius: 8, background: '#fff' }} />
-            <FileDrop name="letterhead" accept="image/png,image/jpeg,image/webp" hint="PNG, JPG or WebP, max 1 MB · leave empty to keep the current one" required={false} />
+            <img src={`/letterhead?v=${s.letterhead_v || 0}`} alt="Current letterhead" className="lh-preview" width={911} height={106} />
+            <FileDrop name="letterhead" accept="image/png,image/jpeg,image/webp" hint="PNG, JPG or WebP, max 1 MB · leave empty to keep the current one" required={false} maxMB={1} />
             <label className="check"><input type="checkbox" name="letterhead_reset" />Go back to the original letterhead</label>
           </div>
           <div className="fg full">
@@ -98,7 +98,7 @@ export default async function Settings() {
       </section>
 
       <section className="fsec">
-        <h2 className="fsec-ttl"><i className="ph ph-seal-check" />Approval rules <span className="hint" style={{ textTransform: 'none', letterSpacing: 0 }}>— totals include VAT; leave blank to turn a rule off</span></h2>
+        <h2 className="fsec-ttl"><i className="ph ph-seal-check" />Approval rules <span className="hint">totals include VAT; leave blank to turn a rule off</span></h2>
         <div className="fgrid-2">
           <div className="fg">
             <label htmlFor="auto_approve_below">Auto-approve quotes below (SAR)</label>
@@ -117,7 +117,8 @@ export default async function Settings() {
         )}
       </section>
 
-      <div className="row" style={{ justifyContent: 'flex-end' }}>
+      {/* Sticks to the bottom of the window, so Save is always one click away on this long form */}
+      <div className="row save-bar">
         {s.updated_by && <span className="muted text-sm">Last saved by {s.updated_by}, {new Date(s.updated_at).toLocaleString('en-GB', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' })}</span>}
         <Submit label="Save settings" icon="ph-check" cls="btn btn-primary btn-lg" />
       </div>
