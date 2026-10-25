@@ -76,6 +76,28 @@ export default function Shell({ me, nav, settings, logout, children }) {
     document.documentElement.dataset.busy = '1'
     return () => { delete document.documentElement.dataset.busy }
   }, [refreshing])
+  // Moving between pages: no skeleton (it held finished pages back), so every link the app opens itself shows
+  // the top bar until the new page is in. Next's Link cancels the browser's own navigation, which is how those
+  // links are told apart from downloads, new tabs and plain links; 10 s at most if a page never arrives.
+  const here = `${pathname}?${sp}`
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    const click = (e) => {
+      const a = e.target.closest?.('a[href]')
+      if (!a || !e.defaultPrevented || a.target) return
+      const u = new URL(a.href)
+      if (u.origin === location.origin && u.pathname + u.search !== location.pathname + location.search) setLeaving(true)
+    }
+    document.addEventListener('click', click)
+    return () => document.removeEventListener('click', click)
+  }, [])
+  useEffect(() => setLeaving(false), [here])
+  useEffect(() => {
+    if (!leaving) return
+    document.documentElement.dataset.busy = '1'
+    const t = setTimeout(() => setLeaving(false), 10000)
+    return () => { clearTimeout(t); delete document.documentElement.dataset.busy }
+  }, [leaving])
   const [dark, setDark] = useState(false)
   const [toast, setToast] = useState(null)
   const [online, setOnline] = useState(true)

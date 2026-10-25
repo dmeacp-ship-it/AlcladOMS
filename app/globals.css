@@ -1473,11 +1473,6 @@ dialog.modal.closing::backdrop { animation: overlayOut var(--dur-exit) linear fo
 }
 .dlg-skel-steps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
 .dlg-skel-steps .skeleton { height: 28px; border-radius: 999px; }
-.page-skel { display: grid; gap: 20px; }
-.page-skel-tiles { display: flex; flex-wrap: wrap; gap: 12px; }
-.page-skel-tiles .skeleton { flex: 1 1 128px; height: 96px; border-radius: var(--r); }
-.page-skel-card { gap: 14px; padding: 20px; }
-.page-skel-row { height: 40px; }
 
 /* ── 26. Forms, menus, messages ── */
 .ro.plain { min-height: 0; padding: 9px 0; background: none; }

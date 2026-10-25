@@ -322,8 +322,13 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   https://claude.ai/artifact/ASgetitVRsPdF333g9iTCG.
 - **migrate-014 applied (same day):** checked from the app (V 3, LINES 2, Plant and Activity counts unchanged,
   anon refused). Plant Dispatch 839 → 368–386 ms and Activity 852 → 296–559 ms (one trip each); going to Plant
-  578 → 306–317 ms; every page's first byte ~290 ms (the layout is one trip for every user). Still to do:
-  push to main so Vercel runs in syd1.
+  578 → 306–317 ms; every page's first byte ~290 ms (the layout is one trip for every user). Pushed to main
+  (146d0a5); the live `x-vercel-id` shows syd1. Live from India: pages 369–614 ms, order dialog ~0.4 s.
+- **Skeleton removed (`app/loading.js`):** with a fast server it painted first and React then held the finished
+  content back until 300 ms after it (plus the 250 ms fade-in): live All Orders arrived by ~0.45 s but showed at
+  ~1.1 s. Pages now arrive complete in the first paint (locally All Orders 908–960 → 692–828 ms, New Quotation
+  908–924 → 676 ms). Feedback while moving between pages: the Shell shows the top bar for every link the app
+  opens itself (Next's Link cancels the browser's navigation) until the URL changes, 10 s at most.
 
 ---
 
