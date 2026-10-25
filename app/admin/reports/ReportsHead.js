@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LinkBusy } from '../../ui'
 
 export const REPORTS = [
   { key: '', label: 'Overview', icon: 'ph-squares-four' },
@@ -16,6 +17,7 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
       <nav className="tabs" aria-label="Reports">
         {REPORTS.map((r) => (
           <Link prefetch={false} key={r.key} href={`/admin/reports${r.key ? `/${r.key}` : ''}?${p.qs}`} className={`tab${r.key === tab ? ' on' : ''}`} aria-current={r.key === tab ? 'page' : undefined}>
+            <LinkBusy />
             <i className={`ph ${r.icon}`} />{r.label}
           </Link>
         ))}

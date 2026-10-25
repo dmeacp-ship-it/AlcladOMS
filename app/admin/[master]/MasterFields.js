@@ -5,7 +5,7 @@
 import Link from 'next/link'
 import { colLabel as label, money } from '@/lib/tas'
 import { deleteMaster, saveMaster } from '../actions'
-import { Modal, ModalFoot } from '../../ui'
+import { LinkBusy, Modal, ModalFoot } from '../../ui'
 
 const WIDE = ['address', 'description']
 // Phone keyboards and browser checks for the contact fields.
@@ -57,7 +57,7 @@ export function MasterTable({ cfg, rows, people, table, title, search, here, sor
           {cfg.cols.map((c) => (
             <th key={c} className={num(c) ? 'r' : undefined} aria-sort={sorts[c] ? sorts[c].dir : undefined}>
               {sorts[c]
-                ? <Link prefetch={false} href={sorts[c].href} className="th-sort">{label(c)}<i className={`ph ${sorts[c].dir === 'ascending' ? 'ph-caret-up' : 'ph-caret-up-down'}`} aria-hidden="true" /></Link>
+                ? <Link prefetch={false} href={sorts[c].href} className="th-sort"><LinkBusy />{label(c)}<i className={`ph ${sorts[c].dir === 'ascending' ? 'ph-caret-up' : 'ph-caret-up-down'}`} aria-hidden="true" /></Link>
                 : label(c)}
             </th>
           ))}

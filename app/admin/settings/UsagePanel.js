@@ -1,10 +1,10 @@
-import { WARN, getUsage } from '@/lib/usage'
+import { WARN, readUsage } from '@/lib/usage'
 
 const fmt = (k, n) => (k === 'mau' ? n.toLocaleString('en') : n >= 1e9 ? `${(n / 1e9).toFixed(2)} GB` : `${(n / 1e6).toFixed(1)} MB`)
 
-// Free-plan usage, admins only (Company Settings).
+// Free-plan usage, admins only (Company Settings), read fresh each visit.
 export default async function UsagePanel() {
-  const rows = await getUsage()
+  const rows = await readUsage()
   if (!rows) console.warn('Usage panel: run supabase/migrate-012.sql to enable it.')
   return (
     <section className="fsec">

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LinkBusy } from '../../ui'
 import { requireRole } from '@/lib/server'
 import { dispatch, pct, period, sales, waiting } from '@/lib/reports'
 import { int, money } from '@/lib/tas'
@@ -51,6 +52,7 @@ export default async function Reports({ searchParams }) {
           ['ph-package', 'ct', int(d.pcs), 'PCS on DOs', 'dispatch'],
         ].map(([ic, cls, n, l, to, full]) => (
           <Link prefetch={false} key={l} href={`/admin/reports/${to}?${p.qs}`} className="stat" title={full}>
+            <LinkBusy />
             <i className={`ph ${ic} stat-ic ${cls}`} /><div className={`stat-n ${cls}`}>{n}</div><div className="stat-l">{l}</div>
           </Link>
         ))}
@@ -66,6 +68,7 @@ export default async function Reports({ searchParams }) {
       <div className="rcards">
         {cards.map((c) => (
           <Link prefetch={false} key={c.key} href={`/admin/reports/${c.key}?${p.qs}`} className="rcard">
+            <LinkBusy />
             <h2 className="rcard-ttl"><i className={`ph ${c.icon}`} />{c.title}</h2>
             <div className="rcard-n">{c.n}</div>
             <div className="rcard-sub"><bdi>{c.sub}</bdi></div>

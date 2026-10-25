@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { db, requireRole } from '@/lib/server'
 import { MASTERS } from '@/lib/tas'
 import { importMaster, saveMaster } from '../actions'
-import { FileDrop, Modal, ModalFoot } from '../../ui'
+import { FileDrop, LinkBusy, Modal, ModalFoot } from '../../ui'
 import MasterFields, { MasterTable } from './MasterFields'
 
 const PAGE = 50
@@ -94,11 +94,11 @@ export default async function Master({ params, searchParams }) {
       </div>
       {(count ?? 0) > PAGE && (
         <div className="tbl-foot center">
-          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Previous</Link> : <span />}
+          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><LinkBusy /><i className="ph ph-caret-left" />Previous</Link> : <span />}
           <span className="spacer muted text-sm c">
             {page * PAGE + 1}–{Math.min((page + 1) * PAGE, count)} of {count}
           </span>
-          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}>Next<i className="ph ph-caret-right" /></Link>}
+          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}><LinkBusy />Next<i className="ph ph-caret-right" /></Link>}
         </div>
       )}
     </div>

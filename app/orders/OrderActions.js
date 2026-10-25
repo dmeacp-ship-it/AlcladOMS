@@ -1,9 +1,12 @@
+'use client'
 import Link from 'next/link'
 import { balanceOf, can, dispatchOpen, int, money, readyOf, today, totals } from '@/lib/tas'
 import { decide, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
 import { FileDrop, Modal, ModalFoot } from '../ui'
 
 // Order actions: Approve/Reject, Plant Dispatch link, Generate DO (when ready), Generate PI per batch, Tax Invoice.
+// A client component: each dialog is built in the browser when it opens, so a list of 100 orders sends their
+// data once instead of every row's dialogs as well. me: just { role }.
 export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog }) {
   const approved = o.status === 'APPROVED'
   const size = sm ? ' btn-sm' : ''

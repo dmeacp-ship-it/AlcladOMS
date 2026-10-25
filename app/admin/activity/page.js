@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { LinkBusy } from '../../ui'
 import { db, requireRole } from '@/lib/server'
 import { activityQuery, stamp } from '@/lib/activity'
 
@@ -7,16 +8,22 @@ const PAGE = 100
 
 // Every recorded action across all orders, plus settings, user and import changes.
 export default async function Activity({ searchParams }) {
-  await requireRole('admin')
   const sp = await searchParams
   const page = Math.max(0, parseInt(sp.page) || 0)
   const filters = Object.fromEntries(['q', 'user', 'action', 'from', 'to'].filter((k) => sp[k]).map((k) => [k, sp[k]]))
-  const [{ data: rows, count, error }, { data: names }] = await Promise.all([
+  // Role check, this page of events and the two filter lists in one round trip (activity_filters: migrate-014).
+  const [, { data: rows, count, error }, { data: lists }] = await Promise.all([
+    requireRole('admin'),
     activityQuery(filters, { count: true }).range(page * PAGE, page * PAGE + PAGE - 1),
-    db().from('order_events').select('by_name, action').order('id', { ascending: false }).limit(5000),
+    db().rpc('activity_filters'),
   ])
-  const users = [...new Set((names || []).map((r) => r.by_name).filter(Boolean))].sort()
-  const actions = [...new Set((names || []).map((r) => r.action))].sort()
+  let { users = [], actions = [] } = lists || {}
+  if (!lists) {
+    // Until migrate-014 runs: the names and actions in the latest 5,000 events.
+    const { data: names } = await db().from('order_events').select('by_name, action').order('id', { ascending: false }).limit(5000)
+    users = [...new Set((names || []).map((r) => r.by_name).filter(Boolean))].sort()
+    actions = [...new Set((names || []).map((r) => r.action))].sort()
+  }
   const link = (p) => `/admin/activity?${new URLSearchParams({ ...filters, ...(p && { page: p }) })}`
   const select = (name, label, list) => (
     <select name={name} defaultValue={filters[name] || ''} aria-label={label} className="flt-sel">
@@ -42,7 +49,7 @@ export default async function Activity({ searchParams }) {
           <input type="date" name="from" defaultValue={filters.from} aria-label="From date" className="flt-date" />
           <input type="date" name="to" defaultValue={filters.to} aria-label="To date" className="flt-date" />
           <button className="btn btn-ghost btn-sm"><i className="ph ph-funnel" />Filter</button>
-          {Object.keys(filters).length > 0 && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href="/admin/activity">Clear</Link>}
+          {Object.keys(filters).length > 0 && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href="/admin/activity"><LinkBusy />Clear</Link>}
           <a className="btn btn-ghost btn-sm" href={`/admin/export/activity?${new URLSearchParams(filters)}`}><i className="ph ph-download-simple" />Export</a>
         </form>
       </div>
@@ -72,9 +79,9 @@ export default async function Activity({ searchParams }) {
       </div>
       {(count ?? 0) > PAGE && (
         <div className="tbl-foot center">
-          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><i className="ph ph-caret-left" />Newer</Link> : <span />}
+          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><LinkBusy /><i className="ph ph-caret-left" />Newer</Link> : <span />}
           <span className="spacer muted text-sm c">{page * PAGE + 1}–{Math.min((page + 1) * PAGE, count)} of {count}</span>
-          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}>Older<i className="ph ph-caret-right" /></Link>}
+          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}><LinkBusy />Older<i className="ph ph-caret-right" /></Link>}
         </div>
       )}
     </div>

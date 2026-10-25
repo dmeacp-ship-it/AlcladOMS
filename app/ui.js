@@ -18,10 +18,12 @@ function useBusy(busy) {
     return () => { delete document.documentElement.dataset.busy }
   }, [busy])
 }
-// Put inside a <Link> to show the bar while that link loads.
+// Put inside a <Link> to show the bar while that link loads, plus a small spinner on tiles, tabs, sort
+// headers and buttons (.link-busy in globals.css).
 export function LinkBusy() {
-  useBusy(useLinkStatus().pending)
-  return null
+  const { pending } = useLinkStatus()
+  useBusy(pending)
+  return pending ? <span className="link-busy" aria-hidden="true" /> : null
 }
 
 // Plays the dialog's closing animation (shorter than its opening one), then closes it.

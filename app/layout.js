@@ -1,5 +1,5 @@
 import './globals.css'
-import '@phosphor-icons/web/regular'
+import './icons/phosphor.css' // only the icons in use: npm run icons
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { authClient, currentUser, openLineCount, orderCounts, sessionUserId } from '@/lib/server'
@@ -33,11 +33,12 @@ async function logout() {
 }
 
 export default async function RootLayout({ children }) {
-  // Profile and badge counts in parallel (one database round trip, not two); no counts when signed out.
-  // orderCounts(null): same arguments as the Orders page, so the cached result is shared.
+  // Profile, badge counts and the admins' usage warning together: one database round trip; nothing when signed out.
+  // orderCounts(null): same arguments as the Orders page, so the cached result is shared. The Plant badge comes
+  // with the counts (LINES, migrate-014); until that runs, plant users wait for one more query.
   const signedIn = !!(await sessionUserId())
-  const [me, c] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null])
-  const lines = me && can(me, 'plant') ? await openLineCount() : 0
+  const [me, c, usage] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null, signedIn ? getUsage() : null])
+  const lines = me && can(me, 'plant') ? c.LINES ?? await openLineCount() : 0
   let nav = []
   let settings = []
   if (me) {
@@ -69,7 +70,7 @@ export default async function RootLayout({ children }) {
     ]
   }
   // Admins see a warning on every page once any free-plan limit passes 80% (checked hourly).
-  const near = me?.role === 'admin' ? (await getUsage())?.filter((u) => u.share >= WARN) : null
+  const near = me?.role === 'admin' ? usage?.filter((u) => u.share >= WARN) : null
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

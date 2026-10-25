@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { batchQueues, db, filterOrders, findOrder, orderCounts, orderHistory, requireRole } from '@/lib/server'
-import { DISPATCH, STATUS, day, int, money, plural, totals } from '@/lib/tas'
-import { ClickRow, DocsMenu } from '../ui'
+import { batchQueues, db, fetchOrder, filterOrders, findOrder, orderCounts, orderHistory, requireRole } from '@/lib/server'
+import { DISPATCH, STATUS, actionData, day, int, money, plural, totals } from '@/lib/tas'
+import { ClickRow, DocsMenu, LinkBusy } from '../ui'
 import OrderDialog from './OrderDialog'
 import OrderActions from './OrderActions'
 
@@ -17,6 +17,8 @@ const TILES = [
   { status: 'REJECTED', label: 'Rejected', icon: 'ph-x-circle', cls: 'cr' },
 ]
 const PAGE = 100
+// Lists whose filter also reads the DO/PI batches (batchQueues()).
+const BATCH_LISTS = ['ACTIVE', 'AWAIT_PI', 'AWAIT_TAX']
 // ?sort= values: column -> [order column, ascending]
 const SORTS = { newest: ['id', false], oldest: ['id', true], customer: ['customer_name', true], customer_desc: ['customer_name', false] }
 
@@ -28,23 +30,29 @@ export async function generateMetadata({ searchParams }) {
 }
 
 export default async function Orders({ searchParams }) {
-  const me = await requireRole()
   const sp = await searchParams
   const status = sp.status || ''
+  const viewId = /^\d+$/.test(sp.view || '') ? sp.view : null
+  // Everything that doesn't depend on who is signed in starts with the user check (one round trip):
+  // the open order and its history (shown only if findOrder allows it), and the batch queues for the lists that need them.
+  const [me, b, , history] = await Promise.all([
+    requireRole(),
+    BATCH_LISTS.includes(status) ? batchQueues() : null,
+    viewId && fetchOrder(viewId),
+    viewId && orderHistory(viewId),
+  ])
   const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
   const page = Math.max(1, parseInt(sp.page) || 1)
   const sort = SORTS[sp.sort] ? sp.sort : 'newest'
   const own = (q) => (me.role === 'sales' ? q.eq('salesperson_id', me.id) : q)
 
-  const b = await batchQueues()
   let q = filterOrders(own(db().from('orders')
-    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, vat_rate, items:order_items(id, item_no, description, qty, price, total, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status), batches:order_batches(id, batch_no, do_no, do_date, pi_no, pi_date, tax_invoice_path, items:batch_items(id, do_qty, order_item:order_items(description, price)))')
+    .select('id, quote_no, quote_date, customer_name, salesperson_name, status, dispatch_status, doc_no, do_date, pi_date, tax_invoice_path, transport, vat_rate, items:order_items(id, item_no, description, qty, total, delivered_qty, ready_qty, dispatched_qty), batches:order_batches(id, batch_no, do_no, do_date, pi_no, pi_date, tax_invoice_path, items:batch_items(id, do_qty, order_item:order_items(description, price)))')
     .order(SORTS[sort][0], { ascending: SORTS[sort][1] }).order('id', { ascending: false }).range((page - 1) * PAGE, page * PAGE)), status, b)
   if (term) q = q.or(`quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,doc_no.ilike.%${term}%`)
 
-  const [view, history, { data: orders, error }, c] = await Promise.all([
-    sp.view ? findOrder(sp.view, me) : null,
-    /^\d+$/.test(sp.view || '') ? orderHistory(sp.view) : null, // shown only if findOrder allowed the order
+  const [view, { data: orders, error }, c] = await Promise.all([
+    viewId ? findOrder(viewId, me) : null, // already fetched above; this adds the permission check
     q,
     orderCounts(me.role === 'sales' ? me.id : null), // sales users count only their own
   ])
@@ -64,7 +72,7 @@ export default async function Orders({ searchParams }) {
     const next = sort === down ? up : down
     return (
       <th className={cls} aria-sort={on ? (SORTS[sort][1] ? 'ascending' : 'descending') : 'none'}>
-        <Link prefetch={false} href={sortHref(next)} className="th-sort">{label}<i className={`ph ${on ? (SORTS[sort][1] ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'}`} aria-hidden="true" /></Link>
+        <Link prefetch={false} href={sortHref(next)} className="th-sort"><LinkBusy />{label}<i className={`ph ${on ? (SORTS[sort][1] ? 'ph-caret-up' : 'ph-caret-down') : 'ph-caret-up-down'}`} aria-hidden="true" /></Link>
       </th>
     )
   }
@@ -74,6 +82,7 @@ export default async function Orders({ searchParams }) {
       {status !== 'ACTIVE' && <div className="stats">
         {TILES.map((t) => (
           <Link prefetch={false} key={t.label} href={t.status ? `/orders?status=${t.status}` : '/orders'} className={`stat${status === t.status ? ' on' : ''}`}>
+            <LinkBusy />
             <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
             <div className={`stat-n ${t.cls}`}>{countOf(t.status)}</div>
             <div className="stat-l">{t.label}</div>
@@ -120,6 +129,7 @@ export default async function Orders({ searchParams }) {
               {rows?.map((o) => {
                 const pcs = (o.items || []).reduce((n, it) => n + Number(it.qty || 0), 0)
                 const bs = o.batches || []
+                const d = actionData(o) // all the row's menus need: a finished order sends no lines
                 return (
                   <ClickRow key={o.id} href={viewHref(o.id)}>
                     <td className="nowrap c-q"><Link prefetch={false} href={viewHref(o.id)} scroll={false} className="qno">{o.quote_no}</Link></td>
@@ -132,12 +142,12 @@ export default async function Orders({ searchParams }) {
                     </td>
                     <td className="num c-tot"><span className="fw6">{money(totals(o.items, o.transport, o.vat_rate).total)}</span><span className="cell-sub">{int(pcs)} PCS</span></td>
                     <td className="c-docs">
-                      <DocsMenu o={o} />
+                      <DocsMenu o={d} />
                       <span className="cell-sub doc-ref">{bs.length === 1 ? bs[0].do_no : bs.length ? plural(bs.length, 'DO') : o.doc_no || 'Quote only'}</span>
                     </td>
                     <td className="nowrap muted c-date">{day(o.quote_date)}</td>
                     <td className="c-sp">{o.salesperson_name}</td>
-                    <td className="nowrap c-act"><div className="row-acts icons"><OrderActions o={o} me={me} back={listHref} sm /></div></td>
+                    <td className="nowrap c-act"><div className="row-acts icons"><OrderActions o={d} me={{ role: me.role }} back={listHref} sm /></div></td>
                   </ClickRow>
                 )
               })}
@@ -153,9 +163,9 @@ export default async function Orders({ searchParams }) {
         </div>
         {(page > 1 || more) && (
           <div className="tbl-foot center">
-            {page > 1 && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page - 1)}><i className="ph ph-caret-left" />{sort === 'newest' ? 'Newer' : 'Previous'}</Link>}
+            {page > 1 && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page - 1)}><LinkBusy /><i className="ph ph-caret-left" />{sort === 'newest' ? 'Newer' : 'Previous'}</Link>}
             <span className="spacer muted text-sm c">Page {page}</span>
-            {more && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page + 1)}>{sort === 'newest' ? 'Older' : 'Next'}<i className="ph ph-caret-right" /></Link>}
+            {more && <Link prefetch={false} className="btn btn-ghost btn-sm" href={pageHref(page + 1)}><LinkBusy />{sort === 'newest' ? 'Older' : 'Next'}<i className="ph ph-caret-right" /></Link>}
           </div>
         )}
       </div>

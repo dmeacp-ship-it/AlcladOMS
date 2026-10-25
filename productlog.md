@@ -296,6 +296,31 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   and `app/error.js`, sortable orders / customers / report tables, two weekly charts on Reports, offline notice,
   `/login` redirects signed-in users, Plant badge counts open lines.
 
+### 2026-10-25 — 20. Performance audit and fixes (11 items)
+- **Where the time went:** every page waited for 3 database trips in a row (~280 ms each from India), and the
+  live app's functions run in Washington (iad1) while Supabase is in Sydney (AWS ap-southeast-2, found from the
+  database address). `vercel.json` now pins functions to `syd1`, next to the database (takes effect on deploy).
+- **Fewer trips:** the layout loads profile, counts and the usage warning together; the Orders page starts the
+  open order, its history and (Active / Awaiting PI / Awaiting tax only) the batch queues with the user check
+  (`fetchOrder()` without a permission check, `findOrder()` checks); New Quotation starts the batch queues with
+  the masters; Activity and Plant run their role check alongside their queries.
+- **`migrate-014.sql` (optional):** `order_counts()` V 3 adds `LINES` (Plant badge, counted in SQL instead of
+  reading every approved line), `plant_counts()` (five tab counts in one call), `activity_filters()` (instead of
+  reading 5,000 events). Until it runs the app falls back to the old queries.
+- **Plant list:** filtered by tab in the query (`balance_qty`) instead of the newest 300 lines of every approved
+  order, so open lines on older orders no longer drop off. Search fixed: it errored on every term
+  (`orders.description` doesn't exist); it now matches material, quote no, DO no or customer.
+- **Lighter pages:** row and dialog actions (`OrderActions`) are client components that build their dialogs when
+  opened, and get only `actionData()` (lines only while an action needs them); list payload 2.8 → 1.8 KB per order.
+  Icon font cut to the 79 icons in use (`app/icons/`, `npm run icons`; `npm test` fails on a missing one):
+  206 KB → 13 KB. Usage warning failures cached for the hour (Company Settings reads fresh).
+  Customers past 1,000 load (`fetchAll`). Tiles, tabs, sort headers and pagers show a spinner while loading.
+- **Measured (old and new build side by side, this PC):** pages 835–990 → 570–720 ms on open connections;
+  order dialog data 1.4 → 0.9 s. This PC loses 1–2.5 s whenever several new connections to Supabase open at once
+  (idle ones close after 4 s), which hides part of the gain on cold page loads here; Vercel next to the database
+  doesn't have that cost. Reports: audit https://claude.ai/artifact/77pg8EAoFbZ4NKfrFb6gtE, before/after
+  https://claude.ai/artifact/ASgetitVRsPdF333g9iTCG.
+
 ---
 
 ## 5. Architecture
@@ -358,7 +383,9 @@ when opened (not stored), so editing company details changes how old documents p
 ## 7. Known limits (deliberate simplifications)
 
 - Orders list: 100 per page; admin masters: 50 per page; activity log: 100 per page.
-- New Quotation customer picker loads up to 1,000 customers (Supabase row cap) — switch to search beyond that.
+- New Quotation customer picker sends every customer to the browser — switch to search once there are thousands.
+- Icons: only those in `app/icons/phosphor.css` exist; after using a new `ph-*` icon run `npm run icons`
+  (Python with fonttools + brotli).
 - Tax invoice upload max 4 MB (Vercel request limit); letterhead image max 1 MB (stored in the database).
 - Drive uploads run as the Google account that made the refresh token; if it's disabled or revokes "TAS OMS",
   uploads stop until the OAuth Playground step is repeated.
@@ -366,7 +393,8 @@ when opened (not stored), so editing company details changes how old documents p
 - No email / WhatsApp notifications — the Active Orders badge replaces them.
 - Customer codes in the seed were generated (`CUS-001…`); the source file had none.
 - Theme / collapsed-sidebar preference is per browser (localStorage).
-- `order_counts()` (SQL) and `QUEUES` (JS) define the same queues — change both together.
+- `order_counts()` (SQL) and `QUEUES` (JS) define the same queues — change both together; so do
+  `plant_counts()` (SQL) and `SHOWS` in `app/plant/page.js`.
 - Long admin tables still scroll inside their card on desktop so the column headers stay in view.
 
 ## 8. Design-check exceptions (`.impeccable/config.json`)

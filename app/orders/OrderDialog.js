@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { DISPATCH, PRODUCTION, STATUS, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
+import { DISPATCH, PRODUCTION, STATUS, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
 import { FootMore, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
 import OrderActions, { PiAction, TaxAction } from './OrderActions'
@@ -153,7 +153,10 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
   )
 
   // Footer keeps only the order's next step (approve, Generate DO…); per-batch PI and tax invoice are on the batch rows.
-  const actions = <OrderActions o={o} me={me} back={back} openBatchPi={openBatchPi} inDialog />
+  // The action buttons are client components: they get only the data their dialogs read (actionData).
+  const act = actionData(o)
+  const actBatch = Object.fromEntries(act.batches.map((x) => [x.id, x]))
+  const actions = <OrderActions o={act} me={{ role: me.role }} back={back} openBatchPi={openBatchPi} inDialog />
 
   return (
     <RouteDialog
@@ -274,10 +277,10 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                         {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice ${b.pi_no}`} />}
                         {b.tax_invoice_path && <DocView href={`/orders/${o.id}/tax-invoice?batch=${b.id}`} icon="ph-paperclip" label="Tax inv." title={`Tax Invoice ${b.pi_no}`} />}
                         {approved && !b.pi_no && (
-                          <PiAction o={o} batch={b} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
+                          <PiAction o={act} batch={actBatch[b.id]} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
                         )}
                         {approved && b.pi_no && can(me, 'accounts') && (
-                          <TaxAction o={o} b={b} back={back} label={b.tax_invoice_path ? 'Replace' : 'Upload invoice'} />
+                          <TaxAction o={act} b={actBatch[b.id]} back={back} label={b.tax_invoice_path ? 'Replace' : 'Upload invoice'} />
                         )}
                       </div>
                     </td>

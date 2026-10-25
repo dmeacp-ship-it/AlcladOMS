@@ -1,6 +1,6 @@
 import Link from 'next/link'
+import { LinkBusy } from '../ui'
 import { db, requireRole } from '@/lib/server'
-import { balanceOf, readyOf } from '@/lib/tas'
 import PlantClient from './PlantClient'
 
 // Plant dispatch (FMS plant screen): every approved order line in 1 flat row.
@@ -18,55 +18,46 @@ const LIMIT = 300
 
 export const metadata = { title: 'Plant Dispatch' }
 
+// What each tab shows, as a filter on the line (balance_qty = qty - dispatched_qty, kept by the database).
+const SHOWS = {
+  open: (q) => q.gt('balance_qty', 0),
+  ready: (q) => q.gt('balance_qty', 0).gt('ready_qty', 0),
+  pending: (q) => q.gt('balance_qty', 0).eq('dispatched_qty', 0).lte('ready_qty', 0),
+  partial: (q) => q.gt('balance_qty', 0).gt('dispatched_qty', 0),
+  done: (q) => q.lte('balance_qty', 0),
+}
+
 export default async function Plant({ searchParams }) {
-  const me = await requireRole('plant')
   const sp = await searchParams
   const tab = TABS[sp.tab] ? sp.tab : 'open'
   const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
 
-  // Query all approved order items
-  let q = db().from('order_items').select(`${ITEM}, ${ORDER}`).eq('orders.status', 'APPROVED')
-  if (term) q = q.or(`doc_no.ilike.%${term}%,quote_no.ilike.%${term}%,customer_name.ilike.%${term}%,description.ilike.%${term}%`, { referencedTable: 'orders' })
-
-  const { data: allRows, error } = await q.order('order_id', { ascending: false }).order('item_no').limit(LIMIT)
-
-  // Compute balance and ready state dynamically (safe against unmigrated balance_qty)
-  // A short-closed order's balance will never ship, so its lines leave the plant's lists.
-  const rowsWithBal = (allRows || []).filter((it) => it.orders?.dispatch_status !== 'SHORT_CLOSED').map((it) => {
-    const bal = balanceOf(it)
-    const rQty = readyOf(it)
-    const isReady = rQty > 0 && bal > 0
-    const isDone = bal <= 0
-    const isPartial = (Number(it.dispatched_qty) || 0) > 0 && bal > 0
-    const isPending = (Number(it.dispatched_qty) || 0) === 0 && !isReady && bal > 0
-
-    return {
-      ...it,
-      computed_balance: bal,
-      computed_ready: rQty,
-      is_ready: isReady,
-      is_done: isDone,
-      is_partial: isPartial,
-      is_pending: isPending,
-    }
-  })
-
-  const counts = {
-    open: rowsWithBal.filter((r) => !r.is_done).length,
-    ready: rowsWithBal.filter((r) => r.is_ready).length,
-    pending: rowsWithBal.filter((r) => r.is_pending).length,
-    partial: rowsWithBal.filter((r) => r.is_partial).length,
-    done: rowsWithBal.filter((r) => r.is_done).length,
+  // Lines of approved orders; a short-closed order's balance will never ship, so its lines leave the plant's lists.
+  // A search matches the material, or the order's quote no, DO no or customer (ids: the matching orders).
+  const lines = (cols, opts, ids) => {
+    let q = db().from('order_items').select(cols, opts).eq('orders.status', 'APPROVED').filter('orders.dispatch_status', 'isdistinct', 'SHORT_CLOSED')
+    if (term) q = q.or(`description.ilike.%${term}%,order_id.in.(${ids?.join(',') || -1})`)
+    return q
   }
-
-  const rows = rowsWithBal.filter((r) => {
-    if (tab === 'open') return !r.is_done
-    if (tab === 'ready') return r.is_ready
-    if (tab === 'pending') return r.is_pending
-    if (tab === 'partial') return r.is_partial
-    if (tab === 'done') return r.is_done
-    return true
-  })
+  const list = (ids) => SHOWS[tab](lines(`${ITEM}, ${ORDER}`, undefined, ids)).order('order_id', { ascending: false }).order('item_no').limit(LIMIT)
+  // One round trip: role check, every tab's count (plant_counts, migrate-014) and, without a search, this tab's lines.
+  // One filter can't mix line and order columns, so a search finds the matching orders first and reads the lines after.
+  const [, found, pc, first] = await Promise.all([
+    requireRole('plant'),
+    term && db().from('orders').select('id').eq('status', 'APPROVED')
+      .or(`doc_no.ilike.%${term}%,quote_no.ilike.%${term}%,customer_name.ilike.%${term}%`),
+    db().rpc('plant_counts', { p_term: term || null }),
+    !term && list(),
+  ])
+  const ids = found?.data?.map((o) => o.id)
+  const tabs = Object.keys(TABS)
+  const [{ data: rows, error: listError }, ...n] = await Promise.all([
+    first || list(ids),
+    // Until migrate-014 runs: one count query per tab.
+    ...(pc.error ? tabs.map((k) => SHOWS[k](lines('id, orders!inner(id)', { count: 'exact', head: true }, ids))) : []),
+  ])
+  const counts = pc.error ? Object.fromEntries(tabs.map((k, i) => [k, n[i].count ?? 0])) : pc.data
+  const error = found?.error || listError
 
   const params = { ...(tab !== 'open' && { tab }), ...(term && { q: term }) }
   const here = `/plant${Object.keys(params).length ? `?${new URLSearchParams(params)}` : ''}`
@@ -78,6 +69,7 @@ export default async function Plant({ searchParams }) {
       <div className="stats">
         {Object.entries(TABS).map(([k, t]) => (
           <Link prefetch={false} key={k} href={tabHref(k)} className={`stat${tab === k ? ' on' : ''}`}>
+            <LinkBusy />
             <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
             <div className={`stat-n ${t.cls}`}>{counts[k] ?? 0}</div>
             <div className="stat-l">{t.label} lines</div>

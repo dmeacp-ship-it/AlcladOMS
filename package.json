@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test lib/tas.test.mjs"
+    "test": "node --test lib/tas.test.mjs lib/icons.test.mjs",
+    "icons": "python scripts/icons.py"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.1",
