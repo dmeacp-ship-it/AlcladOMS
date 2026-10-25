@@ -320,6 +320,10 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   (idle ones close after 4 s), which hides part of the gain on cold page loads here; Vercel next to the database
   doesn't have that cost. Reports: audit https://claude.ai/artifact/77pg8EAoFbZ4NKfrFb6gtE, before/after
   https://claude.ai/artifact/ASgetitVRsPdF333g9iTCG.
+- **migrate-014 applied (same day):** checked from the app (V 3, LINES 2, Plant and Activity counts unchanged,
+  anon refused). Plant Dispatch 839 → 368–386 ms and Activity 852 → 296–559 ms (one trip each); going to Plant
+  578 → 306–317 ms; every page's first byte ~290 ms (the layout is one trip for every user). Still to do:
+  push to main so Vercel runs in syd1.
 
 ---
 
