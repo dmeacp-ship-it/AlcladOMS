@@ -15,7 +15,8 @@ async function login(fd) {
   const { data, error } = email
     ? await supabase.auth.signInWithPassword({ email, password: String(fd.get('password') || '') })
     : { error: true }
-  if (error) go('/login', 'error', 'Wrong email/username or password.')
+  // Anything but a wrong password (bad API key, Auth down) says so, so a setup fault isn't mistaken for a typo.
+  if (error) go('/login', 'error', error === true || error.code === 'invalid_credentials' ? 'Wrong email/username or password.' : `Sign-in failed: ${error.message}. Tell the admin.`)
   const { data: me } = await db().from('profiles').select('active').eq('id', data.user.id).maybeSingle()
   if (!me?.active) {
     await supabase.auth.signOut({ scope: 'local' })
