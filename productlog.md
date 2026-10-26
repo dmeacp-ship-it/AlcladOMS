@@ -340,6 +340,16 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   item_options, orders with lines and batches, profiles, app_settings; anon key sees nothing. A warm query from
   India: Mumbai 44–107 ms vs Sydney 283–326 ms. The Sydney project is kept, untouched, as a backup. Also:
   `staleTimes.dynamic: 30` — a list opened in the last 30 s shows again without a server trip.
+  - Sign-in after the switch: the Auth admin API accepted `password_hash` on `updateUserById` but did not set it,
+    so the hashes were set in SQL (`update auth.users set encrypted_password = …`, from the Sydney SQL Editor).
+    A user can also be given a new password in SQL with `extensions.crypt('…', extensions.gen_salt('bf'))`.
+    Vercel env changes only reach a new deployment. The login page now shows the real reason for any failure
+    that isn't a wrong password ("Sign-in failed: … Tell the admin."), so a bad key isn't read as a typo.
+  - Live after the move (8efbeaa, `x-vercel-id` bom1::bom1), from India: server time per tile/page 84–128 ms
+    (was ~590 ms), tile clicks 151–207 ms (first click after a page load ~0.5 s), a tile revisited within
+    30 s 11–13 ms, Plant Dispatch 393 ms. Tile counts and the next quote number are unchanged.
+  - Left to do: give the Mumbai project new API keys (the service-role key was pasted in a chat) and update
+    them in Vercel; delete the Sydney project once the user no longer wants it as a backup.
 
 ---
 
