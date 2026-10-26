@@ -329,6 +329,17 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   ~1.1 s. Pages now arrive complete in the first paint (locally All Orders 908–960 → 692–828 ms, New Quotation
   908–924 → 676 ms). Feedback while moving between pages: the Shell shows the top bar for every link the app
   opens itself (Next's Link cancels the browser's navigation) until the URL changes, 10 s at most.
+- **Moved to Mumbai (2026-10-26):** live tile/page switches still took 0.4–0.7 s from India, nearly all of it the
+  trip to Sydney (static files from the bom1 edge ~40 ms; a do-nothing function call ~375 ms). Users are in Saudi
+  Arabia and India, and Supabase has no Gulf region, so the user created a new free project in Mumbai
+  (ap-south-1, ref vaqrdlfzekvfstlbsvff) and `vercel.json` now pins functions to `bom1`. The copy was one SQL file
+  run in the SQL Editor (schema.sql + migrate-004…014 + every table's rows with the same ids, identity counters
+  moved on), tested first on a local Postgres; the 2 sign-in users were created through the Auth admin API with
+  the same ids and their password hashes copied, so nobody resets a password; the tax-invoice files copied through
+  Storage. Checked equal to Sydney: order_counts, next_quote_no (Q-2026-004), plant_counts, activity_filters,
+  item_options, orders with lines and batches, profiles, app_settings; anon key sees nothing. A warm query from
+  India: Mumbai 44–107 ms vs Sydney 283–326 ms. The Sydney project is kept, untouched, as a backup. Also:
+  `staleTimes.dynamic: 30` — a list opened in the last 30 s shows again without a server trip.
 
 ---
 
