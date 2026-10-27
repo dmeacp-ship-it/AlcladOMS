@@ -18,7 +18,7 @@ and what is still open. Newest status first, then decisions, then the full chang
 
 ## 0. Inventory (IMS) for the new factories — task tracker
 
-Updated after every task. Branch `inventory` (not merged to `main` yet). Who uses it for now: admin + manager.
+Updated after every task. Phase 1 is on `main` (commit `67a845f`). Who uses it for now: admin + manager.
 Decided 2026-10-27: build for the new factories (not a copy of the old Virgo sheets); granules plant later but keep
 room for it; no QR codes yet; no BOM yet (manual issue); manager creates POs, admin approves; GRN may be 2% over the PO.
 
@@ -36,10 +36,10 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 8 | 1 | Stock report (opening / in / out / closing, below-min red, CSV) | ✅ tested | 27 Oct | RM 500 − 200 − 10 = 290 (red, min 400), Line 1 = 200; CSV matches |
 | 9 | 1 | Click-through test in the browser (desktop + phone) | ✅ | 27 Oct | On live data with TEST records, all removed afterwards; numbering reset to 001 |
 | 9a | 1 | Fixes from the test (see change history 21) | ✅ | 27 Oct | Fields kept after an error, phone layout, WIP not "below min", unit KG by default |
-| 9b | 1 | Run `supabase/migrate-016.sql` (clearer "not enough stock" message) | 👤 | | Until then the old wording shows: "would leave −710.000 in stock" |
+| 9b | 1 | Run `supabase/migrate-016.sql` (clearer "not enough stock" message) | ✅ | 27 Oct | Run by the user in the SQL Editor |
 | 10 | 1 | Enter the real Plants, Stores, Materials, Vendors | 👤 | | Settings → each master, or Import CSV |
 | 11 | 1 | Load the opening stock | 👤 | | Inventory → Opening & Adjust |
-| 12 | 1 | Commit, merge to `main`, deploy on Vercel | ⏳ | | Next, on your OK |
+| 12 | 1 | Commit, merge to `main`, deploy on Vercel | ✅ | 27 Oct | `67a845f` on `main` (fast-forward from `inventory`); Vercel build **success**; live `/inventory` answers from bom1 |
 | 13 | 2 | Work Order from a Sales Order / DO (what, how much, which line) | ⏳ | | |
 | 14 | 2 | Production entry (DPR): FG item, batch, line, shift, good + rejected qty, M2 | ⏳ | | |
 | 15 | 2 | FG QC: pass / reject → scrap / convert to B-grade | ⏳ | | |
@@ -418,7 +418,10 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   (2) the QC form lost typed values on an error — now the same form; (3) a production line (WIP) showed "below min"
   — min level now applies to stores only; (4) material lines on phones squeezed Qty off screen — they are now
   label / value cards; (5) the "not enough" message read "would leave −100.000 in stock" — `migrate-016.sql` changes
-  it to "100 KG short" (not run yet); (6) new materials start with unit KG and category RM.
+  it to "100 KG short" (run by the user the same day); (6) new materials start with unit KG and category RM.
+- **Shipped (same day):** commit `67a845f` fast-forwarded onto `main` and pushed (author `dmeacp-ship-it`); Vercel
+  build succeeded; the live app serves `/inventory` (sign-in required) from bom1. Next: the user enters the real
+  masters and opening stock (§0 tasks 10–11), then phase 2.
 
 ---
 
