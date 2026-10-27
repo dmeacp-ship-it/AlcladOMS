@@ -29,7 +29,7 @@ export default function MasterFields({ cfg, row, people, lists }) {
             {pick ? (
               <select id={id} name={c} defaultValue={row ? row[c] ?? '' : cfg.defaults?.[c] ?? ''} required={req}>
                 <option value="">{req ? 'Select…' : '—'}</option>
-                {pick.map((v) => <option key={v}>{v}</option>)}
+                {pick.map((v) => <option key={v} value={v}>{cfg.labels?.[c]?.[v] || v}</option>)}
               </select>
             ) : (
               <input id={id} name={c} defaultValue={row ? row[c] ?? '' : cfg.defaults?.[c] ?? ''} required={req}
@@ -83,7 +83,7 @@ export function MasterTable({ cfg, rows, people, lists, table, title, search, he
             {cfg.cols.map((c) => (
               <td key={c} className={`c-${c} ${c === 'name' || c === 'description' ? 'desc' : c === 'address' ? 'text-sm' : num(c) ? 'num' : 'nowrap'}`}
                 style={c === 'address' ? { minWidth: 220 } : c === 'description' ? { minWidth: 260 } : undefined}>
-                {r[c] == null ? <span className="muted">—</span> : c === 'credit_limit' ? money(r[c]) : r[c]}
+                {r[c] == null ? <span className="muted">—</span> : c === 'credit_limit' ? money(r[c]) : cfg.labels?.[c]?.[r[c]] || r[c]}
               </td>
             ))}
             {people && <td className="nowrap c-sp">{r.sp_name || <span className="muted">Anyone</span>}</td>}

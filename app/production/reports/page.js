@@ -4,7 +4,7 @@ import { SHIFTS, prodMissing } from '@/lib/production'
 import { day, money, qty, today } from '@/lib/tas'
 import ProdTabs from '../ProdTabs'
 
-export const metadata = { title: 'Production Reports' }
+export const metadata = { title: 'Production Report' }
 const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '')
 const pct = (a, b) => (b > 0 ? `${(Math.round((a / b) * 1000) / 10).toFixed(1)}%` : '—')
 

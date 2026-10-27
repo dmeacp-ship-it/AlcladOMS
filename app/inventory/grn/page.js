@@ -5,7 +5,7 @@ import { day } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../../ui'
 import InvTabs from '../InvTabs'
 
-export const metadata = { title: 'GRN & QC' }
+export const metadata = { title: 'Receive Goods' }
 const LIMIT = 200
 
 export default async function GRNList({ searchParams }) {
@@ -27,7 +27,7 @@ export default async function GRNList({ searchParams }) {
           <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Goods received <span className="badge b-none">{rows?.length ?? 0}</span></h2>
           <div className="tbl-filters">
             <nav className="tabs" aria-label="GRN status" style={{ marginBottom: 0 }}>
-              <Link prefetch={false} href={href(false)} className={`tab${pending ? ' on' : ''}`}><LinkBusy />Waiting for QC</Link>
+              <Link prefetch={false} href={href(false)} className={`tab${pending ? ' on' : ''}`}><LinkBusy />Waiting to be checked</Link>
               <Link prefetch={false} href={href(true)} className={`tab${pending ? '' : ' on'}`}><LinkBusy />All</Link>
             </nav>
             <form className="sw">
@@ -40,7 +40,7 @@ export default async function GRNList({ searchParams }) {
         </div>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>GRN No</th><th>Date</th><th>PO</th><th>Vendor</th><th>Store</th><th>Invoice</th><th className="r">Lines</th><th>QC</th></tr></thead>
+            <thead><tr><th>GRN No</th><th>Date</th><th>PO</th><th>Vendor</th><th>Store</th><th>Invoice</th><th className="r">Lines</th><th>Checked</th></tr></thead>
             <tbody>
               {rows?.map((g) => (
                 <ClickRow key={g.id} href={`/inventory/grn/${g.id}`}>
@@ -51,12 +51,12 @@ export default async function GRNList({ searchParams }) {
                   <td data-label="Store">{g.store?.name} <span className="muted">{g.store?.plant_code}</span></td>
                   <td data-label="Invoice">{g.invoice_no || <span className="muted">—</span>}</td>
                   <td className="num" data-label="Lines">{g.items.length}</td>
-                  <td className="nowrap" data-label="QC">{g.status === 'DONE' ? <span className="badge b-ok">Done</span> : <span className="badge b-warn">Pending</span>}</td>
+                  <td className="nowrap" data-label="QC">{g.status === 'DONE' ? <span className="badge b-ok">Done</span> : <span className="badge b-warn">Not yet</span>}</td>
                 </ClickRow>
               ))}
             </tbody>
           </table>
-          {!rows?.length && <div className="empty"><i className="ph ph-seal-check" /><h3>{pending ? 'Nothing waiting for QC' : 'No GRNs yet'}</h3><p>Goods are received on an approved PO with Receive goods.</p></div>}
+          {!rows?.length && <div className="empty"><i className="ph ph-seal-check" /><h3>{pending ? 'Nothing waiting to be checked' : 'Nothing received yet'}</h3><p>Goods are received on an approved PO with Receive goods.</p></div>}
         </div>
       </div>
     </>

@@ -6,7 +6,7 @@ import { day, money, qty } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../../ui'
 import ProdTabs from '../ProdTabs'
 
-export const metadata = { title: 'Production' }
+export const metadata = { title: 'Enter Production' }
 const LIMIT = 200
 
 export default async function Dprs({ searchParams }) {
@@ -30,7 +30,7 @@ export default async function Dprs({ searchParams }) {
         </div>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>DPR No</th><th>Date</th><th>Shift</th><th>Line</th><th>Plan</th><th className="r">Good pcs</th><th className="r">Good M2</th><th className="r">Rejected</th><th>FG QC</th></tr></thead>
+            <thead><tr><th>DPR No</th><th>Date</th><th>Shift</th><th>Line</th><th>Plan</th><th className="r">Good pcs</th><th className="r">Good M2</th><th className="r">Rejected</th><th>Checked</th></tr></thead>
             <tbody>
               {rows?.map((p) => {
                 const open = p.items.filter((i) => !i.qc_at && i.good_qty > 0).length
@@ -44,7 +44,7 @@ export default async function Dprs({ searchParams }) {
                     <td className="num fw6" data-label="Good pcs">{qty(sum(p, 'good_qty'))}</td>
                     <td className="num" data-label="Good M2">{money(p.items.reduce((n, i) => n + i.good_qty * i.f.m2_per_pc, 0))}</td>
                     <td className="num" data-label="Rejected">{sum(p, 'rejected_qty') ? qty(sum(p, 'rejected_qty')) : <span className="muted">0</span>}</td>
-                    <td className="nowrap" data-label="FG QC">{open ? <span className="badge b-warn">{open} waiting</span> : <span className="badge b-ok">Done</span>}</td>
+                    <td className="nowrap" data-label="Checked">{open ? <span className="badge b-warn">{open} waiting</span> : <span className="badge b-ok">Done</span>}</td>
                   </ClickRow>
                 )
               })}

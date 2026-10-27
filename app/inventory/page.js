@@ -3,7 +3,7 @@ import { invMasters, isLow, stockReport, storeLabel } from '@/lib/inventory'
 import { day, qty } from '@/lib/tas'
 import InvTabs from './InvTabs'
 
-export const metadata = { title: 'Stock' }
+export const metadata = { title: 'Raw Material Stock' }
 
 // Stock per store and material for a period: opening, in, out, closing. Red = below the material's min level.
 export default async function Stock({ searchParams }) {

@@ -30,9 +30,9 @@ export default async function Dpr({ params }) {
   return (
     <>
       <div className="page-head no-print">
-        <Link prefetch={false} href="/production/dpr" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Production</Link>
+        <Link prefetch={false} href="/production/dpr" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Enter Production</Link>
         {p.plan && <Link prefetch={false} href={`/production/plan/${p.plan.id}`} className="chip-link">{p.plan.plan_no}</Link>}
-        {p.items.some((i) => !i.qc_at && i.good_qty > 0) && <Link prefetch={false} href="/production/qc" className="btn btn-primary btn-sm"><i className="ph ph-seal-check" />FG QC</Link>}
+        {p.items.some((i) => !i.qc_at && i.good_qty > 0) && <Link prefetch={false} href="/production/qc" className="btn btn-primary btn-sm"><i className="ph ph-seal-check" />Check these pieces</Link>}
         <div className="acts"><PrintButton /></div>
       </div>
       <Slip

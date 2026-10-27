@@ -26,27 +26,28 @@ const PAGES = [
   [/^\/admin\/reports\/customers/, 'Reports · Customers', 'Quotes, approvals and value per customer'],
   [/^\/admin\/reports\/waiting/, 'Reports · Waiting', 'What is waiting right now, and for how long'],
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
-  [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
+  [/^\/admin\/reports/, 'Sales Report', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
   [/^\/plant/, 'Plant Dispatch', 'Update production and mark finished pieces ready'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
   [/^\/admin\/plants/, 'Plants', 'Factories; every store belongs to one'],
-  [/^\/admin\/stores/, 'Stores', 'RM stores, production lines (WIP), FG and scrap stores per plant'],
+  [/^\/admin\/stores/, 'Stores', 'Raw material stores, production lines, finished goods and scrap stores'],
   [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
   [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
-  [/^\/inventory\/po/, 'Purchase Orders', 'Create, approve and track what is still to arrive'],
-  [/^\/inventory\/grn/, 'GRN & QC', 'Receive goods on a PO; QC puts the accepted quantity into stock'],
-  [/^\/inventory\/issue/, 'Issue / Transfer', 'Material from a store to a production line or another store'],
-  [/^\/inventory\/adjust/, 'Opening & Adjustments', 'Go-live stock and stock count corrections'],
-  [/^\/inventory/, 'RM Stock', 'Opening, in, out and closing raw material per store'],
-  [/^\/production\/plan/, 'Production Plan', 'What a line makes in one shift; issue RM and enter production from here'],
-  [/^\/production\/dpr/, 'Production', 'Good and rejected pieces per shift and line, and the RM used'],
-  [/^\/production\/qc/, 'FG QC', 'Passed pieces go into FG stock; B-grade and rejects are recorded'],
-  [/^\/production\/fg/, 'FG Stock', 'Finished goods per store and size, in pieces and M2'],
-  [/^\/production\/reports/, 'Production Reports', 'Output, rejection, line WIP and yield'],
-  [/^\/production/, 'Production Planning', 'What open orders still need, by product and size'],
+  [/^\/today/, 'To Do Today', 'Work waiting for you — tap a box to start'],
+  [/^\/inventory\/po/, 'Purchase Orders', 'Order raw material from a supplier'],
+  [/^\/inventory\/grn/, 'Receive Goods', 'When goods arrive: enter what came, then check it'],
+  [/^\/inventory\/issue/, 'Issue to Line', 'Send raw material from the store to a production line'],
+  [/^\/inventory\/adjust/, 'Stock Correction', 'Fix the stock after a count, or load the starting stock'],
+  [/^\/inventory/, 'Raw Material Stock', 'How much raw material is in each store and line'],
+  [/^\/production\/plan/, 'Production Plan', 'What one line makes in one shift'],
+  [/^\/production\/dpr/, 'Enter Production', 'What each line made in a shift, and the raw material it used'],
+  [/^\/production\/qc/, 'Check Finished Goods', 'Check new pieces before they go into the finished goods store'],
+  [/^\/production\/fg/, 'Finished Goods Stock', 'Finished pieces by product and size'],
+  [/^\/production\/reports/, 'Production Report', 'How much was made, rejected and used'],
+  [/^\/production/, 'Plan Production', 'What customer orders still need, and what to make'],
 ]
 
 // Closes a popover on outside press and Esc while it is open.
@@ -143,11 +144,14 @@ export default function Shell({ me, nav, settings, logout, children }) {
     return () => clearTimeout(t)
   }, [toast])
 
+  // The link whose path is the longest match lights up (on /inventory/po: Purchase Orders, not Raw Material Stock).
+  const best = [...nav, ...settings].map((n) => n.href?.split('?')[0])
+    .filter((p) => p && (pathname === p || pathname.startsWith(`${p}/`))).sort((a, b) => b.length - a.length)[0]
   const active = (href) => {
     const [path, query] = href.split('?')
     if (query) return pathname === path && query === `status=${status}`
     if (path === '/orders') return pathname === '/orders' && !status
-    return pathname.startsWith(path)
+    return path === best
   }
   const [title, sub] = pathname === '/orders'
     ? LIST_TITLES[status] || LIST_TITLES['']
@@ -166,6 +170,9 @@ export default function Shell({ me, nav, settings, logout, children }) {
     </Link>
   )
   const moreItems = [...nav.filter((n) => n.more), ...settings]
+  // The More sheet keeps the sidebar's group headings (only those with a page in the sheet).
+  const moreList = [...nav, { section: 'Settings' }, ...settings]
+    .filter((n, i, all) => (n.section ? all.slice(i + 1).find((m) => m.section || m.more || settings.includes(m))?.href : n.more || settings.includes(n)))
   // Phone tab bar: the main pages plus More, all the same width
   const tabs = nav.filter((n) => n.href && !n.more).length + 1
   const initials = me.full_name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -240,7 +247,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
                 <div className="more-scrim" aria-hidden="true" onClick={() => setMoreOpen(false)} />
                 <nav id="more-sheet" className="more-sheet" aria-label="More">
                   <div className="more-user"><div className="av sm" aria-hidden="true">{initials}</div><b>{me.full_name}</b><span className={`rtag rt-${me.role}`}>{me.role}</span></div>
-                  {moreItems.length > 0 && <div className="more-list">{moreItems.map(item)}</div>}
+                  {moreItems.length > 0 && <div className="more-list">{moreList.map((n, i) => (n.section ? <div key={`s${i}`} className="more-sec">{n.section}</div> : item(n)))}</div>}
                   <button type="button" className="ni" onClick={(e) => { toggleTheme(e); setMoreOpen(false) }}>
                     <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} /><span className="ni-txt">{dark ? 'Light mode' : 'Dark mode'}</span>
                   </button>

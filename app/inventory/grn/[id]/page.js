@@ -30,17 +30,17 @@ export default async function GRN({ params }) {
   return (
     <>
       <div className="page-head no-print">
-        <Link prefetch={false} href="/inventory/grn" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />GRN & QC</Link>
+        <Link prefetch={false} href="/inventory/grn" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Receive Goods</Link>
         <Link prefetch={false} href={`/inventory/po/${g.po.id}`} className="chip-link">{g.po.po_no}</Link>
-        {qc ? <span className="badge b-ok">QC done · {g.qc_by}</span> : <span className="badge b-warn">Waiting for QC</span>}
+        {qc ? <span className="badge b-ok">Checked · {g.qc_by}</span> : <span className="badge b-warn">Waiting to be checked</span>}
         <div className="acts"><PrintButton /></div>
       </div>
 
       {!qc && (
-        <div style={{ marginBottom: 20 }}><ActionForm action={qcGRN} className="card no-print" submit={{ label: 'Save QC and put into stock', icon: 'ph-seal-check', cls: 'btn btn-success' }}>
+        <div style={{ marginBottom: 20 }}><ActionForm action={qcGRN} className="card no-print" submit={{ label: 'Save check — put into stock', icon: 'ph-seal-check', cls: 'btn btn-success' }}>
           <input type="hidden" name="id" value={g.id} />
           <div className="tbl-top">
-            <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Incoming QC</h2>
+            <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Check the goods</h2>
             <span className="muted text-sm">Enter what failed inspection; the rest goes into {g.store?.name}. Rejected quantity goes back on the PO as pending.</span>
           </div>
           <div className="tbl-wrap">

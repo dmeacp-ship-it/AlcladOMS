@@ -37,7 +37,7 @@ export default async function Master({ params, searchParams }) {
   const link = (p, s = sort) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }), ...(s !== 'id' && { sort: s }) })}`
   const sorts = Object.fromEntries(['code', 'name'].map((c) => [c, { href: link(0, c), dir: sort === c ? 'ascending' : 'none' }]))
   const here = link(page)
-  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: cfg.defaults }
+  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: cfg.defaults, labels: cfg.labels }
   // Only what the table and its dialogs show goes to the browser.
   const pick = (r) => ({
     ...Object.fromEntries(['id', ...cfg.cols, ...(isCust ? ['salesperson_id'] : [])].map((c) => [c, r[c] ?? null])),

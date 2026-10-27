@@ -55,6 +55,13 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
 | 18c | 2 | Browser test (desktop + phone), product log, deploy | ✅ | 27 Oct | Tested on live data with TEST records (all removed); `ba78ba1` pushed to `main`, Vercel build **success**, live from bom1 |
 | 18d | 2 | TEST data loaded in the live app for the user's own check | 👤 | 27 Oct | Plant TEST (RM store, Line 1, Line 2, FG, scrap), 5 TEST materials, 2 TEST vendors, PO-2026-001…003, GRN-2026-001/002, ISS-2026-001/002, 2 TEST customers, orders Q-2026-001…003, DO-TEST-CA-271026-01, PLN-2026-001, DPR-2026-001/002, FG 25 pcs; settings: FG store = TEST-FG, orders use FG stock = on. **Remove before real use** (ask Claude: "remove the test data") |
+| E1 | Easy | Sidebar: one link per page, grouped Sales / Store / Production / Reports, red numbers for waiting work; tab bars inside pages removed | ✅ tested locally | 27 Oct | Phone: the More menu keeps the same groups |
+| E2 | Easy | Plain words: Receive Goods, Check the goods, Issue to Line, Stock Correction, Plan Production, Enter Production, Check Finished Goods, Finished Goods Stock; planning columns "Orders need / In stock / Already planned / Being checked / Still to make" | ✅ tested locally | 27 Oct | Store types shown as "Production line", "Finished goods store"… |
+| E3 | Easy | "To Do Today" start page: big boxes with counts of waiting work per job, plus shortcut buttons; everyone lands here after sign-in | ✅ tested locally | 27 Oct | |
+| E4 | Easy | Help box with numbered steps at the top of every store and production page | ✅ tested locally | 27 Oct | |
+| E5 | Easy | Commit and deploy | ⏳ | | Waiting for your OK |
+| E6 | Easy | Language: Arabic and / or Hindi-Urdu labels | 👤 | | Your decision (English for now) |
+| E7 | Easy | Separate logins per job (store, production, QC, purchase) so each person sees only their pages | 👤 | | Suggested next; same as task 26 |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
 | 20 | 3 | Granule production and transfer to the ACP plant | ⏳ | | |
 | 21 | 4 | Purchase request from the min level (reorder list → PO) | ⏳ | | Phase 1 only shows below-min rows in red |
@@ -461,6 +468,19 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 - **Shipped (same day):** commit `ba78ba1` on `main`, Vercel build succeeded, live from bom1. Next for the user: add an
   FG store and the production lines (WIP stores), pick the FG store in Company Settings → Inventory, load the FG
   opening stock, then switch on "Orders use FG stock"; then phase 3 (granules) or phase 4 items.
+
+### 2026-10-27 — 23. Easier to use (sidebar, plain words, To Do Today, page help)
+- **Why:** the user found the app confusing; it is for people who rarely use computers.
+- **Changed:** the Store and Production pages are now separate sidebar links in groups (no tab bars inside pages);
+  the link of the page you are on is the only one lit (longest match). Red badges: purchase orders to approve
+  (admin), deliveries to check, items still to make, production rows to check. New start page `/today` ("To Do
+  Today"): one big box per kind of waiting work for the user's job (quotations to approve, orders waiting for a DO,
+  lines to dispatch, PIs, tax invoices, POs, deliveries to check, materials below minimum, pieces still to make,
+  production to check) and shortcut buttons; `/`, sign-in and the login page now go there. Every store / production
+  page starts with a plain sentence and numbered steps (`app/PageHelp.js`). Jargon replaced in titles, columns,
+  buttons and store types. The admin-only "pick the FG store" warning no longer shows to managers.
+- **Checked:** desktop 1400 px and phone 375 px (no sideways scroll, grouped More menu), `npm test`, `next build`.
+- **Open questions for the user:** Arabic / Hindi-Urdu labels; separate logins per job.
 
 ---
 

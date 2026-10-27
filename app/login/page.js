@@ -23,7 +23,7 @@ async function login(fd) {
     go('/login', 'error', 'Your account is not active. Ask the admin.')
   }
   revalidatePath('/', 'layout')
-  redirect('/orders')
+  redirect('/today')
 }
 
 export const metadata = { title: 'Sign in' }

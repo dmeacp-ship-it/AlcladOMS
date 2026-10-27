@@ -6,7 +6,7 @@ import { importOpening, postAdjustment } from '../actions'
 import InvTabs from '../InvTabs'
 import LinesForm from '../LinesForm'
 
-export const metadata = { title: 'Opening & Adjustments' }
+export const metadata = { title: 'Stock Correction' }
 
 // Go-live opening stock (CSV, once per store + material) and later corrections with a reason.
 export default async function Adjust() {

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { authClient, currentUser, openLineCount, orderCounts, sessionUserId } from '@/lib/server'
 import { can } from '@/lib/tas'
 import { WARN, getUsage } from '@/lib/usage'
+import { invTodo } from '@/lib/todo'
 import Shell from './Shell'
 
 // Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
@@ -37,7 +38,8 @@ export default async function RootLayout({ children }) {
   // orderCounts(null): same arguments as the Orders page, so the cached result is shared. The Plant badge comes
   // with the counts (LINES, migrate-014); until that runs, plant users wait for one more query.
   const signedIn = !!(await sessionUserId())
-  const [me, c, usage] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null, signedIn ? getUsage() : null])
+  // inv: store / production waiting work (badges), started alongside so it adds no round trip; used by admin / manager.
+  const [me, c, usage, inv] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null, signedIn ? getUsage() : null, signedIn ? invTodo() : null])
   const lines = me && can(me, 'plant') ? c.LINES ?? await openLineCount() : 0
   let nav = []
   let settings = []
@@ -50,17 +52,33 @@ export default async function RootLayout({ children }) {
       can(me, 'operations') ? c.AWAIT_DO : 0,
     ]
     const todo = waiting.reduce((a, b) => a + b, 0)
+    // One link per page, grouped by job, in plain words (no tabs inside pages). Red numbers = work waiting there.
+    // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
+    const boss = ['admin', 'manager'].includes(me.role)
     nav = [
-      { section: 'Workflow' },
+      { href: '/today', label: 'To Do Today', short: 'To Do', icon: 'ph-house' },
+      { section: 'Sales' },
       { href: '/orders?status=ACTIVE', label: 'Active Orders', short: 'Active', icon: 'ph-lightning', badge: todo },
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', short: 'New Quote', icon: 'ph-file-plus' },
+      { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks', more: true },
       // Badge in lines, the unit the Plant Dispatch page counts in.
       can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', short: 'Plant', icon: 'ph-factory', badge: lines },
-      { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks' },
-      // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
-      ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', more: true },
-      ['admin', 'manager'].includes(me.role) && { href: '/inventory', label: 'RM Inventory', icon: 'ph-warehouse', more: true },
-      ['admin', 'manager'].includes(me.role) && { href: '/production', label: 'Production & FG', icon: 'ph-stack', more: true },
+      ...(boss ? [
+        { section: 'Store (raw material)' },
+        { href: '/inventory', label: 'Raw Material Stock', icon: 'ph-warehouse', more: true },
+        { href: '/inventory/po', label: 'Purchase Orders', icon: 'ph-shopping-cart', badge: me.role === 'admin' ? inv.po : 0, more: true },
+        { href: '/inventory/grn', label: 'Receive Goods', icon: 'ph-truck', badge: inv.grn, more: true },
+        { href: '/inventory/issue', label: 'Issue to Line', icon: 'ph-arrows-left-right', more: true },
+        { href: '/inventory/adjust', label: 'Stock Correction', icon: 'ph-sliders-horizontal', more: true },
+        { section: 'Production' },
+        { href: '/production', label: 'Plan Production', icon: 'ph-calendar-check', badge: inv.toPlan, more: true },
+        { href: '/production/dpr', label: 'Enter Production', icon: 'ph-gear-six', more: true },
+        { href: '/production/qc', label: 'Check Finished Goods', icon: 'ph-seal-check', badge: inv.qc, more: true },
+        { href: '/production/fg', label: 'Finished Goods Stock', icon: 'ph-stack', more: true },
+        { section: 'Reports' },
+        { href: '/admin/reports', label: 'Sales Report', icon: 'ph-chart-bar', more: true },
+        { href: '/production/reports', label: 'Production Report', icon: 'ph-chart-line-up', more: true },
+      ] : []),
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [

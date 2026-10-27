@@ -46,7 +46,7 @@ export default function MarkReadyModal({ lines, back, label = 'Mark Ready', btnC
                   return (
                     <tr key={it.id}>
                       <td className="muted nowrap">{many ? it.orders?.quote_no : it.item_no}</td>
-                      <td className="desc wrap">{it.description}{(it.color_name || it.fg_free != null) && <span className="cell-sub">{[it.color_name, it.fg_free != null && `FG free: ${int(it.fg_free)} pcs`].filter(Boolean).join(' · ')}</span>}</td>
+                      <td className="desc wrap">{it.description}{(it.color_name || it.fg_free != null) && <span className="cell-sub">{[it.color_name, it.fg_free != null && `Free in stock: ${int(it.fg_free)} pcs`].filter(Boolean).join(' · ')}</span>}</td>
                       <td>
                         <input
                           className="qty big"

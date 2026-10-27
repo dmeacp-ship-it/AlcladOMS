@@ -35,7 +35,7 @@ export default async function Plan({ params }) {
   return (
     <>
       <div className="page-head no-print">
-        <Link prefetch={false} href="/production" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Planning</Link>
+        <Link prefetch={false} href="/production" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Plan Production</Link>
         <span className={`badge ${p.status === 'DONE' ? 'b-ok' : 'b-info'}`}>{p.status === 'DONE' ? 'Done' : 'Open'}</span>
         <div className="acts">
           {p.status === 'OPEN' && (

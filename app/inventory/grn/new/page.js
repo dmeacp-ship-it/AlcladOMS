@@ -56,7 +56,7 @@ export default async function NewGRN({ searchParams }) {
   return (
     <>
       <InvTabs tab="grn" missing={missing} />
-      <ActionForm action={createGRN} submit={{ label: 'Save GRN', icon: 'ph-check' }}>
+      <ActionForm action={createGRN} submit={{ label: 'Save what arrived', icon: 'ph-check' }}>
         <input type="hidden" name="po" value={po.id} />
         <section className="fsec compact">
           <h2 className="fsec-ttl"><i className="ph ph-truck" />Receive on {po.po_no} · <bdi>{po.vendor_name}</bdi> · {po.plant_code}</h2>

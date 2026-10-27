@@ -7,7 +7,7 @@ import { importFgOpening, postFgAdjustment } from '../actions'
 import LinesForm from '../../inventory/LinesForm'
 import ProdTabs from '../ProdTabs'
 
-export const metadata = { title: 'FG Stock' }
+export const metadata = { title: 'Finished Goods Stock' }
 
 // Finished goods per FG store and item (product + size): pieces, M2, and for the orders' store what is reserved.
 export default async function FGStock({ searchParams }) {
@@ -57,7 +57,7 @@ export default async function FGStock({ searchParams }) {
       <div className="card">
         <div className="tbl-top">
           <h2 className="tbl-ttl">
-            <i className="ph ph-stack" />FG stock {day(p.from)} – {day(p.to)} <span className="badge b-none">{rows.length}</span>
+            <i className="ph ph-stack" />Finished goods {day(p.from)} – {day(p.to)} <span className="badge b-none">{rows.length}</span>
             {rows.length > 0 && <span className="badge b-blue">{qty(total('closing'))} pcs · {money(rows.reduce((n, r) => n + r.closing * r.m2_per_pc, 0))} M2</span>}
           </h2>
         </div>
@@ -83,9 +83,9 @@ export default async function FGStock({ searchParams }) {
               })}
             </tbody>
           </table>
-          {!rows.length && <div className="empty"><i className="ph ph-stack" /><h3>No FG stock here</h3><p>FG stock comes from FG QC, or load the opening stock.</p></div>}
+          {!rows.length && <div className="empty"><i className="ph ph-stack" /><h3>No finished goods here</h3><p>Pieces arrive here after they are checked, or load the starting stock.</p></div>}
         </div>
-        <div className="tbl-foot"><span className="muted text-sm">Reserved / free are for the store orders ship from (Company Settings → Inventory): pieces marked ready on open orders.</span></div>
+        <div className="tbl-foot"><span className="muted text-sm">Reserved = marked ready for an order. Free = can go to any order.</span></div>
       </div>
 
       <div style={{ marginTop: 20 }}>

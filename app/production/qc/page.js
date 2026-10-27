@@ -7,7 +7,7 @@ import { qcProduction } from '../actions'
 import ActionForm from '../../inventory/ActionForm'
 import ProdTabs from '../ProdTabs'
 
-export const metadata = { title: 'FG QC' }
+export const metadata = { title: 'Check Finished Goods' }
 
 // Produced pieces waiting for FG QC. Pass goes into the plant's FG store, B-grade into the same item + "-B",
 // rejects are recorded (scrap weight comes with the granules phase). Rows left blank are not saved.
@@ -23,11 +23,11 @@ export default async function FgQc() {
     <>
       <ProdTabs tab="qc" missing={missing} />
       {rows?.length ? (
-        <ActionForm action={qcProduction} submit={{ label: 'Save QC', icon: 'ph-seal-check', cls: 'btn btn-success btn-lg' }}>
+        <ActionForm action={qcProduction} submit={{ label: 'Save check', icon: 'ph-seal-check', cls: 'btn btn-success btn-lg' }}>
           <div className="card">
             <div className="tbl-top">
-              <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Waiting for FG QC <span className="badge b-warn">{rows.length}</span></h2>
-              <span className="muted text-sm">On each row you check: pass + B-grade + reject = good pieces. Rows left blank stay waiting.</span>
+              <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Waiting to be checked <span className="badge b-warn">{rows.length}</span></h2>
+              <span className="muted text-sm">Pass + B-grade + Reject must equal the good pieces. Rows left empty stay waiting.</span>
             </div>
             <div className="tbl-wrap">
               <table className="tbl">
@@ -54,12 +54,12 @@ export default async function FgQc() {
           </div>
         </ActionForm>
       ) : (
-        <div className="card"><div className="empty"><i className="ph ph-seal-check" /><h3>Nothing waiting for QC</h3><p>Good pieces from production entries appear here.</p></div></div>
+        <div className="card"><div className="empty"><i className="ph ph-seal-check" /><h3>Nothing waiting to be checked</h3><p>Good pieces from production entries appear here.</p></div></div>
       )}
 
       {recent?.length > 0 && (
         <div className="card" style={{ marginTop: 20 }}>
-          <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-clock-counter-clockwise" />Latest QC results</h2></div>
+          <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-clock-counter-clockwise" />Last checks</h2></div>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead><tr><th>DPR</th><th>Item</th><th className="r">Pass</th><th className="r">B-grade</th><th className="r">Reject</th><th>Reason</th><th>By</th></tr></thead>

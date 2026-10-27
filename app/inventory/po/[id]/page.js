@@ -55,7 +55,7 @@ export default async function PO({ params }) {
           {po.status === 'PENDING' && me.role !== 'admin' && <span className="muted text-sm">Waiting for an admin to approve</span>}
           {po.status === 'APPROVED' && (
             <>
-              <Link prefetch={false} href={`/inventory/grn/new?po=${po.id}`} className="btn btn-primary btn-sm"><i className="ph ph-truck" />Receive goods (GRN)</Link>
+              <Link prefetch={false} href={`/inventory/grn/new?po=${po.id}`} className="btn btn-primary btn-sm"><i className="ph ph-truck" />Receive goods</Link>
               {reason(closePO, `Close ${po.po_no}?`, 'Close PO', 'btn-primary')}
             </>
           )}

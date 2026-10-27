@@ -5,7 +5,7 @@ import { day } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../../ui'
 import InvTabs from '../InvTabs'
 
-export const metadata = { title: 'Issue / Transfer' }
+export const metadata = { title: 'Issue to Line' }
 const LIMIT = 200
 
 export default async function Issues({ searchParams }) {

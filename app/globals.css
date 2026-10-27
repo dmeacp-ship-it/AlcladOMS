@@ -892,6 +892,31 @@ dialog.modal > form { display: flex; flex-direction: column; min-height: 0; flex
 .doc .sign .low { padding-top: 40px; font-size: 9px; }
 .doc footer { margin-top: 14px; border-top: 6px solid #ff0000; padding-top: 6px; text-align: center; color: #002060; font-size: 11px; }
 
+/* Store / production pages: "what this page is for" box with numbered steps (app/PageHelp.js) */
+.page-help { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; margin-bottom: 18px; border-radius: var(--r); background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); }
+.page-help-ic { font-size: 1.75rem; color: var(--accentH); flex-shrink: 0; }
+.page-help p { margin: 2px 0 0; font-size: 0.9375rem; font-weight: 600; line-height: 1.45; }
+.page-help ol { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.page-help li { counter-increment: step; display: flex; align-items: center; gap: 8px; font-size: 0.875rem; color: var(--sub); }
+.page-help li::before { content: counter(step); display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 800; }
+@media (max-width: 768px) { .page-help ol { flex-direction: column; } }
+
+.more-sec { padding: 12px 12px 4px; font-size: 0.6875rem; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; }
+
+/* To Do Today: big tiles, one per kind of waiting work (app/today/page.js) */
+.todo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.todo { position: relative; display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: var(--r); background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-1); color: var(--text); text-decoration: none !important; transition: box-shadow var(--dur-fast), transform var(--dur-fast); }
+.todo:hover { box-shadow: var(--shadow-2); }
+.todo:active { transform: scale(0.985); }
+.todo-ic { font-size: 1.75rem; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 14px; flex-shrink: 0; background: var(--fill); color: var(--sub); }
+.todo.hot .todo-ic { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accentH); }
+.todo-n { font-size: 1.75rem; font-weight: 800; line-height: 1; }
+.todo.hot .todo-n { color: var(--accentH); }
+.todo-l { font-size: 0.9375rem; font-weight: 600; margin-top: 4px; }
+.todo-go { margin-left: auto; font-size: 1.25rem; color: var(--muted); }
+.todo.calm { opacity: 0.6; }
+.todo-sec { font-size: 0.75rem; font-weight: 800; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; margin: 6px 2px 10px; }
+
 /* ── 21. Beautiful Combobox & Dropdowns ── */
 .combobox-wrap {
   position: relative;

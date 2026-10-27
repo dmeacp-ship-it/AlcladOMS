@@ -9,12 +9,12 @@ import { createPlan } from './actions'
 import ActionForm from '../inventory/ActionForm'
 import ProdTabs from './ProdTabs'
 
-export const metadata = { title: 'Production Planning' }
+export const metadata = { title: 'Plan Production' }
 
 // Planning board: what all open orders still need, by product + size, after FG stock, open plans and pieces in QC.
 // One plan (date + shift + line) covers many orders; no work order per sales order.
 export default async function Planning() {
-  const [, missing, s, pos, items, { stores }, lines, { data: plans }] = await Promise.all([
+  const [me, missing, s, pos, items, { stores }, lines, { data: plans }] = await Promise.all([
     requireRole('manager'), prodMissing(), getSettings(), fgPosition(), fgItems(), invMasters(),
     fetchAll(() => db().from('order_items').select('fg_item_id, qty, dispatched_qty, ready_qty, orders!inner(quote_no, status, dispatch_status)')
       .eq('orders.status', 'APPROVED').filter('orders.dispatch_status', 'isdistinct', 'SHORT_CLOSED')).catch(() => []),
@@ -31,31 +31,31 @@ export default async function Planning() {
   return (
     <>
       <ProdTabs tab="" missing={missing} />
-      {!s.fg_store && !missing && (
-        <div className="banner warn" style={{ marginBottom: 16 }}><i className="ph ph-warning" /><span>Pick the FG store orders ship from in Company Settings → Inventory, so FG stock counts on this board.</span></div>
+      {!s.fg_store && !missing && me.role === 'admin' && (
+        <div className="banner warn" style={{ marginBottom: 16 }}><i className="ph ph-warning" /><span>Pick the finished goods store orders ship from in Company Settings → Inventory, so its stock counts here.</span></div>
       )}
 
       <ActionForm action={createPlan} submit={{ label: 'Create production plan', icon: 'ph-calendar-check' }}>
         <div className="card">
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className="ph ph-list-checks" />What open orders still need <span className="badge b-none">{rows.length}</span>
-              {toMake > 0 && <span className="badge b-bad">{qty(toMake)} pcs to plan</span>}</h2>
-            <span className="muted text-sm">Short = still needed − free FG − already planned − waiting for QC. Enter the pieces this plan makes.</span>
+              {toMake > 0 && <span className="badge b-bad">{qty(toMake)} pcs still to make</span>}</h2>
+            <span className="muted text-sm">Still to make = what orders need − what is in stock − already planned − being checked.</span>
           </div>
           <div className="tbl-wrap">
             <table className="tbl">
-              <thead><tr><th>Item (product + size)</th><th>Orders</th><th className="r">Needed</th><th className="r">FG free</th><th className="r">Planned</th><th className="r">In QC</th><th className="r">Short</th><th>Plan now (pcs)</th></tr></thead>
+              <thead><tr><th>Item (product + size)</th><th>Orders</th><th className="r">Orders need</th><th className="r">In stock</th><th className="r">Already planned</th><th className="r">Being checked</th><th className="r">Still to make</th><th>Make in this plan (pcs)</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.fg_item_id}>
                     <td data-label="Item"><span className="mat-name">{r.f?.code}</span><span className="mat-sub">{[r.f?.color_name, `${money(r.f?.m2_per_pc)} M2 / pc`].filter(Boolean).join(' · ')}</span></td>
                     <td className="text-sm" data-label="Orders">{[...(quotes[r.fg_item_id] || [])].join(', ') || <span className="muted">—</span>}</td>
-                    <td className="num" data-label="Needed">{qty(r.need)}</td>
-                    <td className="num" data-label="FG free">{qty(Math.max(0, r.free))}</td>
-                    <td className="num" data-label="Planned">{r.planned ? qty(r.planned) : <span className="muted">0</span>}</td>
-                    <td className="num" data-label="In QC">{r.in_qc ? qty(r.in_qc) : <span className="muted">0</span>}</td>
-                    <td className={`num fw6${r.short ? ' red' : ''}`} data-label="Short">{qty(r.short)}<span className="mat-sub">{money(r.short * (r.f?.m2_per_pc || 0))} M2</span></td>
-                    <td data-label="Plan now">
+                    <td className="num" data-label="Orders need">{qty(r.need)}</td>
+                    <td className="num" data-label="In stock">{qty(Math.max(0, r.free))}</td>
+                    <td className="num" data-label="Already planned">{r.planned ? qty(r.planned) : <span className="muted">0</span>}</td>
+                    <td className="num" data-label="Being checked">{r.in_qc ? qty(r.in_qc) : <span className="muted">0</span>}</td>
+                    <td className={`num fw6${r.short ? ' red' : ''}`} data-label="Still to make">{qty(r.short)}<span className="mat-sub">{money(r.short * (r.f?.m2_per_pc || 0))} M2</span></td>
+                    <td data-label="Make in this plan">
                       <input type="hidden" name="item" value={r.fg_item_id} />
                       <input name={`qty_${r.fg_item_id}`} type="number" inputMode="numeric" min={0} step={1} defaultValue={r.short || ''} aria-label={`Pieces to plan, ${r.f?.code}`} style={{ width: 100 }} />
                     </td>
@@ -63,7 +63,7 @@ export default async function Planning() {
                 ))}
               </tbody>
             </table>
-            {!rows.length && <div className="empty"><i className="ph ph-check-circle" /><h3>Nothing to plan</h3><p>Every open order is covered by FG stock, a plan or pieces in QC.</p></div>}
+            {!rows.length && <div className="empty"><i className="ph ph-check-circle" /><h3>Nothing to plan</h3><p>Every open order is covered by stock, a plan or pieces being checked.</p></div>}
           </div>
         </div>
         {rows.length > 0 && (
@@ -101,7 +101,7 @@ export default async function Planning() {
                   <td className="nowrap" data-label="Date">{day(p.plan_date)}</td>
                   <td data-label="Shift">{SHIFTS[p.shift]}</td>
                   <td data-label="Line">{storeLabel(p.line)}</td>
-                  <td className="num" data-label="Planned">{qty(p.items.reduce((n, i) => n + Number(i.qty), 0))}</td>
+                  <td className="num" data-label="Already planned">{qty(p.items.reduce((n, i) => n + Number(i.qty), 0))}</td>
                   <td className="num" data-label="Produced">{qty(p.items.reduce((n, i) => n + Number(i.produced_qty), 0))}</td>
                 </ClickRow>
               ))}
