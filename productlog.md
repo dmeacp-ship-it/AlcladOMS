@@ -18,7 +18,7 @@ and what is still open. Newest status first, then decisions, then the full chang
 
 ## 0. Inventory (IMS) for the new factories — task tracker
 
-Updated after every task. Phase 1 is on `main` (commit `67a845f`); Phase 2 is tested, waiting to be committed and deployed. Who uses it for now: admin + manager.
+Updated after every task. Phase 1 is on `main` (commit `67a845f`); Phase 2 is on `main` (commit `ba78ba1`) and live. Who uses it for now: admin + manager.
 Decided 2026-10-27: build for the new factories (not a copy of the old Virgo sheets); granules plant later but keep
 room for it; no QR codes yet; no BOM yet (manual issue); manager creates POs, admin approves; GRN may be 2% over the PO.
 Phase 2 decided 2026-10-27: two separate inventories — **RM** (KG, PO → GRN → issue → used in production) and **FG**
@@ -53,7 +53,7 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18 | 2 | Production entry (DPR) per date + shift (Day / Night) + line: good / rejected pcs per plan line, RM used (kg) | ✅ tested | 27 Oct | From a plan ("Enter production") or free; RM used comes off the line's stock (refused if more than was issued); plan closes itself when fully produced; DPR prints |
 | 18a | 2 | FG QC: pass → FG, B-grade → same item + "-B" into FG, reject → recorded only (scrap weight in phase 3) | ✅ tested | 27 Oct | Production & FG → FG QC; pass goes into the FG store of the line's plant; auto-reserve runs after it when switched on |
 | 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
-| 18c | 2 | Browser test (desktop + phone), product log, deploy | 🔄 | 27 Oct | migrate-017 run by the user; whole flow tested on live data with TEST records (all removed); 2 fixes. Deploy waits for your OK |
+| 18c | 2 | Browser test (desktop + phone), product log, deploy | ✅ | 27 Oct | Tested on live data with TEST records (all removed); `ba78ba1` pushed to `main`, Vercel build **success**, live from bom1 |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
 | 20 | 3 | Granule production and transfer to the ACP plant | ⏳ | | |
 | 21 | 4 | Purchase request from the min level (reorder list → PO) | ⏳ | | Phase 1 only shows below-min rows in red |
@@ -457,6 +457,9 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   free; the FG adjustment form said "Materials" — now "FG items (pieces)".
 - **Not covered in the browser:** the FG opening CSV (the test browser can't attach files; the same SQL path is in
   `test:sql`) and auto-reserve (checked in `test:sql`).
+- **Shipped (same day):** commit `ba78ba1` on `main`, Vercel build succeeded, live from bom1. Next for the user: add an
+  FG store and the production lines (WIP stores), pick the FG store in Company Settings → Inventory, load the FG
+  opening stock, then switch on "Orders use FG stock"; then phase 3 (granules) or phase 4 items.
 
 ---
 
