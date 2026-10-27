@@ -40,7 +40,13 @@ const PAGES = [
   [/^\/inventory\/grn/, 'GRN & QC', 'Receive goods on a PO; QC puts the accepted quantity into stock'],
   [/^\/inventory\/issue/, 'Issue / Transfer', 'Material from a store to a production line or another store'],
   [/^\/inventory\/adjust/, 'Opening & Adjustments', 'Go-live stock and stock count corrections'],
-  [/^\/inventory/, 'Stock', 'Opening, in, out and closing stock per store'],
+  [/^\/inventory/, 'RM Stock', 'Opening, in, out and closing raw material per store'],
+  [/^\/production\/plan/, 'Production Plan', 'What a line makes in one shift; issue RM and enter production from here'],
+  [/^\/production\/dpr/, 'Production', 'Good and rejected pieces per shift and line, and the RM used'],
+  [/^\/production\/qc/, 'FG QC', 'Passed pieces go into FG stock; B-grade and rejects are recorded'],
+  [/^\/production\/fg/, 'FG Stock', 'Finished goods per store and size, in pieces and M2'],
+  [/^\/production\/reports/, 'Production Reports', 'Output, rejection, line WIP and yield'],
+  [/^\/production/, 'Production Planning', 'What open orders still need, by product and size'],
 ]
 
 // Closes a popover on outside press and Esc while it is open.

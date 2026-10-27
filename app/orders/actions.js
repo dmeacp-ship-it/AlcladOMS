@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, requireRole } from '@/lib/server'
 import { removeInvoices, saveInvoice } from '@/lib/drive'
 import { getSettings } from '@/lib/settings'
+import { fgPosition } from '@/lib/production'
 import { DISPATCH, PRODUCTION, calcM2, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
 
 const num = (v) => (String(v ?? '').trim() === '' ? NaN : Number(v))
@@ -208,6 +209,9 @@ export async function markReady(fd) {
   const me = await requireRole()
   const ids = [...new Set(fd.getAll('id').map(String))]
   const path = back(fd, ids[0])
+  // Company Settings → "Orders use FG stock": ready pieces are an FG reservation, so they must be free in FG.
+  // ponytail: checked here, not locked; the DO re-checks FG stock in the database.
+  const fg = (await getSettings()).fg_link ? await fgPosition() : null
   let lines = 0
   for (const id of ids) {
     const o = await getOrder(id, me)
@@ -223,6 +227,11 @@ export async function markReady(fd) {
       const curReady = Number(it.ready_qty != null ? it.ready_qty : (it.delivered_qty || 0))
       const added = Math.min(q, Math.max(0, balance - curReady))
       const validQty = curReady + added
+      if (fg && added > 0) {
+        const p = (fg[it.fg_item_id] ??= { free: 0 })
+        if (added > p.free) go(path, 'error', `${o.quote_no} line ${it.item_no}: only ${Math.max(0, p.free)} pcs of ${it.description} are free in FG stock.`)
+        p.free -= added // the next line of the same item sees what is left
+      }
 
       // 1. Update delivered_qty (guaranteed column in Supabase)
       await db().from('order_items').update({ delivered_qty: validQty }).eq('id', it.id)
@@ -296,6 +305,9 @@ export async function generateBatchDO(fd) {
     p_by: me.full_name,
   })
 
+  // The fallback below is only for a database without the function; a refusal from it (e.g. not enough FG
+  // stock, migrate-017) is shown, never worked around.
+  if (rpcRes.error && !/Could not find the function|does not exist/.test(rpcRes.error.message)) go(path, 'error', rpcRes.error.message)
   if (!rpcRes.error && rpcRes.data) {
     doNo = rpcRes.data
     const { data: bRow } = await db().from('order_batches').select('id').eq('order_id', o.id).eq('do_no', doNo).maybeSingle()

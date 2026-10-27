@@ -41,10 +41,12 @@ export default function MarkReadyModal({ lines, back, label = 'Mark Ready', btnC
                 {open.map((it) => {
                   const rQty = readyOf(it)
                   const remaining = Math.max(0, balanceOf(it) - rQty)
+                  // Orders use FG stock: start at what is free in FG (the server refuses more).
+                  const offer = it.fg_cap && it.fg_free != null ? Math.min(remaining, Math.max(0, it.fg_free)) : remaining
                   return (
                     <tr key={it.id}>
                       <td className="muted nowrap">{many ? it.orders?.quote_no : it.item_no}</td>
-                      <td className="desc wrap">{it.description}{it.color_name && <span className="cell-sub">{it.color_name}</span>}</td>
+                      <td className="desc wrap">{it.description}{(it.color_name || it.fg_free != null) && <span className="cell-sub">{[it.color_name, it.fg_free != null && `FG free: ${int(it.fg_free)} pcs`].filter(Boolean).join(' · ')}</span>}</td>
                       <td>
                         <input
                           className="qty big"
@@ -54,7 +56,7 @@ export default function MarkReadyModal({ lines, back, label = 'Mark Ready', btnC
                           min="0"
                           max={remaining}
                           step="1"
-                          defaultValue={remaining}
+                          defaultValue={offer}
                           required
                           aria-label={`Pieces ready, line ${it.item_no}, up to ${remaining}`}
                         />

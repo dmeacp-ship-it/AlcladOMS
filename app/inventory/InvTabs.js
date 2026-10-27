@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { LinkBusy } from '../ui'
 
 const TABS = [
-  ['', 'Stock', 'ph-warehouse'],
+  ['', 'RM Stock', 'ph-warehouse'],
   ['po', 'Purchase Orders', 'ph-shopping-cart'],
   ['grn', 'GRN & QC', 'ph-seal-check'],
   ['issue', 'Issue / Transfer', 'ph-arrows-left-right'],

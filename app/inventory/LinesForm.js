@@ -7,7 +7,7 @@ const blank = () => ({ material: '', qty: '', rate: '' })
 
 // PO, issue and adjustment forms: the header fields (children, from the server page) + material lines.
 // rate: PO lines also take a unit price. signed: adjustments may be negative (stock lost / found).
-export default function LinesForm({ action, materials, rate, signed, submit, children }) {
+export default function LinesForm({ action, materials, rate, signed, submit, title = 'Materials', children }) {
   const [lines, setLines] = useState([blank()])
   const byId = Object.fromEntries(materials.map((m) => [String(m.id), m]))
   const set = (i, k, v) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)))
@@ -17,11 +17,11 @@ export default function LinesForm({ action, materials, rate, signed, submit, chi
     <ActionForm action={action} submit={submit}>
       <section className="fsec compact">{children}</section>
       <div className="card">
-        <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-package" />Materials</h2></div>
+        <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-package" />{title}</h2></div>
         <div className="tbl-wrap">
           <table className="tbl">
             <thead>
-              <tr><th>#</th><th style={{ width: '45%' }}>Material</th><th>Qty{signed && ' (+ in / − out)'}</th>{rate && <th>Rate (SAR)</th>}<th>UoM</th><th><span className="sr-only">Remove</span></th></tr>
+              <tr><th>#</th><th style={{ width: '45%' }}>{title === 'Materials' ? 'Material' : 'Item'}</th><th>Qty{signed && ' (+ in / − out)'}</th>{rate && <th>Rate (SAR)</th>}<th>UoM</th><th><span className="sr-only">Remove</span></th></tr>
             </thead>
             <tbody>
               {lines.map((l, i) => (

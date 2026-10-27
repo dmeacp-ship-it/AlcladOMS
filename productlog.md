@@ -18,9 +18,14 @@ and what is still open. Newest status first, then decisions, then the full chang
 
 ## 0. Inventory (IMS) for the new factories — task tracker
 
-Updated after every task. Phase 1 is on `main` (commit `67a845f`). Who uses it for now: admin + manager.
+Updated after every task. Phase 1 is on `main` (commit `67a845f`); Phase 2 is tested, waiting to be committed and deployed. Who uses it for now: admin + manager.
 Decided 2026-10-27: build for the new factories (not a copy of the old Virgo sheets); granules plant later but keep
 room for it; no QR codes yet; no BOM yet (manual issue); manager creates POs, admin approves; GRN may be 2% over the PO.
+Phase 2 decided 2026-10-27: two separate inventories — **RM** (KG, PO → GRN → issue → used in production) and **FG**
+(pieces per product + size, M2 calculated; in only from production after QC, out only by DO). Sales touches FG only;
+RM and FG meet only at the production entry. No work order per sales order: shortages of all orders are grouped by
+item + size into a daily production plan. Mark ready stays manual (it reserves FG); auto-reserve oldest-first is a
+setting, off. Shifts Day / Night; B-grade = same item + "-B"; rejects recorded only; FG min stock later.
 
 Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 
@@ -40,18 +45,22 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 10 | 1 | Enter the real Plants, Stores, Materials, Vendors | 👤 | | Settings → each master, or Import CSV |
 | 11 | 1 | Load the opening stock | 👤 | | Inventory → Opening & Adjust |
 | 12 | 1 | Commit, merge to `main`, deploy on Vercel | ✅ | 27 Oct | `67a845f` on `main` (fast-forward from `inventory`); Vercel build **success**; live `/inventory` answers from bom1 |
-| 13 | 2 | Work Order from a Sales Order / DO (what, how much, which line) | ⏳ | | |
-| 14 | 2 | Production entry (DPR): FG item, batch, line, shift, good + rejected qty, M2 | ⏳ | | |
-| 15 | 2 | FG QC: pass / reject → scrap / convert to B-grade | ⏳ | | |
-| 16 | 2 | FG items (SKU made on first production) + FG stock | ⏳ | | Quotes have no fixed SKU today |
-| 17 | 2 | Plant Dispatch takes FG stock out; DO checks FG available | ⏳ | | |
-| 18 | 2 | WIP report: issued vs consumed per line | ⏳ | | |
+| 13 | 2 | FG inventory (separate from RM): FG items = product + size, own ledger, pcs + M2; FG opening stock CSV | ✅ tested | 27 Oct | `migrate-017.sql`; Production & FG → FG Stock (report, CSV, opening load, adjustment). Every order line gets its FG item automatically |
+| 14 | 2 | OMS ↔ FG: Mark ready (manual) reserves FG pieces of that item + size; DO takes them out of FG; undo dispatch puts them back | ✅ tested | 27 Oct | Plant Dispatch + Mark ready dialog show "FG free"; a DO refused by the database now shows why instead of falling back. Order dialog columns not changed |
+| 15 | 2 | Settings: auto-reserve oldest order first (off), "Orders use FG stock" (off until FG opening stock is in), FG store orders ship from | ✅ tested | 27 Oct | Company Settings → Inventory. The two FG options became one: "Orders use FG stock" (Mark ready limited to free FG + DO takes FG out) |
+| 16 | 2 | Planning board: shortages of all open orders grouped by item + size → daily Production Plan (line, shift, items, pcs) | ✅ tested | 27 Oct | Production & FG → Planning: needed / FG free / planned / in QC / short per item, with the quote numbers; plan sheet prints. No work order per order |
+| 17 | 2 | Plan ↔ RM: plan shows M2 to make and RM stock; issue RM to the line against the plan | ✅ tested | 27 Oct | Plan page lists RM in the plant's RM stores and on the line; "Issue RM to this line" opens Issue pre-filled and links it to the plan |
+| 18 | 2 | Production entry (DPR) per date + shift (Day / Night) + line: good / rejected pcs per plan line, RM used (kg) | ✅ tested | 27 Oct | From a plan ("Enter production") or free; RM used comes off the line's stock (refused if more than was issued); plan closes itself when fully produced; DPR prints |
+| 18a | 2 | FG QC: pass → FG, B-grade → same item + "-B" into FG, reject → recorded only (scrap weight in phase 3) | ✅ tested | 27 Oct | Production & FG → FG QC; pass goes into the FG store of the line's plant; auto-reserve runs after it when switched on |
+| 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
+| 18c | 2 | Browser test (desktop + phone), product log, deploy | 🔄 | 27 Oct | migrate-017 run by the user; whole flow tested on live data with TEST records (all removed); 2 fixes. Deploy waits for your OK |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
 | 20 | 3 | Granule production and transfer to the ACP plant | ⏳ | | |
 | 21 | 4 | Purchase request from the min level (reorder list → PO) | ⏳ | | Phase 1 only shows below-min rows in red |
 | 22 | 4 | BOM per FG item, auto-calculated issue | ⏳ | | When the standards are known |
 | 23 | 4 | QR labels on coils / bags, scan to issue and dispatch | ⏳ | | |
 | 24 | 4 | Stock count (cycle count) with approval | ⏳ | | |
+| 24a | 4 | FG min stock per item + size (make for stock without orders); automatic Mark ready | ⏳ | | User: later |
 | 25 | 4 | Dashboard: stock value, yield, rejection % | ⏳ | | |
 | 26 | 4 | Separate roles: store, production, qc, purchase | ⏳ | | |
 
@@ -422,6 +431,32 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 - **Shipped (same day):** commit `67a845f` fast-forwarded onto `main` and pushed (author `dmeacp-ship-it`); Vercel
   build succeeded; the live app serves `/inventory` (sign-in required) from bom1. Next: the user enters the real
   masters and opening stock (§0 tasks 10–11), then phase 2.
+
+### 2026-10-27 — 22. Phase 2: FG inventory, orders ↔ FG, production planning (migrate-017)
+- **Design (user's call):** two inventories kept apart — RM in KG, FG in pieces per product + size (M2 calculated).
+  Sales only touches FG; RM and FG meet only at the production entry. No work order per sales order: the planning
+  board groups what all open orders still need by item + size, and one plan (date + shift + line) covers many orders.
+  Mark ready stays manual and is the FG reservation; auto-reserve oldest-first is a setting (off).
+- **Built:** `fg_items` (made automatically for every order line by a trigger, and from the FG opening CSV), `fg_moves`
+  (FG ledger), planning board + plans, production entry (good / rejected pcs, RM used off the line), FG QC (pass /
+  B-grade "-B" / reject), FG Stock (report, CSV, opening load, adjustment), Reports (output, rejection %, RM issued vs
+  used per line, RM per M2). Sidebar: "RM Inventory" and "Production & FG". Company Settings → Inventory: FG store
+  orders ship from, "Orders use FG stock", auto-reserve.
+- **Existing flow changed:** the DO function also takes the pieces out of FG when "Orders use FG stock" is on (and
+  refuses pieces reserved for other orders); undo dispatch puts them back (the FG entry is deleted with the dispatch).
+  The DO action now shows a refusal from the database instead of silently using its old fallback path. Mark ready is
+  limited to free FG (when on) and pre-fills only the free pieces; Plant Dispatch shows "FG free" per line.
+- **Checks:** `npm run test:sql` now also loads schema.sql + every migration on PGlite and runs the Phase 2 flow
+  (reservation, DO refusal, undo, plan, production, QC, auto-reserve, FG report). Browser test on live data with TEST
+  plant / stores / coil / customer / order Q-2026-001: plan PLN-2026-001 for 10 → RM issue 60 kg → production 8 good + 2
+  rejected, 70 kg refused ("10 KG short"), 50 kg used → QC 6 / 1 B / 1 → FG 6 + 1 B → link on: Mark ready 8 refused
+  ("only 6 free"), 6 reserved → DO of 7 refused, DO of 6 made, FG 0 → undo, FG 6 again → FG adjustment −1 B-grade →
+  reports (8 pcs, 24.50 M2, 20% rejection, 2.041 kg / M2). Phone and desktop. Then every TEST row, the activity-log
+  lines and the counters were deleted and the settings set back (FG link off, no FG store).
+- **Fixed from the test:** Mark ready pre-filled the whole balance even with less free FG — it now offers only what is
+  free; the FG adjustment form said "Materials" — now "FG items (pieces)".
+- **Not covered in the browser:** the FG opening CSV (the test browser can't attach files; the same SQL path is in
+  `test:sql`) and auto-reserve (checked in `test:sql`).
 
 ---
 

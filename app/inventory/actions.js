@@ -130,6 +130,8 @@ export async function createTransfer(_prev, fd) {
     p_lines: lines.map(({ material, qty }) => ({ material, qty })),
   })
   if (error) return { error: invError(error) }
+  // Issued for a production plan (migrate-017): link it, so the plan lists its RM issues.
+  if (str(fd, 'plan')) await db().from('transfers').update({ plan_id: str(fd, 'plan') }).eq('doc_no', no)
   const { data: t } = await db().from('transfers').select('id').eq('doc_no', no).single()
   await logEvent(null, me, 'Material issued', `${no} · ${plural(lines.length, 'line')}`)
   done(`/inventory/issue/${t.id}`, `${no} saved.`)

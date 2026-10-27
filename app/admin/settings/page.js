@@ -1,5 +1,6 @@
 import { requireRole } from '@/lib/server'
 import { getSettings } from '@/lib/settings'
+import { invMasters, storeLabel } from '@/lib/inventory'
 import { money } from '@/lib/tas'
 import { saveSettings } from '../actions'
 import { FileDrop, Submit, UnsavedGuard } from '../../ui'
@@ -20,7 +21,8 @@ const BANK_FIELDS = [
 // printable documents and the order actions, so a change applies without a redeploy.
 export default async function Settings() {
   await requireRole('admin')
-  const s = await getSettings()
+  const [s, { stores }] = await Promise.all([getSettings(), invMasters()])
+  const fgStores = stores.filter((x) => x.type === 'FG')
   const year = new Date().getFullYear()
   const field = ([k, label, span]) => (
     <div className={`fg${span ? ` ${span}` : ''}`} key={k}>
@@ -115,6 +117,26 @@ export default async function Settings() {
             {s.admin_approval_above ? `Quotes over SAR ${money(s.admin_approval_above)} wait for an admin.` : ''}
           </div>
         )}
+      </section>
+
+      <section className="fsec">
+        <h2 className="fsec-ttl"><i className="ph ph-stack" />Inventory: orders and FG stock</h2>
+        <div className="fgrid-2">
+          <div className="fg">
+            <label htmlFor="fg_store">FG store orders ship from</label>
+            <select id="fg_store" name="fg_store" defaultValue={s.fg_store || ''}>
+              <option value="">Not set</option>
+              {fgStores.map((x) => <option key={x.id} value={x.code}>{storeLabel(x)}</option>)}
+            </select>
+            <span className="hint">Plant Dispatch and the planning board show its stock; with the option below, a DO takes the pieces out of it.</span>
+          </div>
+          <div className="fg">
+            <label className="row" style={{ gap: 8 }}><input type="checkbox" name="fg_link" defaultChecked={s.fg_link} />Orders use FG stock</label>
+            <span className="hint">On: Mark ready can only reserve pieces that are free in FG stock, and a DO takes them out (undo puts them back). Turn it on once the FG opening stock is loaded.</span>
+            <label className="row" style={{ gap: 8, marginTop: 10 }}><input type="checkbox" name="fg_auto_reserve" defaultChecked={s.fg_auto_reserve} />Reserve new FG for the oldest orders automatically</label>
+            <span className="hint">After FG QC or an opening load, free pieces are marked ready on the oldest approved orders first. Off: the plant marks ready by hand.</span>
+          </div>
+        </div>
       </section>
 
       {/* Sticks to the bottom of the window, so Save is always one click away on this long form */}

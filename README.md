@@ -70,6 +70,24 @@ PO, GRN and issue print on the letterhead (Print → Save as PDF). Numbers: `PO-
 Store type and material category `GRANULE` are kept for the granules plant later. `npm run test:sql` runs the
 migration on an in-memory Postgres and checks the whole flow.
 
+## Production & FG (phase 2)
+
+Run `supabase/migrate-017.sql` after 015 / 016. Two inventories: **RM** (KG, above) and **FG** (pieces per product +
+size; M2 = pieces × width × length). Every order line is linked to its FG item automatically. Admin and manager only.
+
+| Screen | What it does |
+|---|---|
+| Planning | What open orders still need per item + size, after free FG, open plans and pieces in QC; create a plan for a date + shift + line (many orders, no work order per order) |
+| Plan page | Printable plan; RM in the plant and on the line; "Issue RM to this line" (linked to the plan); "Enter production" |
+| Production | Good / rejected pieces per item and the RM used, taken off the line's stock; the plan closes itself when made |
+| FG QC | Pass → FG store of the line's plant; B-grade → same item + "-B"; reject recorded |
+| FG Stock | Per FG store and item: pieces, M2, reserved / free; CSV; opening load (CSV `store_code, brand, grade, color_code, color_name, core, skin, width, length, thickness, pcs`); adjustments |
+| Reports | Output per day / shift / line, rejection %, RM issued vs used per line, RM per M2 |
+
+Company Settings → Inventory: the FG store orders ship from; **Orders use FG stock** (Mark ready can only reserve free
+FG and a DO takes the pieces out; undo puts them back — turn on after the FG opening stock is loaded); auto-reserve new
+FG for the oldest orders (off). `npm run test:sql` checks both phases on an in-memory Postgres.
+
 ## Deploy to Vercel
 
 Push this folder to a GitHub repo, import it in Vercel, add the same three environment variables, deploy.

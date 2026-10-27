@@ -135,9 +135,13 @@ export async function saveSettings(fd) {
     pi_prefix: str(fd, 'pi_prefix').toUpperCase(),
     auto_approve_below: n('auto_approve_below'),
     admin_approval_above: n('admin_approval_above'),
+    fg_link: fd.get('fg_link') === 'on',
+    fg_store: str(fd, 'fg_store'),
+    fg_auto_reserve: fd.get('fg_auto_reserve') === 'on',
     letterhead_v: cur.letterhead_v,
   }
   if (!data.company.NAME) go(P, 'error', 'Enter the company name.')
+  if (data.fg_link && !data.fg_store) go(P, 'error', 'Pick the FG store orders ship from before connecting orders to FG stock.')
   if (!(data.vat_pct >= 0 && data.vat_pct <= 100)) go(P, 'error', 'VAT must be between 0 and 100%.')
   for (const k of ['quote_prefix', 'do_prefix', 'pi_prefix']) {
     if (!/^[A-Z0-9]{1,6}$/.test(data[k])) go(P, 'error', 'Prefixes: 1–6 letters or numbers, no spaces or dashes.')
@@ -165,7 +169,7 @@ export async function saveSettings(fd) {
   const { error } = await db().from('app_settings').upsert(row)
   if (error) go(P, 'error', /app_settings/.test(error.message) ? 'Run migrate-008.sql in Supabase first.' : error.message)
 
-  const NAMES = { company: 'company details', quote_terms: 'quotation terms', pi_terms: 'PI remarks', vat_pct: 'VAT', quote_prefix: 'quote prefix', quote_digits: 'quote digits', quote_start: 'quote start', do_prefix: 'DO prefix', pi_prefix: 'PI prefix', auto_approve_below: 'auto-approve limit', admin_approval_above: 'admin-approval limit', letterhead_v: 'letterhead' }
+  const NAMES = { company: 'company details', quote_terms: 'quotation terms', pi_terms: 'PI remarks', vat_pct: 'VAT', quote_prefix: 'quote prefix', quote_digits: 'quote digits', quote_start: 'quote start', do_prefix: 'DO prefix', pi_prefix: 'PI prefix', auto_approve_below: 'auto-approve limit', admin_approval_above: 'admin-approval limit', fg_link: 'orders use FG stock', fg_store: 'FG store for orders', fg_auto_reserve: 'auto-reserve FG', letterhead_v: 'letterhead' }
   const changed = Object.keys(NAMES).filter((k) => JSON.stringify(data[k] ?? null) !== JSON.stringify(cur[k] ?? null)).map((k) => NAMES[k])
   if (changed.length) await logEvent(null, me, 'Settings changed', changed.join(', '))
   revalidatePath('/', 'layout')
