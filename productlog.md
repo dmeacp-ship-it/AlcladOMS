@@ -55,11 +55,11 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
 | 18c | 2 | Browser test (desktop + phone), product log, deploy | ✅ | 27 Oct | Tested on live data with TEST records (all removed); `ba78ba1` pushed to `main`, Vercel build **success**, live from bom1 |
 | 18d | 2 | TEST data loaded in the live app for the user's own check | 👤 | 27 Oct | Plant TEST (RM store, Line 1, Line 2, FG, scrap), 5 TEST materials, 2 TEST vendors, PO-2026-001…003, GRN-2026-001/002, ISS-2026-001/002, 2 TEST customers, orders Q-2026-001…003, DO-TEST-CA-271026-01, PLN-2026-001, DPR-2026-001/002, FG 25 pcs; settings: FG store = TEST-FG, orders use FG stock = on. **Remove before real use** (ask Claude: "remove the test data") |
-| E1 | Easy | Sidebar: one link per page, grouped Sales / Store / Production / Reports, red numbers for waiting work; tab bars inside pages removed | ✅ tested locally | 27 Oct | Phone: the More menu keeps the same groups |
-| E2 | Easy | Plain words: Receive Goods, Check the goods, Issue to Line, Stock Correction, Plan Production, Enter Production, Check Finished Goods, Finished Goods Stock; planning columns "Orders need / In stock / Already planned / Being checked / Still to make" | ✅ tested locally | 27 Oct | Store types shown as "Production line", "Finished goods store"… |
-| E3 | Easy | "To Do Today" start page: big boxes with counts of waiting work per job, plus shortcut buttons; everyone lands here after sign-in | ✅ tested locally | 27 Oct | |
-| E4 | Easy | Help box with numbered steps at the top of every store and production page | ✅ tested locally | 27 Oct | |
-| E5 | Easy | Commit and deploy | ⏳ | | Waiting for your OK |
+| E1 | Easy | Sidebar: one link per page, grouped Sales / Store / Production / Reports, red numbers for waiting work; tab bars inside pages removed | ✅ live | 27 Oct | Phone: the More menu keeps the same groups |
+| E2 | Easy | Plain words: Receive Goods, Check the goods, Issue to Line, Stock Correction, Plan Production, Enter Production, Check Finished Goods, Finished Goods Stock; planning columns "Orders need / In stock / Already planned / Being checked / Still to make" | ✅ live | 27 Oct | Store types shown as "Production line", "Finished goods store"… |
+| E3 | Easy | "To Do Today" start page: big boxes with counts of waiting work per job, plus shortcut buttons; everyone lands here after sign-in | ✅ live | 27 Oct | |
+| E4 | Easy | Help box with numbered steps at the top of every store and production page | ✅ live | 27 Oct | |
+| E5 | Easy | Commit and deploy | ✅ | 27 Oct | `e9c9689` on `main`, Vercel build **success**, live from bom1 |
 | E6 | Easy | Language: Arabic and / or Hindi-Urdu labels | 👤 | | Your decision (English for now) |
 | E7 | Easy | Separate logins per job (store, production, QC, purchase) so each person sees only their pages | 👤 | | Suggested next; same as task 26 |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
@@ -481,6 +481,7 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   buttons and store types. The admin-only "pick the FG store" warning no longer shows to managers.
 - **Checked:** desktop 1400 px and phone 375 px (no sideways scroll, grouped More menu), `npm test`, `next build`.
 - **Open questions for the user:** Arabic / Hindi-Urdu labels; separate logins per job.
+- **Shipped (same day):** commit `e9c9689` on `main`, Vercel build succeeded, live from bom1.
 
 ---
 
