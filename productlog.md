@@ -54,6 +54,7 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18a | 2 | FG QC: pass → FG, B-grade → same item + "-B" into FG, reject → recorded only (scrap weight in phase 3) | ✅ tested | 27 Oct | Production & FG → FG QC; pass goes into the FG store of the line's plant; auto-reserve runs after it when switched on |
 | 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
 | 18c | 2 | Browser test (desktop + phone), product log, deploy | ✅ | 27 Oct | Tested on live data with TEST records (all removed); `ba78ba1` pushed to `main`, Vercel build **success**, live from bom1 |
+| 18d | 2 | TEST data loaded in the live app for the user's own check | 👤 | 27 Oct | Plant TEST (RM store, Line 1, Line 2, FG, scrap), 5 TEST materials, 2 TEST vendors, PO-2026-001…003, GRN-2026-001/002, ISS-2026-001/002, 2 TEST customers, orders Q-2026-001…003, DO-TEST-CA-271026-01, PLN-2026-001, DPR-2026-001/002, FG 25 pcs; settings: FG store = TEST-FG, orders use FG stock = on. **Remove before real use** (ask Claude: "remove the test data") |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
 | 20 | 3 | Granule production and transfer to the ACP plant | ⏳ | | |
 | 21 | 4 | Purchase request from the min level (reorder list → PO) | ⏳ | | Phase 1 only shows below-min rows in red |
