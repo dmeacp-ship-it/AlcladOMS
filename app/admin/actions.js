@@ -3,7 +3,7 @@ import { revalidatePath, updateTag } from 'next/cache'
 import { db, go as redirectTo, logEvent, requireRole } from '@/lib/server'
 import { parseCSV } from '@/lib/csv'
 import { DEFAULTS, getSettings } from '@/lib/settings'
-import { ITEM_LISTS, MASTERS, ROLES } from '@/lib/tas'
+import { ITEM_LISTS, MASTERS, MATERIAL_CATEGORIES, ROLES, STORE_TYPES } from '@/lib/tas'
 
 // Every admin action ends in go(): drop the cached masters (settings, customers, items, salespeople) there,
 // after the write, so the next page load reads them fresh.
@@ -97,16 +97,22 @@ export async function saveMaster(fd) {
   if (table === 'customers') row.salesperson_id = str(fd, 'salesperson_id') || null
   const id = str(fd, 'id')
   const { error } = id ? await db().from(table).update(row).eq('id', id) : await db().from(table).insert(row)
-  if (error) go(back(fd, table), 'error', error.message)
+  if (error) go(back(fd, table), 'error', masterError(error))
   go(back(fd, table), 'ok', `${cfg.title.slice(0, -1)} saved.`)
 }
+
+// Duplicate code / name, or a row other records still point at, in words.
+const masterError = (e) => e.code === '23505' ? `That ${/name/.test(e.message) ? 'name' : 'code'} is already used.`
+  : e.code === '23503' ? (/is not present/.test(e.details || '') ? 'That plant code does not exist: add it under Plants first.' : "It is used elsewhere (a store, PO, GRN or stock entry), so it can't be removed.")
+  : e.code === '23514' ? `A value isn't one of the allowed choices (store type: ${STORE_TYPES.join(', ')}; category: ${MATERIAL_CATEGORIES.join(', ')}).`
+  : /relation .* does not exist/.test(e.message) ? 'Run migrate-015.sql in Supabase first.' : e.message
 
 export async function deleteMaster(fd) {
   await requireRole('admin')
   const table = str(fd, 'table')
   if (!MASTERS[table]) go('/orders', 'error', 'Unknown master.')
   const { error } = await db().from(table).delete().eq('id', str(fd, 'id'))
-  if (error) go(back(fd, table), 'error', error.message)
+  if (error) go(back(fd, table), 'error', masterError(error))
   go(back(fd, table), 'ok', 'Deleted.')
 }
 
@@ -166,9 +172,8 @@ export async function saveSettings(fd) {
   go(P, 'ok', 'Settings saved.')
 }
 
-// Customers / Items from Excel (CSV). Headers are the column names, as in the Export file.
-// Customers are matched on code (new codes added, existing ones updated); items are added,
-// skipping any whose description is already in the master.
+// Customers and the inventory masters from Excel (CSV). Headers are the column names, as in the Export file.
+// Rows are matched on code: new codes are added, existing ones updated.
 export async function importMaster(fd) {
   const me = await requireRole('admin')
   const table = str(fd, 'table')
@@ -203,35 +208,20 @@ export async function importMaster(fd) {
       if (k && !p) go(P, 'error', `Row ${i + 2}: no user called "${r.salesperson}".`)
       row.salesperson_id = p?.id || null
     }
-    if (table === 'items' && !row.uom) row.uom = 'M2'
+    for (const c of Object.keys(cfg.options || {})) if (row[c]) row[c] = row[c].toUpperCase()
     out.push(row)
   }
 
-  let added = 0
-  let skipped = 0
-  if (table === 'customers') {
-    const codes = new Set()
-    for (const [i, r] of out.entries()) {
-      if (codes.has(r.code)) go(P, 'error', `Row ${i + 2}: code ${r.code} appears twice in the file.`)
-      codes.add(r.code)
-    }
-    for (let i = 0; i < out.length; i += 500) {
-      const { error } = await db().from('customers').upsert(out.slice(i, i + 500), { onConflict: 'code' })
-      if (error) go(P, 'error', /name/.test(error.message) ? 'A customer name in the file already belongs to a different code.' : error.message)
-    }
-    added = out.length
-  } else {
-    const { data: have } = await db().from('items').select('description').not('description', 'is', null).limit(100000)
-    const seen = new Set((have || []).map((x) => x.description))
-    const fresh = out.filter((r) => !r.description || !seen.has(r.description) && seen.add(r.description))
-    skipped = out.length - fresh.length
-    for (let i = 0; i < fresh.length; i += 500) {
-      const { error } = await db().from('items').insert(fresh.slice(i, i + 500))
-      if (error) go(P, 'error', error.message)
-    }
-    added = fresh.length
+  const codes = new Set()
+  for (const [i, r] of out.entries()) {
+    if (codes.has(r.code)) go(P, 'error', `Row ${i + 2}: code ${r.code} appears twice in the file.`)
+    codes.add(r.code)
   }
-  const what = `${added} ${table === 'customers' ? 'customers added or updated' : 'items added'}${skipped ? `, ${skipped} already in the master` : ''}`
+  for (let i = 0; i < out.length; i += 500) {
+    const { error } = await db().from(table).upsert(out.slice(i, i + 500), { onConflict: 'code' })
+    if (error) go(P, 'error', /name/.test(error.message) ? `A name in the file already belongs to a different code.` : masterError(error))
+  }
+  const what = `${out.length} ${cfg.title.toLowerCase()} added or updated`
   await logEvent(null, me, `${cfg.title} imported`, `${what} · ${file.name}`)
   revalidatePath('/', 'layout')
   go(P, 'ok', `Imported: ${what}.`)

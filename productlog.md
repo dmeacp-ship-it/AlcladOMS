@@ -16,6 +16,51 @@ and what is still open. Newest status first, then decisions, then the full chang
 
 ---
 
+## 0. Inventory (IMS) for the new factories — task tracker
+
+Updated after every task. Branch `inventory` (not merged to `main` yet). Who uses it for now: admin + manager.
+Decided 2026-10-27: build for the new factories (not a copy of the old Virgo sheets); granules plant later but keep
+room for it; no QR codes yet; no BOM yet (manual issue); manager creates POs, admin approves; GRN may be 2% over the PO.
+
+Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
+
+| # | Phase | Task | Status | Date | Notes |
+|---|---|---|---|---|---|
+| 1 | 1 | Database: `migrate-015.sql` (tables, numbering, stock functions) | ✅ | 27 Oct | Checked on an in-memory Postgres: `npm run test:sql` |
+| 2 | 1 | Run `migrate-015.sql` on Supabase (Mumbai) | ✅ | 27 Oct | Checked from the app: 12 tables, `stock_summary()`, store links all respond |
+| 3 | 1 | Masters: Plants, Stores, Materials, Vendors (add / edit / import / export) | ✅ tested | 27 Oct | Settings menu, admin only. Import not clicked (same code as Customers) |
+| 4 | 1 | Purchase Orders: create, approve / reject, close, print | ✅ tested | 27 Oct | Create, approve, print, auto-close tested; reject / Close PO not clicked |
+| 5 | 1 | GRN on a PO + incoming QC (accepted → stock, rejected → back to pending), print | ✅ tested | 27 Oct | 505 of 500 received (2% rule), 5 rejected with reason, 500 into stock |
+| 6 | 1 | Issue / transfer store → line (WIP) or store, print | ✅ tested | 27 Oct | Over-stock issue refused; 200 issued |
+| 7 | 1 | Opening stock (CSV, once) + adjustments with reason | ✅ tested | 27 Oct | Adjustment −10 tested; opening CSV checked only in `test:sql` (file upload can't be driven in the test browser) |
+| 8 | 1 | Stock report (opening / in / out / closing, below-min red, CSV) | ✅ tested | 27 Oct | RM 500 − 200 − 10 = 290 (red, min 400), Line 1 = 200; CSV matches |
+| 9 | 1 | Click-through test in the browser (desktop + phone) | ✅ | 27 Oct | On live data with TEST records, all removed afterwards; numbering reset to 001 |
+| 9a | 1 | Fixes from the test (see change history 21) | ✅ | 27 Oct | Fields kept after an error, phone layout, WIP not "below min", unit KG by default |
+| 9b | 1 | Run `supabase/migrate-016.sql` (clearer "not enough stock" message) | 👤 | | Until then the old wording shows: "would leave −710.000 in stock" |
+| 10 | 1 | Enter the real Plants, Stores, Materials, Vendors | 👤 | | Settings → each master, or Import CSV |
+| 11 | 1 | Load the opening stock | 👤 | | Inventory → Opening & Adjust |
+| 12 | 1 | Commit, merge to `main`, deploy on Vercel | ⏳ | | Next, on your OK |
+| 13 | 2 | Work Order from a Sales Order / DO (what, how much, which line) | ⏳ | | |
+| 14 | 2 | Production entry (DPR): FG item, batch, line, shift, good + rejected qty, M2 | ⏳ | | |
+| 15 | 2 | FG QC: pass / reject → scrap / convert to B-grade | ⏳ | | |
+| 16 | 2 | FG items (SKU made on first production) + FG stock | ⏳ | | Quotes have no fixed SKU today |
+| 17 | 2 | Plant Dispatch takes FG stock out; DO checks FG available | ⏳ | | |
+| 18 | 2 | WIP report: issued vs consumed per line | ⏳ | | |
+| 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
+| 20 | 3 | Granule production and transfer to the ACP plant | ⏳ | | |
+| 21 | 4 | Purchase request from the min level (reorder list → PO) | ⏳ | | Phase 1 only shows below-min rows in red |
+| 22 | 4 | BOM per FG item, auto-calculated issue | ⏳ | | When the standards are known |
+| 23 | 4 | QR labels on coils / bags, scan to issue and dispatch | ⏳ | | |
+| 24 | 4 | Stock count (cycle count) with approval | ⏳ | | |
+| 25 | 4 | Dashboard: stock value, yield, rejection % | ⏳ | | |
+| 26 | 4 | Separate roles: store, production, qc, purchase | ⏳ | | |
+
+Known limits of phase 1: one lock for all stock postings (fine for a few users at once); min level is per material,
+compared per store; the stock report lists only store + material pairs that have had a movement; the "no negative
+stock" check looks at the balance today, not on a back-dated entry's own date.
+
+---
+
 ## 1. Current status (2026-10-24)
 
 | Area | State |
@@ -350,6 +395,30 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
     30 s 11–13 ms, Plant Dispatch 393 ms. Tile counts and the next quote number are unchanged.
   - Left to do: give the Mumbai project new API keys (the service-role key was pasted in a chat) and update
     them in Vercel; delete the Sydney project once the user no longer wants it as a backup.
+
+### 2026-10-27 — 21. Inventory phase 1 (branch `inventory`)
+- **Why:** the user's new factories need an inventory system. The old Virgo plant's 17 Google Sheets (RM database,
+  PO, inward, issue, consumption, WIP, DPR, FG QC, granules…) were read for the flow, but the new design is one stock
+  ledger (`stock_moves`, + in / − out) instead of day-by-day columns and IMPORTRANGE links. Tracker in §0.
+- **Built:** masters Plants / Stores / Materials / Vendors on the shared master screen (pick-lists for plant, store
+  type, category; import matched on code); Inventory pages Stock, Purchase Orders, GRN & QC, Issue / Transfer,
+  Opening & Adjust; PO, GRN and issue slips on the letterhead; every action in the Activity Log.
+- **Rules in the database (`migrate-015.sql`):** numbering `PO-/GRN-/ISS-/ADJ-/OPN-YYYY-NNN`; GRN only on an approved PO,
+  at most 2% over; nothing enters stock before QC; rejected qty goes back to pending; PO closes itself when fully
+  received; no store can go below zero; opening stock only once per store + material.
+- **Checks:** `npm run build` and `npm test` pass; `npm run test:sql` (new, PGlite dev dependency) runs the migration
+  and the whole flow; migration run on Mumbai and checked from the app.
+- **Click-through on live data (same day):** TEST plant, RM store, Line 1 (WIP), material, vendor → PO-2026-001
+  (approved, printed) → GRN 505 KG (2% rule) → QC 5 rejected with reason, 500 into stock, PO closed itself →
+  issue of 600 refused, 200 issued → adjustment −10 → stock report RM 290 (red under min 400), Line 1 200, CSV
+  matches; desktop and 375 px phone, no sideways scroll. Every TEST row and its activity-log lines were then deleted
+  and the document counters reset, so real numbering starts at 001.
+- **Fixed from the test:** (1) after an error the header fields (stores, requested by) were wiped — forms now
+  submit from `onSubmit` like New Quotation, so every typed value stays (`ActionForm`, also used by `LinesForm`);
+  (2) the QC form lost typed values on an error — now the same form; (3) a production line (WIP) showed "below min"
+  — min level now applies to stores only; (4) material lines on phones squeezed Qty off screen — they are now
+  label / value cards; (5) the "not enough" message read "would leave −100.000 in stock" — `migrate-016.sql` changes
+  it to "100 KG short" (not run yet); (6) new materials start with unit KG and category RM.
 
 ---
 

@@ -32,6 +32,15 @@ const PAGES = [
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
+  [/^\/admin\/plants/, 'Plants', 'Factories; every store belongs to one'],
+  [/^\/admin\/stores/, 'Stores', 'RM stores, production lines (WIP), FG and scrap stores per plant'],
+  [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
+  [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
+  [/^\/inventory\/po/, 'Purchase Orders', 'Create, approve and track what is still to arrive'],
+  [/^\/inventory\/grn/, 'GRN & QC', 'Receive goods on a PO; QC puts the accepted quantity into stock'],
+  [/^\/inventory\/issue/, 'Issue / Transfer', 'Material from a store to a production line or another store'],
+  [/^\/inventory\/adjust/, 'Opening & Adjustments', 'Go-live stock and stock count corrections'],
+  [/^\/inventory/, 'Stock', 'Opening, in, out and closing stock per store'],
 ]
 
 // Closes a popover on outside press and Esc while it is open.

@@ -1,5 +1,5 @@
 'use client'
-// Customers / Items table and its Add / Edit / Delete dialogs, built in the browser from the row data.
+// Master table (customers, plants, stores, materials, vendors) and its Add / Edit / Delete dialogs, built in the browser from the row data.
 // Client components on purpose: with a dialog per row, sending the rows as plain data is several times
 // smaller than sending every cell and two dialogs per row from the server.
 import Link from 'next/link'
@@ -11,20 +11,33 @@ const WIDE = ['address', 'description']
 // Phone keyboards and browser checks for the contact fields.
 const TYPES = { email: { type: 'email', autoComplete: 'off' }, mobile: { type: 'tel', inputMode: 'tel' } }
 
-// cfg = { cols, required, numbers }; people = salespersons for the customer pick-list (customers only).
-export default function MasterFields({ cfg, row, people }) {
+// cfg = { cols, required, numbers, options, defaults (new rows) }; people = salespersons for the customer pick-list (customers only).
+// lists = { column: [codes] } for columns picked from another master (Stores → plant).
+export default function MasterFields({ cfg, row, people, lists }) {
   const key = row?.id ?? 'new'
   return (
     <div className="fgrid-2">
-      {cfg.cols.map((c) => (
-        <div className={`fg${WIDE.includes(c) ? ' full' : ''}`} key={c}>
-          <label htmlFor={`${c}-${key}`}>
-            {label(c)}{c === 'credit_limit' && <span className="hint"> — SAR incl. VAT, blank = no limit</span>} {cfg.required.includes(c) && <span className="req">*</span>}
-          </label>
-          <input id={`${c}-${key}`} name={c} defaultValue={row?.[c] ?? ''} required={cfg.required.includes(c)}
-            {...((cfg.numbers || []).includes(c) && { type: 'number', inputMode: 'decimal', min: 0, step: 'any' })} {...TYPES[c]} />
-        </div>
-      ))}
+      {cfg.cols.map((c) => {
+        const id = `${c}-${key}`
+        const req = cfg.required.includes(c)
+        const pick = cfg.options?.[c] || lists?.[c]
+        return (
+          <div className={`fg${WIDE.includes(c) ? ' full' : ''}`} key={c}>
+            <label htmlFor={id}>
+              {label(c)}{c === 'credit_limit' && <span className="hint"> — SAR incl. VAT, blank = no limit</span>} {req && <span className="req">*</span>}
+            </label>
+            {pick ? (
+              <select id={id} name={c} defaultValue={row ? row[c] ?? '' : cfg.defaults?.[c] ?? ''} required={req}>
+                <option value="">{req ? 'Select…' : '—'}</option>
+                {pick.map((v) => <option key={v}>{v}</option>)}
+              </select>
+            ) : (
+              <input id={id} name={c} defaultValue={row ? row[c] ?? '' : cfg.defaults?.[c] ?? ''} required={req}
+                {...((cfg.numbers || []).includes(c) && { type: 'number', inputMode: 'decimal', min: 0, step: 'any' })} {...TYPES[c]} />
+            )}
+          </div>
+        )
+      })}
       {people && (
         <div className="fg">
           <label htmlFor={`sp-${key}`}>Assigned salesperson</label>
@@ -40,7 +53,7 @@ export default function MasterFields({ cfg, row, people }) {
 
 // rows: the page's rows (form columns + salesperson name); table: 'customers' | 'items'; here: list URL to return to.
 // sorts: { [column]: { href, dir } } for the sortable headers; dir is 'ascending' on the current sort.
-export function MasterTable({ cfg, rows, people, table, title, search, here, sorts = {} }) {
+export function MasterTable({ cfg, rows, people, lists, table, title, search, here, sorts = {} }) {
   const one = title.slice(0, -1)
   const num = (c) => (cfg.numbers || []).includes(c)
   const hidden = (r) => (
@@ -80,7 +93,7 @@ export function MasterTable({ cfg, rows, people, table, title, search, here, sor
                   btnClass="btn btn-ghost btn-sm act-icon-btn">
                   <form action={saveMaster}>
                     {hidden(r)}
-                    <div className="modal-body"><MasterFields cfg={cfg} row={r} people={people} /></div>
+                    <div className="modal-body"><MasterFields cfg={cfg} row={r} people={people} lists={lists} /></div>
                     <ModalFoot label="Save changes" icon="ph-check" />
                   </form>
                 </Modal>
@@ -90,7 +103,7 @@ export function MasterTable({ cfg, rows, people, table, title, search, here, sor
                     {hidden(r)}
                     <div className="modal-body">
                       <p><b>{r[search] || `#${r.id}`}</b> will be removed from the {title.toLowerCase()} master.</p>
-                      <p>Existing quotations keep their own copy of the details.</p>
+                      <p>{table === 'customers' ? 'Existing quotations keep their own copy of the details.' : "One that is already used on a PO, GRN or stock entry can't be deleted."}</p>
                     </div>
                     <ModalFoot label="Delete" icon="ph-trash" cls="btn-danger" />
                   </form>

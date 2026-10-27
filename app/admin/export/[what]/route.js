@@ -64,6 +64,11 @@ const EXPORTS = {
     const rows = await all(() => db().from('customers').select('*, sp:profiles(full_name)').order('id'))
     return toCSV(rows, [...MASTERS.customers.cols.map((c) => [c, (r) => r[c]]), ['salesperson', (r) => r.sp?.full_name]])
   },
+  // Inventory masters: same headers as their import.
+  ...Object.fromEntries(['plants', 'stores', 'materials', 'vendors'].map((t) => [t, async () => {
+    const rows = await all(() => db().from(t).select('*').order('id'))
+    return toCSV(rows, MASTERS[t].cols.map((c) => [c, (r) => r[c]]))
+  }])),
   // Item master in the sheet layout (one column per list); items-template = headers + one example row.
   items: async () => {
     const rows = await all(() => db().from('item_lists').select('list, value, name').order('id'))

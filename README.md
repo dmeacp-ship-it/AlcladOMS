@@ -48,6 +48,28 @@ Sales users only see their own orders. Documents open as printable pages in the 
    ```
    Open http://localhost:3000 and sign in. `npm test` checks the quotation maths.
 
+## Inventory (phase 1)
+
+Admin and manager only (sidebar → Inventory). Run `supabase/migrate-015.sql` once, then as admin fill
+Settings → **Plants**, **Stores** (RM store, one WIP store per production line, FG / scrap), **Materials** (with min / max
+level) and **Vendors** — each has Import / Export (CSV).
+
+| Step | Who | Stock |
+|---|---|---|
+| Purchase Order (plant, vendor, lines, rate) | admin, manager | — |
+| Approve / reject PO (reason required to reject) | admin | — |
+| GRN on an approved PO (store, invoice no; up to 2% over the pending qty) | admin, manager | — (waits for QC) |
+| Incoming QC on the GRN: rejected qty + reason | admin, manager | accepted qty **+** into the store; rejected goes back to pending on the PO |
+| Issue / transfer, store → line (WIP) or any store | admin, manager | − from, + to |
+| Opening stock (CSV `store_code, material_code, qty`, once per store + material) and adjustments (reason required) | admin, manager | + / − |
+| Stock report: opening / in / out / closing for any period, plant, store; red below min level; CSV | admin, manager | — |
+
+Every change of stock is one row in `stock_moves`; stock is their sum. The database refuses anything that would take a
+store below zero. The PO closes itself once every line is received and QC'd; Close PO ends it early (reason required).
+PO, GRN and issue print on the letterhead (Print → Save as PDF). Numbers: `PO-2026-001`, `GRN-…`, `ISS-…`, `ADJ-…`, `OPN-…`.
+Store type and material category `GRANULE` are kept for the granules plant later. `npm run test:sql` runs the
+migration on an in-memory Postgres and checks the whole flow.
+
 ## Deploy to Vercel
 
 Push this folder to a GitHub repo, import it in Vercel, add the same three environment variables, deploy.

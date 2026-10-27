@@ -59,12 +59,17 @@ export default async function RootLayout({ children }) {
       { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks' },
       // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
       ['admin', 'manager'].includes(me.role) && { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', more: true },
+      ['admin', 'manager'].includes(me.role) && { href: '/inventory', label: 'Inventory', icon: 'ph-warehouse', more: true },
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [
       { href: '/admin/settings', label: 'Company', icon: 'ph-gear' },
       { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
       { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
+      { href: '/admin/plants', label: 'Plants', icon: 'ph-factory' },
+      { href: '/admin/stores', label: 'Stores', icon: 'ph-warehouse' },
+      { href: '/admin/materials', label: 'Materials', icon: 'ph-package' },
+      { href: '/admin/vendors', label: 'Vendors', icon: 'ph-truck' },
       { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
       { href: '/admin/activity', label: 'Activity Log', icon: 'ph-clock-counter-clockwise' },
     ]
