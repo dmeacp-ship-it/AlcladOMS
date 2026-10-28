@@ -1,6 +1,7 @@
 import { requireRole } from '@/lib/server'
 import { invMasters } from '@/lib/inventory'
 import { today } from '@/lib/tas'
+import { Combobox } from '../../../ui'
 import { createPO } from '../../actions'
 import InvTabs from '../../InvTabs'
 import LinesForm from '../../LinesForm'
@@ -18,17 +19,35 @@ export default async function NewPO() {
         <div className="fgrid-2">
           <div className="fg">
             <label htmlFor="vendor">Vendor <span className="req">*</span></label>
-            <select id="vendor" name="vendor" required defaultValue="">
-              <option value="" disabled>Select vendor…</option>
-              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name} ({v.code})</option>)}
-            </select>
+            <Combobox
+              id="vendor"
+              name="vendor"
+              placeholder="Search or select vendor…"
+              required
+              requiredMsg="Choose a vendor."
+              wide
+              options={vendors.map((v) => ({
+                value: String(v.id),
+                label: v.name,
+                badge: v.code,
+              }))}
+            />
           </div>
           <div className="fg">
             <label htmlFor="plant">For plant <span className="req">*</span></label>
-            <select id="plant" name="plant" required defaultValue={plants.length === 1 ? plants[0].code : ''}>
-              <option value="" disabled>Select plant…</option>
-              {plants.map((p) => <option key={p.code} value={p.code}>{p.name} ({p.code})</option>)}
-            </select>
+            <Combobox
+              id="plant"
+              name="plant"
+              defaultValue={plants.length === 1 ? plants[0].code : ''}
+              placeholder="Select plant…"
+              required
+              requiredMsg="Choose a plant."
+              options={plants.map((p) => ({
+                value: p.code,
+                label: p.name,
+                badge: p.code,
+              }))}
+            />
           </div>
           <div className="fg">
             <label htmlFor="date">PO date</label>

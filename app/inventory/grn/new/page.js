@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { db, requireRole } from '@/lib/server'
 import { invMasters } from '@/lib/inventory'
 import { day, qty, today } from '@/lib/tas'
-import { LinkBusy } from '../../../ui'
+import { Combobox, LinkBusy } from '../../../ui'
 import { createGRN } from '../../actions'
 import ActionForm from '../../ActionForm'
 import InvTabs from '../../InvTabs'
@@ -33,7 +33,7 @@ export default async function NewGRN({ searchParams }) {
               <tbody>
                 {pos?.map((p) => (
                   <tr key={p.id}>
-                    <td className="nowrap"><Link prefetch={false} className="qno" href={`/inventory/po/${p.id}`}>{p.po_no}</Link></td>
+                    <td className="nowrap"><Link prefetch={false} className="qno" href={`/inventory/po?view=${p.id}`}>{p.po_no}</Link></td>
                     <td className="nowrap" data-label="Date">{day(p.po_date)}</td>
                     <td data-label="Plant">{p.plant_code}</td>
                     <td className="fw6" data-label="Vendor"><bdi>{p.vendor_name}</bdi></td>
@@ -63,10 +63,21 @@ export default async function NewGRN({ searchParams }) {
           <div className="fgrid-2">
             <div className="fg">
               <label htmlFor="store">Into store <span className="req">*</span></label>
-              <select id="store" name="store" required defaultValue={rm.length === 1 ? rm[0].id : ''}>
-                <option value="" disabled>Select store…</option>
-                {plantStores.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.type}</option>)}
-              </select>
+              <Combobox
+                id="store"
+                name="store"
+                defaultValue={rm.length === 1 ? String(rm[0].id) : ''}
+                placeholder="Search or select store…"
+                required
+                requiredMsg="Choose a store."
+                wide
+                options={plantStores.map((s) => ({
+                  value: String(s.id),
+                  label: s.name,
+                  badge: s.type,
+                  sub: `Plant ${s.plant_code}`,
+                }))}
+              />
             </div>
             <div className="fg"><label htmlFor="date">Received on</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
             <div className="fg"><label htmlFor="invoice_no">Vendor invoice / delivery note no.</label><input id="invoice_no" name="invoice_no" /></div>

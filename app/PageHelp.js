@@ -19,8 +19,8 @@ export const HELP = {
     steps: ['Choose the store and write the reason', 'Choose the material and type + or − quantity', 'Press Post adjustment'],
   },
   plan: {
-    icon: 'ph-calendar-check', text: 'See what customer orders still need, and plan what a line makes in one shift.',
-    steps: ['Check “Make in this plan” for each item', 'Choose the date, shift and line', 'Press Create production plan', 'On the plan: issue raw material, then enter production'],
+    icon: 'ph-calendar-check', text: 'Plan what a line makes in one shift to fulfill customer orders.',
+    steps: ['Press New Plan', 'Choose the line, shift and date', 'Type how many pieces to make for open orders', 'Press Create production plan'],
   },
   dpr: {
     icon: 'ph-gear-six', text: 'At the end of every shift, enter what each line made.',

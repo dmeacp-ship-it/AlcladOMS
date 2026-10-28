@@ -132,3 +132,46 @@ export async function importFgOpening(fd) {
   await logEvent(null, me, 'FG opening stock loaded', `${no} · ${plural(lines.length, 'line')} · ${fmt(lines.reduce((s, l) => s + l.qty, 0))} pcs · ${file.name}`)
   done(P, `${no}: FG opening stock loaded for ${plural(lines.length, 'line')}.`)
 }
+
+// Find or create an FG item on the fly for custom specs or Make-to-Stock.
+export async function getOrCreateFgItem(input) {
+  await requireRole('manager')
+  const brand = String(input.brand || '').trim()
+  const grade = String(input.grade || '').trim()
+  const color_code = String(input.color_code || '').trim()
+  const color_name = String(input.color_name || '').trim()
+  const core = String(input.core || '').trim()
+  const skin = input.skin != null && input.skin !== '' ? num(input.skin) : null
+  const width = num(input.width)
+  const length = num(input.length)
+  const thickness = num(input.thickness)
+
+  if (!brand) return { error: 'Brand is required.' }
+  if (!(width > 0)) return { error: 'Width must be greater than 0.' }
+  if (!(length > 0)) return { error: 'Length must be greater than 0.' }
+  if (!(thickness > 0)) return { error: 'Thickness must be greater than 0.' }
+
+  const { data: id, error } = await db().rpc('fg_item_for', {
+    p_brand: brand,
+    p_grade: grade || null,
+    p_color: color_code || null,
+    p_color_name: color_name || null,
+    p_core: core || null,
+    p_skin: Number.isFinite(skin) ? skin : null,
+    p_width: width,
+    p_length: length,
+    p_thickness: thickness,
+    p_b: false,
+  })
+  if (error) return err(error)
+
+  const { data: item, error: fetchErr } = await db()
+    .from('fg_items')
+    .select('id, code, color_name, b_grade, m2_per_pc, width, length')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr) return err(fetchErr)
+  return { item }
+}
+

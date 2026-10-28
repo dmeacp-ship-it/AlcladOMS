@@ -23,7 +23,7 @@ export default function MarkReadyModal({ lines, back, label = 'Mark Ready', btnC
         {orderIds.map((id) => <input key={id} type="hidden" name="id" value={id} />)}
         <input type="hidden" name="back" value={back} />
         <div className="modal-body">
-          <p>How many more pieces are finished? They are added to what is already ready. The Delivery Order is then generated from Active Orders.</p>
+          <p>How many more pieces are finished? They are added to what is already ready. Then press Ship on the order to make the Delivery Order.</p>
           <div className="tbl-wrap">
             <table className="tbl ready-tbl">
               <thead>

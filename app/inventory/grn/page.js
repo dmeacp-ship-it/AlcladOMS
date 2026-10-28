@@ -1,23 +1,53 @@
 import Link from 'next/link'
 import { db, requireRole } from '@/lib/server'
 import { invMasters } from '@/lib/inventory'
+import { getSettings } from '@/lib/settings'
 import { day } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../../ui'
 import InvTabs from '../InvTabs'
+import GRNDialog from './GRNDialog'
 
-export const metadata = { title: 'Receive Goods' }
+export async function generateMetadata({ searchParams }) {
+  const sp = await searchParams
+  if (/^\d+$/.test(sp.view || '')) {
+    const { data } = await db().from('grns').select('grn_no').eq('id', sp.view).maybeSingle()
+    if (data?.grn_no) return { title: { absolute: data.grn_no } }
+  }
+  return { title: 'Receive Goods' }
+}
+
 const LIMIT = 200
 
 export default async function GRNList({ searchParams }) {
   const sp = await searchParams
   const pending = sp.show !== 'all'
   const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
+  const viewId = /^\d+$/.test(sp.view || '') ? sp.view : null
+
   let q = db().from('grns').select('*, po:purchase_orders!inner(po_no, vendor_name), store:stores(name, plant_code), items:grn_items(id)')
     .order('id', { ascending: false }).limit(LIMIT)
   if (pending) q = q.eq('status', 'QC_PENDING')
   if (term) q = q.or(`grn_no.ilike.%${term}%,invoice_no.ilike.%${term}%`)
-  const [, { missing }, { data: rows }] = await Promise.all([requireRole('manager'), invMasters(), q])
+
+  const grnQuery = viewId
+    ? db().from('grns')
+        .select('*, po:purchase_orders(id, po_no, vendor_name, vendor:vendors(address, vat_no, mobile)), store:stores(name, plant_code), items:grn_items(*, m:materials(code, name, uom))')
+        .eq('id', viewId).maybeSingle()
+    : Promise.resolve({ data: null })
+  const settingsQuery = viewId ? getSettings() : Promise.resolve(null)
+
+  const [me, { missing }, { data: rows }, { data: viewGRN }, s] = await Promise.all([
+    requireRole('manager'),
+    invMasters(),
+    q,
+    grnQuery,
+    settingsQuery,
+  ])
+
+  const list = { ...(pending ? {} : { show: 'all' }), ...(term && { q: term }) }
   const href = (all) => `/inventory/grn?${new URLSearchParams({ ...(all && { show: 'all' }), ...(term && { q: term }) })}`
+  const viewHref = (id) => `/inventory/grn?${new URLSearchParams({ ...list, view: id })}`
+  const listHref = `/inventory/grn${Object.keys(list).length ? `?${new URLSearchParams(list)}` : ''}`
 
   return (
     <>
@@ -43,8 +73,8 @@ export default async function GRNList({ searchParams }) {
             <thead><tr><th>GRN No</th><th>Date</th><th>PO</th><th>Vendor</th><th>Store</th><th>Invoice</th><th className="r">Lines</th><th>Checked</th></tr></thead>
             <tbody>
               {rows?.map((g) => (
-                <ClickRow key={g.id} href={`/inventory/grn/${g.id}`}>
-                  <td className="nowrap"><Link prefetch={false} className="qno" href={`/inventory/grn/${g.id}`}>{g.grn_no}</Link></td>
+                <ClickRow key={g.id} href={viewHref(g.id)}>
+                  <td className="nowrap"><Link prefetch={false} className="qno" href={viewHref(g.id)}>{g.grn_no}</Link></td>
                   <td className="nowrap" data-label="Date">{day(g.grn_date)}</td>
                   <td className="nowrap" data-label="PO">{g.po.po_no}</td>
                   <td className="fw6" data-label="Vendor"><bdi>{g.po.vendor_name}</bdi></td>
@@ -59,6 +89,15 @@ export default async function GRNList({ searchParams }) {
           {!rows?.length && <div className="empty"><i className="ph ph-seal-check" /><h3>{pending ? 'Nothing waiting to be checked' : 'Nothing received yet'}</h3><p>Goods are received on an approved PO with Receive goods.</p></div>}
         </div>
       </div>
+
+      {viewGRN && (
+        <GRNDialog
+          grn={viewGRN}
+          s={s}
+          me={me}
+          closeHref={listHref}
+        />
+      )}
     </>
   )
 }

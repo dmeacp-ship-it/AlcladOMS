@@ -6,8 +6,8 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { LinkBusy, TableLabels, Tooltips } from './ui'
 
 const LIST_TITLES = {
-  '': ['All Orders', 'Every quotation and order'],
-  ACTIVE: ['Active Orders', 'Orders still in progress: approve, DO, PI and tax invoice from here'],
+  '': ['Orders', 'Every quotation and order'],
+  ACTIVE: ['Orders', 'Orders in progress: approve, DO, PI and tax invoice'],
   PENDING: ['Pending Approval', 'Quotations waiting for a decision'],
   APPROVED: ['Approved Orders', 'Approved quotations in progress'],
   REJECTED: ['Rejected Quotations', 'Duplicate one to resubmit it'],
@@ -28,7 +28,7 @@ const PAGES = [
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
   [/^\/admin\/reports/, 'Sales Report', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
-  [/^\/plant/, 'Plant Dispatch', 'Update production and mark finished pieces ready'],
+  [/^\/plant/, 'Production Floor', 'Mark finished pieces ready to ship'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
@@ -36,7 +36,6 @@ const PAGES = [
   [/^\/admin\/stores/, 'Stores', 'Raw material stores, production lines, finished goods and scrap stores'],
   [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
   [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
-  [/^\/today/, 'To Do Today', 'Work waiting for you — tap a box to start'],
   [/^\/inventory\/po/, 'Purchase Orders', 'Order raw material from a supplier'],
   [/^\/inventory\/grn/, 'Receive Goods', 'When goods arrive: enter what came, then check it'],
   [/^\/inventory\/issue/, 'Issue to Line', 'Send raw material from the store to a production line'],
@@ -206,21 +205,102 @@ export default function Shell({ me, nav, settings, logout, children }) {
     })
   }
 
+  // Group nav items into top-level items and collapsible sections
+  const groups = []
+  let currentGroup = { section: null, items: [] }
+  groups.push(currentGroup)
+  for (const n of nav) {
+    if (n.section) {
+      currentGroup = { section: n.section, items: [] }
+      groups.push(currentGroup)
+    } else {
+      currentGroup.items.push(n)
+    }
+  }
+
+  // Server & initial client render: deterministically collapse all sections except the active one
+  const allSecs = groups.filter((g) => g.section).map((g) => g.section)
+  const activeSec = groups.find((g) => g.section && g.items.some((n) => active(n.href)))?.section
+  const keepOpen = activeSec || 'Sales'
+  const defaultCollapsed = allSecs.filter((s) => s !== keepOpen)
+
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
+
+  // Load saved preferences from localStorage on mount (client-only) to avoid SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('tas_sb_collapsed')
+      if (saved !== null) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          const currentActive = groups.find((g) => g.section && g.items.some((n) => active(n.href)))?.section
+          const next = currentActive ? parsed.filter((s) => s !== currentActive) : parsed
+          setCollapsed(next)
+        }
+      }
+    } catch {}
+  }, [])
+
+  const toggleSection = (sec) => {
+    setCollapsed((prev) => {
+      const next = prev.includes(sec) ? prev.filter((s) => s !== sec) : [...prev, sec]
+      try { localStorage.setItem('tas_sb_collapsed', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
+  useEffect(() => {
+    const activeSec = groups.find((g) => g.section && g.items.some((n) => active(n.href)))?.section
+    if (activeSec && collapsed.includes(activeSec)) {
+      setCollapsed((prev) => {
+        const next = prev.filter((s) => s !== activeSec)
+        try { localStorage.setItem('tas_sb_collapsed', JSON.stringify(next)) } catch {}
+        return next
+      })
+    }
+  }, [pathname, status])
+
   return (
     <div className="app">
       <a href="#main" className="skip-link">Skip to content</a>
       <aside className="sb" aria-label="Main navigation" style={{ '--tabs': tabs }}>
+        <button type="button" className="sb-brand" onClick={toggleSb} aria-label="Collapse or expand the sidebar">
+          {/* Same mark as the favicon (app/icon.svg) */}
+          <div className="sb-logo"><svg viewBox="12 16 40 34" aria-hidden="true"><path d="M12 50V30l11 7v-7l11 7v-7l11 7V16h7v34z" /></svg></div>
+          <div>
+            <div className="sb-name">TAS OMS</div>
+            <div className="sb-sub">TAS International Mfg.</div>
+          </div>
+        </button>
         <div className="sb-nav-wrapper">
-          <button type="button" className="sb-brand" onClick={toggleSb} aria-label="Collapse or expand the sidebar">
-            {/* Same mark as the favicon (app/icon.svg) */}
-            <div className="sb-logo"><svg viewBox="12 16 40 34" aria-hidden="true"><path d="M12 50V30l11 7v-7l11 7v-7l11 7V16h7v34z" /></svg></div>
-            <div>
-              <div className="sb-name">TAS OMS</div>
-              <div className="sb-sub">TAS International Mfg.</div>
-            </div>
-          </button>
           <nav className="sb-nav">
-            {nav.map((n, i) => n.section ? <div key={i} className="nsec">{n.section}</div> : item(n))}
+            {groups.map((g) => {
+              if (!g.section) {
+                return g.items.map(item)
+              }
+              const isCollapsed = collapsed.includes(g.section)
+              const badgeSum = g.items.reduce((acc, n) => acc + (Number(n.badge) || 0), 0)
+              return (
+                <div key={g.section} className="nsec-group">
+                  <button
+                    type="button"
+                    className={`nsec${isCollapsed ? ' collapsed' : ''}`}
+                    onClick={() => toggleSection(g.section)}
+                    aria-expanded={!isCollapsed}
+                    title={isCollapsed ? `Expand ${g.section}` : `Collapse ${g.section}`}
+                  >
+                    <i className={`ph ph-caret-${isCollapsed ? 'right' : 'down'} nsec-caret`} aria-hidden="true" />
+                    <span className="nsec-title">{g.section}</span>
+                    {isCollapsed && badgeSum > 0 && (
+                      <span className="ni-bd" aria-label={`${badgeSum} waiting`}>{badgeSum}</span>
+                    )}
+                  </button>
+                  <div className="nsec-items" hidden={isCollapsed}>
+                    {g.items.map(item)}
+                  </div>
+                </div>
+              )
+            })}
           </nav>
         </div>
         <div className="sb-bottom-wrapper">

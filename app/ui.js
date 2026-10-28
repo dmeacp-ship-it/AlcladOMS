@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, u
 import { createPortal, useFormStatus } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useLinkStatus } from 'next/link'
-import { ROLES } from '@/lib/tas'
+import { ROLES, prodLabel, prodStatus } from '@/lib/tas'
 
 // Same breakpoint as the phone layout in globals.css (narrow, or a phone held sideways).
 export const PHONE = '(max-width: 768px), (max-height: 500px) and (pointer: coarse)'
@@ -27,7 +27,7 @@ export function LinkBusy() {
 }
 
 // Plays the dialog's closing animation (shorter than its opening one), then closes it.
-function closeAnimated(d, done) {
+export function closeAnimated(d, done) {
   if (!d?.open || d.classList.contains('closing')) return
   if (reducedMotion()) { d.close(); return done?.() }
   d.classList.add('closing')
@@ -113,7 +113,7 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
       >
         {open && (
           <CloseCtx.Provider value={{ close, request }}>
-            <div className="modal-header">
+            <div className="modal-header no-print">
               <div className="modal-ttl">
                 <i className={`ph ${icon}`} /><span id={tid} className="modal-ttl-txt">{title}</span>
                 <button type="button" className="btn-link x" onClick={request} aria-label="Close"><i className="ph ph-x" /></button>
@@ -332,7 +332,7 @@ export function DocView({ href, icon, label, title, cls = 'chip-link' }) {
         className="doc-frame"
         onLoad={(e) => { try { e.currentTarget.contentDocument.documentElement.classList.add('embed') } catch {} }}
       />
-      <div className="modal-foot">
+      <div className="modal-foot no-print">
         <a className="btn btn-ghost" href={href} target="_blank" rel="noreferrer"><i className="ph ph-arrow-square-out" />Open in a new tab</a>
         <button type="button" className="btn btn-primary" onClick={(e) => {
           const f = e.currentTarget.closest('dialog').querySelector('iframe')
@@ -375,11 +375,11 @@ export function DocsMenu({ o }) {
 }
 
 // Plant status pill for an order line that saves as soon as it changes (FMS .status-sel).
-// Coil N/A asks for expected date; Ready for Dispatch asks for ready quantity.
-const PILL = { Pending: 's-planning', 'Under Production': 's-prod', 'Ready for Dispatch': 's-ready', 'Coil N/A': 's-coil' }
+// Coil N/A asks for the expected date. Ready pieces are not a status: they come from Mark ready.
+const PILL = { Pending: 's-planning', 'Under Production': 's-prod', 'Coil N/A': 's-coil' }
 export function PlantStatus({ id, value, coil, options }) {
-  const [v, setV] = useState(value)
-  useEffect(() => { setV(value) }, [value])
+  const [v, setV] = useState(prodStatus(value))
+  useEffect(() => { setV(prodStatus(value)) }, [value])
   const { pending } = useFormStatus()
   const save = (e) => e.currentTarget.form.requestSubmit()
   return (
@@ -392,7 +392,7 @@ export function PlantStatus({ id, value, coil, options }) {
         className={`status-sel ${PILL[v] || ''}`}
         onChange={(e) => { setV(e.target.value); save(e) }}
       >
-        {options.map((o) => <option key={o}>{o}</option>)}
+        {options.map((o) => <option key={o} value={o}>{prodLabel(o)}</option>)}
       </select>
       {v === 'Coil N/A' && (
         <input type="date" name={`coil_${id}`} defaultValue={coil || ''} disabled={pending} aria-label="Coil expected on"
@@ -505,7 +505,7 @@ export function RouteDialog({ title, icon, header, footer, closeHref, children }
       onClose={(e) => { if (e.target === ref.current) leave() }}
       onMouseDown={(e) => { if (e.target === ref.current) close() }}
     >
-      <div className="modal-header">
+      <div className="modal-header no-print">
         <div className="modal-ttl">
           <i className={`ph ${icon}`} /><span id={tid} className="modal-ttl-txt">{title}</span>
           <button type="button" className="btn-link x" onClick={close} aria-label="Close"><i className="ph ph-x" /></button>
@@ -513,7 +513,7 @@ export function RouteDialog({ title, icon, header, footer, closeHref, children }
         {header}
       </div>
       <div className="modal-body">{children}</div>
-      <div className="modal-foot">
+      <div className="modal-foot no-print">
         {footer}
         <button type="button" className="btn btn-ghost neutral" onClick={close}>Close</button>
       </div>
@@ -544,9 +544,9 @@ export function PasswordInput(props) {
   )
 }
 
-export function PrintButton() {
+export function PrintButton({ cls = 'btn btn-primary btn-sm' } = {}) {
   return (
-    <button type="button" className="btn btn-primary btn-sm" onClick={() => window.print()}>
+    <button type="button" className={cls} onClick={() => window.print()}>
       <i className="ph ph-printer" />Print or save as PDF
     </button>
   )

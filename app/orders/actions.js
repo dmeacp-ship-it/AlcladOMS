@@ -5,7 +5,7 @@ import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, requireRole
 import { removeInvoices, saveInvoice } from '@/lib/drive'
 import { getSettings } from '@/lib/settings'
 import { fgPosition } from '@/lib/production'
-import { DISPATCH, PRODUCTION, calcM2, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
+import { DISPATCH, PRODUCTION, calcM2, prodLabel, prodStatus, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
 
 const num = (v) => (String(v ?? '').trim() === '' ? NaN : Number(v))
 // After an action, land back where it was started: the order dialog, the list row or the plant page.
@@ -153,9 +153,10 @@ export async function decide(fd) {
   go(back(fd, id), 'ok', `Quotation ${data[0].quote_no} ${approve ? 'approved' : 'rejected'}.`)
 }
 
-// Plant status per order line (Pending, Under Production, Ready for Dispatch, Coil N/A).
+// Plant status per order line (Pending, Under Production, Coil N/A). Ready pieces are set only by Mark ready,
+// so changing the status never touches them.
 export async function saveProduction(fd) {
-  const me = await requireRole()
+  const me = await requireRole('plant')
   const o = await getOrder(fd.get('id'), me)
   const path = back(fd, o.id)
   if (o.status !== 'APPROVED') go(path, 'error', 'Only approved orders can have plant status updated.')
@@ -165,48 +166,20 @@ export async function saveProduction(fd) {
     if (!v || !PRODUCTION.includes(v)) continue
     const c = String(fd.get(`coil_${it.id}`) || '')
     const coil = v === 'Coil N/A' && isDate(c) ? c : null
-
-    // If Ready for Dispatch, read ready quantity
-    const rawReady = fd.get(`ready_${it.id}`)
-    const curReady = Number(it.ready_qty != null ? it.ready_qty : (it.delivered_qty || 0))
-    const balance = Math.max(0, Number(it.qty) - (Number(it.dispatched_qty) || 0))
-    let readyQty = 0
-    if (v === 'Ready for Dispatch') {
-      const q = num(rawReady)
-      readyQty = (!isNaN(q) && q > 0) ? Math.min(q, balance) : (curReady > 0 ? Math.min(curReady, balance) : balance)
-    }
-
-    if (v === it.production_status && coil === it.coil_date && readyQty === curReady) continue
-
-    // 1. Update delivered_qty (guaranteed column in Supabase)
-    await db().from('order_items').update({ delivered_qty: readyQty, coil_date: coil }).eq('id', it.id)
-
-    // 2. Update production_status
-    try {
-      const test = await db().from('order_items').update({ production_status: v }).eq('id', it.id)
-      if (test.error) {
-        await db().from('order_items').update({ production_status: v === 'Ready for Dispatch' ? 'Under Production' : v }).eq('id', it.id)
-      }
-    } catch {
-      await db().from('order_items').update({ production_status: v === 'Ready for Dispatch' ? 'Under Production' : v }).eq('id', it.id)
-    }
-
-    // 3. Try ready_qty if migrated
-    try {
-      await db().from('order_items').update({ ready_qty: readyQty }).eq('id', it.id)
-    } catch {}
-
-    changes.push(`Line ${it.item_no}: ${v}${v === 'Ready for Dispatch' ? ` (${readyQty} PCS ready)` : coil ? ` (coil ${day(coil)})` : ''}`)
+    if (v === prodStatus(it.production_status) && coil === it.coil_date) continue
+    const { error } = await db().from('order_items').update({ production_status: v, coil_date: coil }).eq('id', it.id)
+    if (error) go(path, 'error', error.message)
+    changes.push(`Line ${it.item_no}: ${prodLabel(v)}${coil ? ` (coil ${day(coil)})` : ''}`)
   }
   if (changes.length) await logEvent(o.id, me, 'Plant status', changes.join('; '))
   revalidatePath('/', 'layout')
   go(path, 'ok', 'Plant status saved.')
 }
 
-// Mark lines ready for dispatch (plant or operations). The Plant Dispatch selection may hold lines of
+// Mark lines ready for dispatch (plant or operations). The Production Floor selection may hold lines of
 // several orders: each order is checked and logged on its own.
 export async function markReady(fd) {
-  const me = await requireRole()
+  const me = await requireRole('plant', 'operations')
   const ids = [...new Set(fd.getAll('id').map(String))]
   const path = back(fd, ids[0])
   // Company Settings → "Orders use FG stock": ready pieces are an FG reservation, so they must be free in FG.
@@ -265,9 +238,9 @@ export async function markReady(fd) {
 }
 
 // Generate Delivery Order (Batch) and record physical dispatch (merged flow).
-// Open to all roles.
+// Operations or plant (admin / manager pass every check).
 export async function generateBatchDO(fd) {
-  const me = await requireRole()
+  const me = await requireRole('operations', 'plant')
   const id = fd.get('id')
   const o = await getOrder(id, me)
   const path = back(fd, o.id)
@@ -398,12 +371,12 @@ export async function generateBatchDO(fd) {
   await logEvent(o.id, me, 'DO generated & dispatched', `${doNo} · ${plural(lines.length, 'line')} · ${truckDesc || 'No truck details'}`)
 
   revalidatePath('/', 'layout')
-  redirect(`/orders?view=${o.id}&open_batch_pi=${batchId}&ok=${encodeURIComponent(`Delivery Order ${doNo} generated & dispatched.`)}`)
+  redirect(`/orders?view=${o.id}&open_batch_pi=${batchId}&ok=${encodeURIComponent(`Shipped: Delivery Order ${doNo} made.`)}`)
 }
 
 // Generate Proforma Invoice for a specific batch.
 export async function generateBatchPI(fd) {
-  const me = await requireRole()
+  const me = await requireRole('accounts')
   const orderId = fd.get('id')
   const batchId = fd.get('batch_id')
   const o = await getOrder(orderId, me)

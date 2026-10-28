@@ -1,6 +1,7 @@
 import { db, requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { today } from '@/lib/tas'
+import { Combobox } from '../../../ui'
 import { createTransfer } from '../../actions'
 import InvTabs from '../../InvTabs'
 import LinesForm from '../../LinesForm'
@@ -15,7 +16,6 @@ export default async function NewIssue({ searchParams }) {
     invMasters(),
     /^\d+$/.test(planId || '') ? db().from('production_plans').select('id, plan_no, line_store_id, line:stores(plant_code)').eq('id', planId).maybeSingle().then((r) => r.data) : null,
   ])
-  const opts = (list) => list.map((s) => <option key={s.id} value={s.id}>{storeLabel(s)} · {s.type}</option>)
   const rm = plan && stores.filter((s) => s.plant_code === plan.line.plant_code && s.type === 'RM')
   return (
     <>
@@ -26,14 +26,37 @@ export default async function NewIssue({ searchParams }) {
         <div className="fgrid-2">
           <div className="fg">
             <label htmlFor="from">From store <span className="req">*</span></label>
-            <select id="from" name="from" required defaultValue={rm?.length === 1 ? rm[0].id : ''}><option value="" disabled>Select store…</option>{opts(stores)}</select>
+            <Combobox
+              id="from"
+              name="from"
+              defaultValue={rm?.length === 1 ? String(rm[0].id) : ''}
+              placeholder="Select store…"
+              required
+              requiredMsg="Choose a source store."
+              wide
+              options={stores.map((s) => ({
+                value: String(s.id),
+                label: storeLabel(s),
+                badge: s.type,
+              }))}
+            />
           </div>
           <div className="fg">
             <label htmlFor="to">To line / store <span className="req">*</span></label>
-            <select id="to" name="to" required defaultValue={plan?.line_store_id || ''}>
-              <option value="" disabled>Select production line or store…</option>
-              {opts([...stores.filter((s) => s.type === 'WIP'), ...stores.filter((s) => s.type !== 'WIP')])}
-            </select>
+            <Combobox
+              id="to"
+              name="to"
+              defaultValue={plan?.line_store_id ? String(plan.line_store_id) : ''}
+              placeholder="Select production line or store…"
+              required
+              requiredMsg="Choose a destination line or store."
+              wide
+              options={[...stores.filter((s) => s.type === 'WIP'), ...stores.filter((s) => s.type !== 'WIP')].map((s) => ({
+                value: String(s.id),
+                label: storeLabel(s),
+                badge: s.type,
+              }))}
+            />
           </div>
           <div className="fg"><label htmlFor="date">Issue date</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
           <div className="fg"><label htmlFor="requested_by">Requested by</label><input id="requested_by" name="requested_by" placeholder="Shift incharge / operator" /></div>

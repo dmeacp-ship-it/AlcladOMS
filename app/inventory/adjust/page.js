@@ -1,7 +1,7 @@
 import { db, requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { day, qty, today } from '@/lib/tas'
-import { FileDrop, Modal, ModalFoot } from '../../ui'
+import { Combobox, FileDrop, Modal, ModalFoot } from '../../ui'
 import { importOpening, postAdjustment } from '../actions'
 import InvTabs from '../InvTabs'
 import LinesForm from '../LinesForm'
@@ -41,10 +41,19 @@ export default async function Adjust() {
         <div className="fgrid-2">
           <div className="fg">
             <label htmlFor="store">Store <span className="req">*</span></label>
-            <select id="store" name="store" required defaultValue="">
-              <option value="" disabled>Select store…</option>
-              {stores.map((s) => <option key={s.id} value={s.id}>{storeLabel(s)} · {s.type}</option>)}
-            </select>
+            <Combobox
+              id="store"
+              name="store"
+              placeholder="Select store…"
+              required
+              requiredMsg="Choose a store."
+              wide
+              options={stores.map((s) => ({
+                value: String(s.id),
+                label: storeLabel(s),
+                badge: s.type,
+              }))}
+            />
           </div>
           <div className="fg"><label htmlFor="date">Date</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
           <div className="fg full"><label htmlFor="reason">Reason <span className="req">*</span></label><input id="reason" name="reason" required placeholder="Stock count difference, damaged, found in store…" /></div>

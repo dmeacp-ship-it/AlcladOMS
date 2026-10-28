@@ -18,7 +18,7 @@ const ITEM = 'id, order_id, item_no, fg_item_id, description, color_name, qty, w
 const ORDER = 'orders!inner(id, quote_no, doc_no, do_date, customer_name, status, dispatch_status)'
 const LIMIT = 300
 
-export const metadata = { title: 'Plant Dispatch' }
+export const metadata = { title: 'Production Floor' }
 
 // What each tab shows, as a filter on the line (balance_qty = qty - dispatched_qty, kept by the database).
 const SHOWS = {

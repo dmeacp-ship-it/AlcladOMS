@@ -2,7 +2,7 @@ import { requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { fgAsMaterials, fgItems, fgPosition, fgReport, prodMissing } from '@/lib/production'
 import { day, money, qty, today } from '@/lib/tas'
-import { FileDrop, Modal, ModalFoot } from '../../ui'
+import { Combobox, FileDrop, Modal, ModalFoot } from '../../ui'
 import { importFgOpening, postFgAdjustment } from '../actions'
 import LinesForm from '../../inventory/LinesForm'
 import ProdTabs from '../ProdTabs'
@@ -94,10 +94,20 @@ export default async function FGStock({ searchParams }) {
           <div className="fgrid-2">
             <div className="fg">
               <label htmlFor="store">FG store <span className="req">*</span></label>
-              <select id="store" name="store" required defaultValue={fgStores.length === 1 ? fgStores[0].id : ''}>
-                <option value="" disabled>Select FG store…</option>
-                {fgStores.map((s) => <option key={s.id} value={s.id}>{storeLabel(s)}</option>)}
-              </select>
+              <Combobox
+                id="store"
+                name="store"
+                defaultValue={fgStores.length === 1 ? String(fgStores[0].id) : ''}
+                placeholder="Select FG store…"
+                required
+                requiredMsg="Choose an FG store."
+                wide
+                options={fgStores.map((s) => ({
+                  value: String(s.id),
+                  label: storeLabel(s),
+                  badge: s.type,
+                }))}
+              />
             </div>
             <div className="fg"><label htmlFor="date">Date</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
             <div className="fg full"><label htmlFor="reason">Reason <span className="req">*</span></label><input id="reason" name="reason" required placeholder="Stock count difference, damaged in store…" /></div>

@@ -4,7 +4,8 @@ import { balanceOf, can, dispatchOpen, int, money, readyOf, today, totals } from
 import { decide, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
 import { FileDrop, Modal, ModalFoot } from '../ui'
 
-// Order actions: Approve/Reject, Plant Dispatch link, Generate DO (when ready), Generate PI per batch, Tax Invoice.
+// Order actions: Approve/Reject, Production Floor link, Ship (when ready; makes the DO), Make PI per batch, Tax Invoice.
+// Each button shows only to the roles the server lets press it.
 // A client component: each dialog is built in the browser when it opens, so a list of 100 orders sends their
 // data once instead of every row's dialogs as well. me: just { role }.
 export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog }) {
@@ -48,7 +49,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
               <input type="hidden" name="decision" value="approve" />
               <div className="modal-body">
                 <p>Approve the quotation for <b><bdi>{o.customer_name}</bdi></b> worth <b>SAR {money(t.total)}</b> (incl. VAT)?</p>
-                <p>The order then appears in Plant Dispatch, where the plant updates production and marks finished pieces ready.</p>
+                <p>The order then appears in Production Floor, where the plant marks finished pieces ready to ship.</p>
               </div>
               <ModalFoot label="Approve" icon="ph-check-circle" cls="btn-success" />
             </form>
@@ -56,19 +57,19 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
         </>
       )}
 
-      {/* Approved but nothing is marked ready yet: link directly to Plant Dispatch */}
-      {approved && !sm && dispatchOpen(o) && readyLines.length === 0 && (
-        <Link prefetch={false} href="/plant" className={`btn btn-ghost${size}`} title="Go to Plant Dispatch to update status and mark ready quantities">
-          <i className="ph ph-factory" />Plant Dispatch
+      {/* Approved but nothing is marked ready yet: link directly to Production Floor */}
+      {approved && !sm && dispatchOpen(o) && readyLines.length === 0 && can(me, 'plant') && (
+        <Link prefetch={false} href="/plant" className={`btn btn-ghost${size}`} title="Go to Production Floor to mark finished pieces ready">
+          <i className="ph ph-factory" />Production Floor
         </Link>
       )}
 
-      {/* Generate DO & Dispatch: ONLY appears when plant has marked items ready for dispatch */}
-      {approved && readyLines.length > 0 && (
+      {/* Ship (makes the Delivery Order): only once the plant has marked pieces ready */}
+      {approved && readyLines.length > 0 && can(me, 'operations', 'plant') && (
         <Modal
-          title={`Generate Delivery Order for ${o.quote_no}`}
+          title={`Ship ${o.quote_no} — Delivery Order`}
           icon="ph-truck"
-          label={`Generate DO (${int(readyLines.reduce((n, it) => n + Math.min(readyOf(it), balanceOf(it)), 0))} PCS Ready)`}
+          label={`Ship (${int(readyLines.reduce((n, it) => n + Math.min(readyOf(it), balanceOf(it)), 0))} PCS ready)`}
           btnIcon="ph-truck"
           btnClass={`btn btn-primary${size}`}
           size="large"
@@ -76,7 +77,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
           <form action={generateBatchDO}>
             {Hidden}
             <div className="modal-body">
-              <p>Lines the plant marked ready. Each DO quantity starts at the ready quantity; change it if less is going on this truck.</p>
+              <p>Lines the plant marked ready. Each quantity starts at the ready quantity; change it if less is going on this truck. Saving makes the Delivery Order.</p>
               <div className="tbl-wrap">
                 <table className="tbl">
                   <thead>
@@ -154,15 +155,15 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
                 </div>
               </div>
             </div>
-            <ModalFoot label="Generate DO & Dispatch" icon="ph-truck" />
+            <ModalFoot label="Ship & make DO" icon="ph-truck" />
           </form>
         </Modal>
       )}
 
       {/* Per-batch PI and tax invoice. In the order dialog they sit on each batch row instead (inDialog). */}
-      {approved && !(inDialog && o.batches?.length) && pendingPIBatches.map((batch) => (
+      {approved && can(me, 'accounts') && !(inDialog && o.batches?.length) && pendingPIBatches.map((batch) => (
         <PiAction key={batch.id} o={o} batch={batch} back={back} size={size} autoOpen={String(openBatchPi) === String(batch.id)}
-          label={`Generate PI${pendingPIBatches.length > 1 ? ` (${batch.do_no || `#${batch.batch_no}`})` : ''}`} />
+          label={`Make PI${pendingPIBatches.length > 1 ? ` (${batch.do_no || `#${batch.batch_no}`})` : ''}`} />
       ))}
       {approved && can(me, 'accounts') && (o.batches?.length ? (inDialog ? [] : o.batches.filter((b) => b.pi_date)) : hasAnyPI ? [null] : []).map((b) => {
         const cur = b ? b.tax_invoice_path : o.tax_invoice_path
@@ -175,10 +176,10 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
 }
 
 // Generate PI for one DO batch (row action in the order dialog, footer / list action elsewhere).
-export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-sm', autoOpen }) {
+export function PiAction({ o, batch, back, label = 'Make PI', size = ' btn-sm', autoOpen }) {
   return (
     <Modal
-      title={`Generate Proforma Invoice for ${batch.do_no || `Batch #${batch.batch_no}`}`}
+      title={`Make Proforma Invoice for ${batch.do_no || `Batch #${batch.batch_no}`}`}
       icon="ph-receipt"
       label={label}
       btnIcon="ph-receipt"
@@ -248,7 +249,7 @@ export function PiAction({ o, batch, back, label = 'Generate PI', size = ' btn-s
             <textarea id={`note-${batch.id}`} name="price_note" rows={2} placeholder="e.g. special discount approved by management" />
           </div>
         </div>
-        <ModalFoot label="Generate PI" icon="ph-receipt" />
+        <ModalFoot label="Make PI" icon="ph-receipt" />
       </form>
     </Modal>
   )

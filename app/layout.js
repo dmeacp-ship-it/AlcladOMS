@@ -2,13 +2,13 @@ import './globals.css'
 import './icons/phosphor.css' // only the icons in use: npm run icons
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { authClient, currentUser, openLineCount, orderCounts, sessionUserId } from '@/lib/server'
+import { MY_WORK, authClient, currentUser, myWorkIds, openLineCount, orderCounts, sessionUserId } from '@/lib/server'
 import { can } from '@/lib/tas'
 import { WARN, getUsage } from '@/lib/usage'
 import { invTodo } from '@/lib/todo'
 import Shell from './Shell'
 
-// Each page sets its own name; the tab reads "Plant Dispatch · TAS OMS".
+// Each page sets its own name; the tab reads "Production Floor · TAS OMS".
 // viewport-fit=cover: the phone bottom tab bar pads itself for the home indicator (safe-area-inset-bottom).
 export const viewport = {
   viewportFit: 'cover',
@@ -44,25 +44,23 @@ export default async function RootLayout({ children }) {
   let nav = []
   let settings = []
   if (me) {
-    // Active Orders badge = orders waiting on something this user's role does.
-    const waiting = [
+    // Orders badge = orders waiting on something this user's role does: the My Work list for a single-job role
+    // (ponytail: one more round trip for those users only), every queue added up for admin / manager.
+    const todo = MY_WORK[me.role] ? (await myWorkIds(me.role)).length : [
       can(me, 'plant') ? c.AWAIT_DISPATCH : 0,
       can(me, 'approver') ? c.PENDING : 0,
       can(me, 'accounts') ? c.AWAIT_PI + c.AWAIT_TAX : 0,
       can(me, 'operations') ? c.AWAIT_DO : 0,
-    ]
-    const todo = waiting.reduce((a, b) => a + b, 0)
+    ].reduce((a, b) => a + b, 0)
     // One link per page, grouped by job, in plain words (no tabs inside pages). Red numbers = work waiting there.
     // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
     const boss = ['admin', 'manager'].includes(me.role)
     nav = [
-      { href: '/today', label: 'To Do Today', short: 'To Do', icon: 'ph-house' },
       { section: 'Sales' },
-      { href: '/orders?status=ACTIVE', label: 'Active Orders', short: 'Active', icon: 'ph-lightning', badge: todo },
+      { href: '/orders', label: 'Orders', short: 'Orders', icon: 'ph-list-checks', badge: todo },
       can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', short: 'New Quote', icon: 'ph-file-plus' },
-      { href: '/orders', label: 'All Orders', short: 'Orders', icon: 'ph-list-checks', more: true },
-      // Badge in lines, the unit the Plant Dispatch page counts in.
-      can(me, 'plant') && { href: '/plant', label: 'Plant Dispatch', short: 'Plant', icon: 'ph-factory', badge: lines },
+      // Badge in lines, the unit the Production Floor page counts in.
+      can(me, 'plant') && { href: '/plant', label: 'Production Floor', short: 'Floor', icon: 'ph-factory', badge: lines },
       ...(boss ? [
         { section: 'Store (raw material)' },
         { href: '/inventory', label: 'Raw Material Stock', icon: 'ph-warehouse', more: true },
@@ -98,7 +96,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME }} suppressHydrationWarning />
       </head>
       <body>
         {me ? (

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { DISPATCH, PRODUCTION, STATUS, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
+import { DISPATCH, PRODUCTION, STATUS, prodLabel, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
 import { FootMore, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
 import OrderActions, { PiAction, TaxAction } from './OrderActions'
@@ -8,7 +8,7 @@ import OrderActions, { PiAction, TaxAction } from './OrderActions'
 // Sections run in the order people work: next step, items and dispatch, DO batches, then the reference
 // details and timeline folded closed.
 
-const PLANT_BADGE = { Pending: 'b-warn', 'Under Production': 'b-info', 'Coil N/A': 'b-bad' }
+const PLANT_BADGE = { Pending: 'b-warn', 'Under Production': 'b-info', 'Ready for Dispatch': 'b-info', 'Coil N/A': 'b-bad' }
 const cap = (s) => s[0] + s.slice(1).toLowerCase()
 const stamp = (t) => t && new Date(t).toLocaleString('en-GB', { timeZone: 'Asia/Riyadh', dateStyle: 'medium', timeStyle: 'short' })
 // Empty values are left out instead of showing a row of dashes.
@@ -29,31 +29,35 @@ export function progress(o) {
   }
 }
 
+// The 4 stages people know (quote, make, ship, bill) plus Done. PI and tax invoice together are "Invoiced".
 function Tracker({ o, lastDispatch }) {
   const approved = o.status === 'APPROVED'
   const closed = o.status === 'REJECTED' || o.status === 'CANCELLED'
   const ds = o.dispatch_status
   const p = progress(o)
-  const latest = p.batches[p.batches.length - 1]
-  const piAll = p.hasDO && p.piDone === p.of
-  const taxAll = piAll && p.taxDone === p.of
-  // "1 of 3" while some DOs are still waiting
-  const partial = (done) => (p.of > 1 && done < p.of ? `${done} of ${p.of}` : null)
+  const items = o.items || []
+  const shipped = ds === 'DISPATCHED' || ds === 'SHORT_CLOSED'
+  // Ready: every piece still to ship is marked ready (or already shipped).
+  const allReady = shipped || (items.length > 0 && items.every((it) => readyOf(it) >= balanceOf(it)))
+  const someReady = items.some((it) => readyOf(it) > 0 || Number(it.dispatched_qty) > 0)
+  const invoiced = p.hasDO && p.taxDone === p.of
+  const billOpen = p.piPending.length + p.taxPending.length > 0
+  const done = shipped && invoiced && !billOpen
 
   const steps = [
     { label: 'Quotation', short: 'Quote', icon: 'ph-file-text', done: true, time: day(o.quote_date) },
     {
-      label: closed ? cap(o.status) : 'Approval', short: closed ? cap(o.status) : 'Approve', icon: closed ? 'ph-x' : 'ph-seal-check',
+      label: closed ? cap(o.status) : 'Approved', short: closed ? cap(o.status) : 'Approve', icon: closed ? 'ph-x' : 'ph-seal-check',
       done: approved, rejected: closed, active: o.status === 'PENDING', time: day(o.action_at),
     },
-    { label: 'Delivery Order', short: 'DO', icon: 'ph-truck', done: p.hasDO, active: approved && !p.hasDO, time: day(latest?.do_date || o.do_date) },
+    { label: 'Ready', short: 'Ready', icon: 'ph-check-square-offset', done: approved && allReady, active: approved && !allReady, time: approved && !allReady && someReady ? 'Partial' : null },
     {
-      label: ds === 'SHORT_CLOSED' ? 'Short Closed' : 'Dispatch', short: ds === 'SHORT_CLOSED' ? 'Closed' : 'Dispatch', icon: 'ph-package',
-      done: ds === 'DISPATCHED' || ds === 'SHORT_CLOSED', active: dispatchOpen(o),
+      label: ds === 'SHORT_CLOSED' ? 'Short Closed' : 'Shipped', short: ds === 'SHORT_CLOSED' ? 'Closed' : 'Ship', icon: 'ph-truck',
+      done: shipped, active: approved && !shipped && items.some((it) => readyOf(it) > 0 && balanceOf(it) > 0),
       time: ds === 'PARTIAL' ? 'Partial' : day(lastDispatch),
     },
-    { label: 'Proforma Inv.', short: 'PI', icon: 'ph-receipt', done: piAll, active: approved && p.piPending.length > 0, time: partial(p.piDone) || day(latest?.pi_date || o.pi_date) },
-    { label: 'Tax Invoice', short: 'Tax', icon: 'ph-upload-simple', done: taxAll, active: approved && p.taxPending.length > 0, time: partial(p.taxDone) },
+    { label: 'Invoiced', short: 'Bill', icon: 'ph-receipt', done: invoiced && !billOpen, active: approved && billOpen, time: p.of > 1 && p.taxDone < p.of ? `${p.taxDone} of ${p.of}` : null },
+    { label: 'Done', short: 'Done', icon: 'ph-check-circle', done },
   ]
   return (
     <div className="status-tracker">
@@ -79,9 +83,9 @@ function nextStep(o) {
   const name = (b) => b.do_no || (b.batch_no ? `Batch #${b.batch_no}` : 'the DO')
 
   const todo = []
-  if (readyLines.length > 0) todo.push(<><b>Generate DO</b> for {plural(readyLines.length, 'ready line')}</>)
-  else if (openBalance) todo.push(<><b>Plant</b> updates production and marks finished pieces ready</>)
-  if (p.piPending.length) todo.push(<><b>Accounts</b> generates the PI for {p.piPending.map(name).join(', ')}</>)
+  if (readyLines.length > 0) todo.push(<><b>Ship</b> {plural(readyLines.length, 'ready line')} (makes the Delivery Order)</>)
+  else if (openBalance) todo.push(<><b>Plant</b> marks finished pieces ready in Production Floor</>)
+  if (p.piPending.length) todo.push(<><b>Accounts</b> makes the PI for {p.piPending.map(name).join(', ')}</>)
   if (p.taxPending.length) todo.push(<><b>Accounts</b> uploads the tax invoice for {p.taxPending.map((b) => b.pi_no || 'the PI').join(', ')}</>)
 
   if (!todo.length) return ['ok', 'ph-check-circle', <>Completed: dispatched, invoiced and every tax invoice uploaded.</>]
@@ -152,7 +156,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
     </FootMore>
   )
 
-  // Footer keeps only the order's next step (approve, Generate DO…); per-batch PI and tax invoice are on the batch rows.
+  // Footer keeps only the order's next step (approve, Ship…); per-batch PI and tax invoice are on the batch rows.
   // The action buttons are client components: they get only the data their dialogs read (actionData).
   const act = actionData(o)
   const actBatch = Object.fromEntries(act.batches.map((x) => [x.id, x]))
@@ -214,7 +218,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                         </form>
                       ) : balance > 0 ? (
                         <span className={`badge ${PLANT_BADGE[it.production_status] || 'b-none'}`}>
-                          {it.production_status}{it.coil_date && ` · ${day(it.coil_date)}`}
+                          {prodLabel(it.production_status)}{it.coil_date && ` · ${day(it.coil_date)}`}
                         </span>
                       ) : <span className="muted">—</span>}
                     </td>
@@ -276,7 +280,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                         <DocView href={`/orders/${o.id}/print/do?batch=${b.id}`} icon="ph-truck" label="DO" title={`Delivery Order ${b.do_no}`} />
                         {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice ${b.pi_no}`} />}
                         {b.tax_invoice_path && <DocView href={`/orders/${o.id}/tax-invoice?batch=${b.id}`} icon="ph-paperclip" label="Tax inv." title={`Tax Invoice ${b.pi_no}`} />}
-                        {approved && !b.pi_no && (
+                        {approved && !b.pi_no && can(me, 'accounts') && (
                           <PiAction o={act} batch={actBatch[b.id]} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
                         )}
                         {approved && b.pi_no && can(me, 'accounts') && (

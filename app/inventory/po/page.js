@@ -1,11 +1,21 @@
 import Link from 'next/link'
 import { db, requireRole } from '@/lib/server'
 import { invMasters } from '@/lib/inventory'
+import { getSettings } from '@/lib/settings'
 import { PO_STATUS, day, money, qty } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../../ui'
 import InvTabs from '../InvTabs'
+import PODialog from './PODialog'
 
-export const metadata = { title: 'Purchase Orders' }
+export async function generateMetadata({ searchParams }) {
+  const sp = await searchParams
+  if (/^\d+$/.test(sp.view || '')) {
+    const { data } = await db().from('purchase_orders').select('po_no').eq('id', sp.view).maybeSingle()
+    if (data?.po_no) return { title: { absolute: data.po_no } }
+  }
+  return { title: 'Purchase Orders' }
+}
+
 const LIMIT = 200
 const SHOWS = { open: ['PENDING', 'APPROVED'], PENDING: ['PENDING'], APPROVED: ['APPROVED'], CLOSED: ['CLOSED'], REJECTED: ['REJECTED'] }
 
@@ -13,10 +23,30 @@ export default async function POList({ searchParams }) {
   const sp = await searchParams
   const show = SHOWS[sp.show] ? sp.show : 'open'
   const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
+  const viewId = /^\d+$/.test(sp.view || '') ? sp.view : null
+
   let q = db().from('purchase_orders').select('*, items:po_items(qty, rate, pending_qty)').in('status', SHOWS[show]).order('id', { ascending: false }).limit(LIMIT)
   if (term) q = q.or(`po_no.ilike.%${term}%,vendor_name.ilike.%${term}%`)
-  const [, { missing }, { data: rows }] = await Promise.all([requireRole('manager'), invMasters(), q])
-  const href = (s) => `/inventory/po?${new URLSearchParams({ ...(s !== 'open' && { show: s }), ...(term && { q: term }) })}`
+
+  const poQuery = viewId
+    ? db().from('purchase_orders')
+        .select('*, plant:plants(name, address), vendor:vendors(*), items:po_items(*, m:materials(code, name, uom)), grns(id, grn_no, grn_date, status, invoice_no)')
+        .eq('id', viewId).maybeSingle()
+    : Promise.resolve({ data: null })
+  const settingsQuery = viewId ? getSettings() : Promise.resolve(null)
+
+  const [me, { missing }, { data: rows }, { data: viewPO }, s] = await Promise.all([
+    requireRole('manager'),
+    invMasters(),
+    q,
+    poQuery,
+    settingsQuery,
+  ])
+
+  const list = { ...(show !== 'open' && { show }), ...(term && { q: term }) }
+  const href = (st) => `/inventory/po?${new URLSearchParams({ ...(st !== 'open' && { show: st }), ...(term && { q: term }) })}`
+  const viewHref = (id) => `/inventory/po?${new URLSearchParams({ ...list, view: id })}`
+  const listHref = `/inventory/po${Object.keys(list).length ? `?${new URLSearchParams(list)}` : ''}`
 
   return (
     <>
@@ -45,8 +75,8 @@ export default async function POList({ searchParams }) {
               {rows?.map((p) => {
                 const [label, cls] = PO_STATUS[p.status]
                 return (
-                  <ClickRow key={p.id} href={`/inventory/po/${p.id}`}>
-                    <td className="nowrap"><Link prefetch={false} href={`/inventory/po/${p.id}`} className="qno">{p.po_no}</Link></td>
+                  <ClickRow key={p.id} href={viewHref(p.id)}>
+                    <td className="nowrap"><Link prefetch={false} href={viewHref(p.id)} scroll={false} className="qno">{p.po_no}</Link></td>
                     <td className="nowrap" data-label="Date">{day(p.po_date)}</td>
                     <td data-label="Plant">{p.plant_code}</td>
                     <td className="fw6" data-label="Vendor"><bdi>{p.vendor_name}</bdi></td>
@@ -63,6 +93,7 @@ export default async function POList({ searchParams }) {
         </div>
         {rows?.length === LIMIT && <div className="tbl-foot center"><span className="muted text-sm">Showing the latest {LIMIT} — search to narrow it down.</span></div>}
       </div>
+      {viewPO && <PODialog po={viewPO} s={s} me={me} back={viewHref(viewPO.id)} closeHref={listHref} />}
     </>
   )
 }

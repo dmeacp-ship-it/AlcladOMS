@@ -72,7 +72,6 @@ export default function PlantClient({ rows, isOpen, here }) {
               const rQty = readyOf(it)
               const isReady = rQty > 0 && !isDone
               const canAdd = bal - rQty > 0
-              const displayStatus = isReady ? 'Ready for Dispatch' : (it.production_status || 'Pending')
 
               let stLabel = 'Not yet'
               let stBadge = 'b-none'
@@ -124,7 +123,7 @@ export default function PlantClient({ rows, isOpen, here }) {
                       <form action={saveProduction}>
                         <input type="hidden" name="id" value={o?.id} />
                         <input type="hidden" name="back" value={here} />
-                        <PlantStatus id={it.id} value={displayStatus} coil={it.coil_date} options={PRODUCTION} />
+                        <PlantStatus id={it.id} value={it.production_status} coil={it.coil_date} options={PRODUCTION} />
                       </form>
                     ) : (
                       <span className="muted">—</span>
@@ -143,7 +142,7 @@ export default function PlantClient({ rows, isOpen, here }) {
                           btnClass="btn btn-success btn-sm"
                         />
                       ) : (
-                        <span className="muted text-sm">All ready: generate the DO in Active Orders</span>
+                        <span className="muted text-sm">All ready: Ship it from Orders</span>
                       ))}
                     </div>
                   </td>

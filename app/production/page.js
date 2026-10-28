@@ -3,113 +3,234 @@ import { db, fetchAll, requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { SHIFTS, fgItems, fgPosition, prodMissing } from '@/lib/production'
 import { getSettings } from '@/lib/settings'
-import { day, money, qty, today } from '@/lib/tas'
-import { ClickRow } from '../ui'
-import { createPlan } from './actions'
-import ActionForm from '../inventory/ActionForm'
+import { day, qty, today } from '@/lib/tas'
+import { ClickRow, LinkBusy } from '../ui'
 import ProdTabs from './ProdTabs'
+import PlanDialog from './PlanDialog'
+import OrderNeedDialog from './OrderNeedDialog'
 
-export const metadata = { title: 'Plan Production' }
+export async function generateMetadata({ searchParams }) {
+  const sp = await searchParams
+  if (/^\d+$/.test(sp.view || '')) {
+    const { data } = await db().from('production_plans').select('plan_no').eq('id', sp.view).maybeSingle()
+    if (data?.plan_no) return { title: { absolute: data.plan_no } }
+  }
+  if (sp.need) return { title: 'What Open Orders Need' }
+  return { title: 'Plan Production' }
+}
 
-// Planning board: what all open orders still need, by product + size, after FG stock, open plans and pieces in QC.
-// One plan (date + shift + line) covers many orders; no work order per sales order.
-export default async function Planning() {
-  const [me, missing, s, pos, items, { stores }, lines, { data: plans }] = await Promise.all([
-    requireRole('manager'), prodMissing(), getSettings(), fgPosition(), fgItems(), invMasters(),
+const LIMIT = 100
+
+export default async function Planning({ searchParams }) {
+  const sp = await searchParams
+  const term = String(sp.q || '').replace(/[,()*%]/g, '').trim()
+  const showPlans = sp.plans || 'open'
+  const showAll = sp.show === 'all'
+  const showNeed = Boolean(sp.need)
+  const viewId = /^\d+$/.test(sp.view || '') ? sp.view : null
+
+  let q = db().from('production_plans')
+    .select('*, line:stores(name, plant_code), items:plan_items(qty, produced_qty)')
+    .order('plan_date', { ascending: false }).order('id', { ascending: false }).limit(LIMIT)
+  if (showPlans === 'open') q = q.eq('status', 'OPEN')
+  if (term) q = q.ilike('plan_no', `%${term}%`)
+
+  const planQuery = viewId
+    ? db().from('production_plans')
+        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_name, m2_per_pc)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
+        .eq('id', viewId).maybeSingle()
+    : Promise.resolve({ data: null })
+
+  const [me, missing, s, pos, items, { stores }, lines, { data: plans }, { data: viewPlan }] = await Promise.all([
+    requireRole('manager'),
+    prodMissing(),
+    getSettings(),
+    fgPosition(),
+    fgItems(),
+    invMasters(),
     fetchAll(() => db().from('order_items').select('fg_item_id, qty, dispatched_qty, ready_qty, orders!inner(quote_no, status, dispatch_status)')
       .eq('orders.status', 'APPROVED').filter('orders.dispatch_status', 'isdistinct', 'SHORT_CLOSED')).catch(() => []),
-    db().from('production_plans').select('*, line:stores(name, plant_code), items:plan_items(qty, produced_qty)').eq('status', 'OPEN').order('plan_date').order('id'),
+    q,
+    planQuery,
   ])
+
+  let stock = null
+  let m2 = 0
+  if (viewPlan) {
+    viewPlan.items?.sort((a, b) => a.id - b.id)
+    const { data: rm } = await db().rpc('stock_summary', { p_from: today(), p_to: today(), p_plant: viewPlan.line?.plant_code, p_store: null })
+    const { data: rmStores } = await db().from('stores').select('id').eq('plant_code', viewPlan.line?.plant_code).in('type', ['RM', 'WIP'])
+    const keep = new Set((rmStores || []).map((x) => x.id))
+    stock = (rm || []).filter((r) => keep.has(r.store_id) && Number(r.closing) !== 0)
+    m2 = viewPlan.items?.reduce((n, i) => n + i.qty * (i.f?.m2_per_pc || 0), 0) || 0
+  }
+
   const byId = Object.fromEntries(items.map((f) => [f.id, f]))
   const quotes = {}
-  for (const l of lines) if (l.qty > (l.dispatched_qty || 0) + (l.ready_qty || 0)) (quotes[l.fg_item_id] ??= new Set()).add(l.orders.quote_no)
-  const rows = Object.values(pos).filter((p) => p.need > 0).map((p) => ({ ...p, f: byId[p.fg_item_id] }))
+  for (const l of lines) {
+    if (l.qty > (l.dispatched_qty || 0) + (l.ready_qty || 0)) {
+      (quotes[l.fg_item_id] ??= new Set()).add(l.orders.quote_no)
+    }
+  }
+
+  const allOrderRows = Object.values(pos).filter((p) => p.need > 0).map((p) => ({ ...p, f: byId[p.fg_item_id] }))
     .sort((a, b) => b.short - a.short || (a.f?.code || '').localeCompare(b.f?.code || ''))
-  const wip = stores.filter((x) => x.type === 'WIP')
-  const toMake = rows.reduce((n, r) => n + r.short, 0)
+  const rows = showAll ? allOrderRows : allOrderRows.filter((p) => p.short > 0)
+  const toMake = allOrderRows.reduce((n, r) => n + r.short, 0)
+
+  const listParams = {
+    ...(term && { q: term }),
+    ...(showPlans !== 'open' && { plans: showPlans }),
+  }
+  const viewHref = (id) => `/production?${new URLSearchParams({ ...listParams, view: id })}`
+  const listHref = `/production${Object.keys(listParams).length ? `?${new URLSearchParams(listParams)}` : ''}`
+
+  const plansHref = (mode) => {
+    const p = new URLSearchParams()
+    if (mode !== 'open') p.set('plans', mode)
+    if (term) p.set('q', term)
+    const qs = p.toString()
+    return `/production${qs ? `?${qs}` : ''}`
+  }
+
+  const needHref = (all) => {
+    const p = new URLSearchParams()
+    p.set('need', '1')
+    if (all) p.set('show', 'all')
+    if (showPlans !== 'open') p.set('plans', showPlans)
+    if (term) p.set('q', term)
+    return `/production?${p.toString()}`
+  }
+
+  const needCloseHref = listHref
 
   return (
     <>
       <ProdTabs tab="" missing={missing} />
       {!s.fg_store && !missing && me.role === 'admin' && (
-        <div className="banner warn" style={{ marginBottom: 16 }}><i className="ph ph-warning" /><span>Pick the finished goods store orders ship from in Company Settings → Inventory, so its stock counts here.</span></div>
+        <div className="banner warn" style={{ marginBottom: 16 }}>
+          <i className="ph ph-warning" />
+          <span>Pick the finished goods store orders ship from in Company Settings → Inventory, so its stock counts here.</span>
+        </div>
       )}
 
-      <ActionForm action={createPlan} submit={{ label: 'Create production plan', icon: 'ph-calendar-check' }}>
-        <div className="card">
-          <div className="tbl-top">
-            <h2 className="tbl-ttl"><i className="ph ph-list-checks" />What open orders still need <span className="badge b-none">{rows.length}</span>
-              {toMake > 0 && <span className="badge b-bad">{qty(toMake)} pcs still to make</span>}</h2>
-            <span className="muted text-sm">Still to make = what orders need − what is in stock − already planned − being checked.</span>
-          </div>
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead><tr><th>Item (product + size)</th><th>Orders</th><th className="r">Orders need</th><th className="r">In stock</th><th className="r">Already planned</th><th className="r">Being checked</th><th className="r">Still to make</th><th>Make in this plan (pcs)</th></tr></thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.fg_item_id}>
-                    <td data-label="Item"><span className="mat-name">{r.f?.code}</span><span className="mat-sub">{[r.f?.color_name, `${money(r.f?.m2_per_pc)} M2 / pc`].filter(Boolean).join(' · ')}</span></td>
-                    <td className="text-sm" data-label="Orders">{[...(quotes[r.fg_item_id] || [])].join(', ') || <span className="muted">—</span>}</td>
-                    <td className="num" data-label="Orders need">{qty(r.need)}</td>
-                    <td className="num" data-label="In stock">{qty(Math.max(0, r.free))}</td>
-                    <td className="num" data-label="Already planned">{r.planned ? qty(r.planned) : <span className="muted">0</span>}</td>
-                    <td className="num" data-label="Being checked">{r.in_qc ? qty(r.in_qc) : <span className="muted">0</span>}</td>
-                    <td className={`num fw6${r.short ? ' red' : ''}`} data-label="Still to make">{qty(r.short)}<span className="mat-sub">{money(r.short * (r.f?.m2_per_pc || 0))} M2</span></td>
-                    <td data-label="Make in this plan">
-                      <input type="hidden" name="item" value={r.fg_item_id} />
-                      <input name={`qty_${r.fg_item_id}`} type="number" inputMode="numeric" min={0} step={1} defaultValue={r.short || ''} aria-label={`Pieces to plan, ${r.f?.code}`} style={{ width: 100 }} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <div className="empty"><i className="ph ph-check-circle" /><h3>Nothing to plan</h3><p>Every open order is covered by stock, a plan or pieces being checked.</p></div>}
+      {/* ── Production Plans Directory ── */}
+      <div className="card">
+        <div className="tbl-top">
+          <h2 className="tbl-ttl">
+            <i className="ph ph-calendar-check" />Production Plans <span className="badge b-none">{plans?.length ?? 0}</span>
+          </h2>
+          <div className="tbl-filters">
+            <Link prefetch={false} href={needHref(false)} className="btn btn-ghost btn-sm" title="View what customer orders still need">
+              <i className="ph ph-list-checks" />What orders need
+              {toMake > 0 ? (
+                <span className="badge b-bad">{qty(toMake)}</span>
+              ) : (
+                <span className="badge b-none">0</span>
+              )}
+            </Link>
+            <nav className="tabs" aria-label="Plans status" style={{ marginBottom: 0 }}>
+              <Link prefetch={false} href={plansHref('open')} className={`tab${showPlans === 'open' ? ' on' : ''}`}>
+                <LinkBusy />Open Plans
+              </Link>
+              <Link prefetch={false} href={plansHref('all')} className={`tab${showPlans === 'all' ? ' on' : ''}`}>
+                <LinkBusy />All Plans
+              </Link>
+            </nav>
+            <form className="sw">
+              {showPlans !== 'open' && <input type="hidden" name="plans" value={showPlans} />}
+              <i className="ph ph-magnifying-glass" />
+              <input className="tsearch" name="q" defaultValue={term} placeholder="Plan no or line…" aria-label="Search plans" />
+            </form>
+            <Link prefetch={false} href="/production/new" className="btn btn-primary btn-sm">
+              <LinkBusy /><i className="ph ph-plus" />New Plan
+            </Link>
           </div>
         </div>
-        {rows.length > 0 && (
-          <section className="fsec compact" style={{ marginTop: 16 }}>
-            <h2 className="fsec-ttl"><i className="ph ph-calendar-check" />Plan for</h2>
-            <div className="fgrid-4">
-              <div className="fg"><label htmlFor="date">Date</label><input id="date" name="date" type="date" defaultValue={today()} required /></div>
-              <div className="fg">
-                <label htmlFor="shift">Shift</label>
-                <select id="shift" name="shift" defaultValue="DAY">{Object.entries(SHIFTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-              </div>
-              <div className="fg">
-                <label htmlFor="line">Production line <span className="req">*</span></label>
-                <select id="line" name="line" required defaultValue={wip.length === 1 ? wip[0].id : ''}>
-                  <option value="" disabled>Select line…</option>
-                  {wip.map((x) => <option key={x.id} value={x.id}>{storeLabel(x)}</option>)}
-                </select>
-              </div>
-              <div className="fg"><label htmlFor="notes">Notes</label><input id="notes" name="notes" /></div>
-            </div>
-            {!wip.length && <p className="red text-sm" style={{ marginTop: 10 }}>Add the production lines as stores of type WIP under Settings → Stores.</p>}
-          </section>
-        )}
-      </ActionForm>
-
-      <div className="card" style={{ marginTop: 20 }}>
-        <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-calendar-check" />Open plans <span className="badge b-none">{plans?.length ?? 0}</span></h2></div>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Plan No</th><th>Date</th><th>Shift</th><th>Line</th><th className="r">Planned pcs</th><th className="r">Produced</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Plan No</th>
+                <th>Date</th>
+                <th>Shift</th>
+                <th>Line</th>
+                <th className="r">Planned pcs</th>
+                <th className="r">Produced</th>
+                <th>Status</th>
+                <th className="r" style={{ width: 130 }}>Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              {plans?.map((p) => (
-                <ClickRow key={p.id} href={`/production/plan/${p.id}`}>
-                  <td className="nowrap"><Link prefetch={false} className="qno" href={`/production/plan/${p.id}`}>{p.plan_no}</Link></td>
-                  <td className="nowrap" data-label="Date">{day(p.plan_date)}</td>
-                  <td data-label="Shift">{SHIFTS[p.shift]}</td>
-                  <td data-label="Line">{storeLabel(p.line)}</td>
-                  <td className="num" data-label="Already planned">{qty(p.items.reduce((n, i) => n + Number(i.qty), 0))}</td>
-                  <td className="num" data-label="Produced">{qty(p.items.reduce((n, i) => n + Number(i.produced_qty), 0))}</td>
-                </ClickRow>
-              ))}
+              {plans?.map((p) => {
+                const plannedPcs = p.items.reduce((n, i) => n + Number(i.qty), 0)
+                const producedPcs = p.items.reduce((n, i) => n + Number(i.produced_qty), 0)
+                const pct = plannedPcs > 0 ? Math.min(100, Math.round((producedPcs / plannedPcs) * 100)) : 0
+                const isComplete = producedPcs >= plannedPcs && plannedPcs > 0
+                const isStarted = producedPcs > 0
+
+                return (
+                  <ClickRow key={p.id} href={viewHref(p.id)}>
+                    <td className="nowrap"><Link prefetch={false} className="qno" href={viewHref(p.id)}>{p.plan_no}</Link></td>
+                    <td className="nowrap" data-label="Date">{day(p.plan_date)}</td>
+                    <td data-label="Shift">{SHIFTS[p.shift]}</td>
+                    <td data-label="Line">{storeLabel(p.line)}</td>
+                    <td className="num" data-label="Planned pcs">{qty(plannedPcs)}</td>
+                    <td className="num fw6" data-label="Produced">{qty(producedPcs)}</td>
+                    <td data-label="Status">
+                      {isComplete ? (
+                        <span className="badge b-ok">Completed</span>
+                      ) : isStarted ? (
+                        <span className="badge b-warn">In Progress · {pct}%</span>
+                      ) : (
+                        <span className="badge b-info">Scheduled</span>
+                      )}
+                    </td>
+                    <td className="r" data-label="Actions">
+                      <Link
+                        prefetch={false}
+                        href={`/production/dpr/new?plan=${p.id}`}
+                        className="btn btn-ghost btn-sm"
+                        title="Enter shift production report"
+                      >
+                        <i className="ph ph-factory" /> Enter DPR
+                      </Link>
+                    </td>
+                  </ClickRow>
+                )
+              })}
             </tbody>
           </table>
-          {!plans?.length && <div className="empty"><i className="ph ph-calendar-check" /><h3>No open plans</h3><p>Plans close by themselves once everything on them is produced.</p></div>}
+          {!plans?.length && (
+            <div className="empty">
+              <i className="ph ph-calendar-check" />
+              <h3>No production plans found</h3>
+              <p>Press New Plan to schedule a shift on a production line.</p>
+            </div>
+          )}
         </div>
       </div>
+
+      {showNeed && (
+        <OrderNeedDialog
+          rows={rows}
+          toMake={toMake}
+          showAll={showAll}
+          quotes={quotes}
+          filterHref={needHref}
+          closeHref={needCloseHref}
+        />
+      )}
+
+      {viewPlan && (
+        <PlanDialog
+          plan={viewPlan}
+          stock={stock}
+          m2={m2}
+          s={s}
+          closeHref={listHref}
+        />
+      )}
     </>
   )
 }

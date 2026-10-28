@@ -47,13 +47,13 @@ export async function createPO(_prev, fd) {
   if (error) return { error: invError(error) }
   const { data: po } = await db().from('purchase_orders').select('id, vendor_name').eq('po_no', no).single()
   await logEvent(null, me, 'PO created', `${no} · ${po.vendor_name} · ${plural(lines.length, 'line')}`)
-  done(`/inventory/po/${po.id}`, `${no} created. An admin approves it before goods can be received.`)
+  done(`/inventory/po?view=${po.id}`, `${no} created. An admin approves it before goods can be received.`)
 }
 
 // Approve / reject (admin) and close (admin or manager): only from the status each one expects.
 async function setPOStatus(fd, me, from, patch, action) {
   const id = str(fd, 'id')
-  const path = `/inventory/po/${id}`
+  const path = str(fd, 'back') || `/inventory/po?view=${id}`
   const { data, error } = await db().from('purchase_orders')
     .update({ ...patch, action_by: me.full_name, action_at: new Date().toISOString() })
     .eq('id', id).eq('status', from).select('po_no')
@@ -71,14 +71,16 @@ export async function approvePO(fd) {
 export async function rejectPO(fd) {
   const me = await requireRole('admin')
   const reason = str(fd, 'reason')
-  if (!reason) go(`/inventory/po/${str(fd, 'id')}`, 'error', 'Give a reason for rejecting it.')
+  const back = str(fd, 'back') || `/inventory/po?view=${str(fd, 'id')}`
+  if (!reason) go(back, 'error', 'Give a reason for rejecting it.')
   await setPOStatus(fd, me, 'PENDING', { status: 'REJECTED', reason }, 'PO rejected')
 }
 
 export async function closePO(fd) {
   const me = await requireRole('manager')
   const reason = str(fd, 'reason')
-  if (!reason) go(`/inventory/po/${str(fd, 'id')}`, 'error', 'Give a reason for closing it before everything arrived.')
+  const back = str(fd, 'back') || `/inventory/po?view=${str(fd, 'id')}`
+  if (!reason) go(back, 'error', 'Give a reason for closing it before everything arrived.')
   await setPOStatus(fd, me, 'APPROVED', { status: 'CLOSED', reason }, 'PO closed')
 }
 

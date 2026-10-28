@@ -57,9 +57,14 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18d | 2 | TEST data loaded in the live app for the user's own check | 👤 | 27 Oct | Plant TEST (RM store, Line 1, Line 2, FG, scrap), 5 TEST materials, 2 TEST vendors, PO-2026-001…003, GRN-2026-001/002, ISS-2026-001/002, 2 TEST customers, orders Q-2026-001…003, DO-TEST-CA-271026-01, PLN-2026-001, DPR-2026-001/002, FG 25 pcs; settings: FG store = TEST-FG, orders use FG stock = on. **Remove before real use** (ask Claude: "remove the test data") |
 | E1 | Easy | Sidebar: one link per page, grouped Sales / Store / Production / Reports, red numbers for waiting work; tab bars inside pages removed | ✅ live | 27 Oct | Phone: the More menu keeps the same groups |
 | E2 | Easy | Plain words: Receive Goods, Check the goods, Issue to Line, Stock Correction, Plan Production, Enter Production, Check Finished Goods, Finished Goods Stock; planning columns "Orders need / In stock / Already planned / Being checked / Still to make" | ✅ live | 27 Oct | Store types shown as "Production line", "Finished goods store"… |
-| E3 | Easy | "To Do Today" start page: big boxes with counts of waiting work per job, plus shortcut buttons; everyone lands here after sign-in | ✅ live | 27 Oct | |
+| E3 | Easy | "To Do Today" start page | ❌ removed | 27 Oct | Removed per user preference; app lands on /orders |
 | E4 | Easy | Help box with numbered steps at the top of every store and production page | ✅ live | 27 Oct | |
 | E5 | Easy | Commit and deploy | ✅ | 27 Oct | `e9c9689` on `main`, Vercel build **success**, live from bom1 |
+| E8 | Easy | Purchase orders open in a dialog box over the list (/inventory/po?view=ID) instead of a separate page | ✅ tested | 27 Oct | PODialog with RouteDialog, Slip, approve/reject/close actions, print styles |
+| E9 | Easy | Collapsible sidebar sections (Sales, Store, Production, Reports) with carets, waiting badges, and auto-expand | ✅ tested | 27 Oct | Section headers toggle groups; collapsed state saved in localStorage; brand header pinned at top |
+| E10 | Easy | Unified UI/UX in Inventory & Production: RouteDialogs for GRN, Issue, Plan, DPR; Combobox dropdowns across all forms | ✅ tested | 27 Oct | GRNDialog, IssueDialog, PlanDialog, DprDialog match OrderDialog; native selects replaced with Combobox |
+| E11 | Easy | Removed Active Orders page from sidebar; renamed page to Orders | ✅ tested | 27 Oct | Sidebar simplified to Orders; /orders?status=ACTIVE redirects or filters via toggle |
+| E12 | Easy | Toggle on Orders page: [ Active Orders ] [ All ], default selected to Active Orders | ✅ tested | 27 Oct | Segmented tab toggle in table header matching Receive Goods; defaults to Active Orders; one-click All |
 | E6 | Easy | Language: Arabic and / or Hindi-Urdu labels | 👤 | | Your decision (English for now) |
 | E7 | Easy | Separate logins per job (store, production, QC, purchase) so each person sees only their pages | 👤 | | Suggested next; same as task 26 |
 | 19 | 3 | Scrap stock → granules plant (RM inward + sample test) | ⏳ | | |
@@ -482,6 +487,24 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 - **Checked:** desktop 1400 px and phone 375 px (no sideways scroll, grouped More menu), `npm test`, `next build`.
 - **Open questions for the user:** Arabic / Hindi-Urdu labels; separate logins per job.
 - **Shipped (same day):** commit `e9c9689` on `main`, Vercel build succeeded, live from bom1.
+
+### 2026-10-28 — 24. Simpler order flow, phase 1 (+ role fix)
+- **Why:** the user found the order flow confusing; proposal = 4 stages (Quote → Make → Ship → Bill), one owner and one button each.
+- **Role fix:** `markReady` (plant, operations), `saveProduction` (plant), `generateBatchDO` (operations, plant) and
+  `generateBatchPI` (accounts) used `requireRole()` with no role, so any signed-in user (sales too) could press them.
+  Buttons are hidden for roles the server refuses (Ship, Make PI, Production Floor link).
+- **Names:** Plant Dispatch → **Production Floor** (it marks pieces ready; it never dispatched). Generate DO & Dispatch →
+  **Ship** ("Ship & make DO"). Generate PI → **Make PI**. Printed documents unchanged.
+- **Tracker:** Quotation → Approved → **Ready** → **Shipped** → **Invoiced** (PI + tax invoice) → **Done**.
+- **One "ready":** the plant status dropdown no longer offers Ready for Dispatch; it is Pending / In production / Waiting
+  for coil (database values unchanged). Changing the status never touches the ready quantity any more (it used to reset
+  it to 0); ready pieces come only from Mark ready.
+- **Orders page:** the 9 tiles and the Active/All toggle are replaced by tabs **My Work** (single-job roles: approver →
+  waiting approval, plant → not fully shipped, operations → pieces ready to ship, accounts → PI / tax invoice to do) ·
+  **All Active** · **Everything**. Admin / manager land on All Active and get a **Filter** menu with the old queues.
+  The Orders badge for single-job roles = the My Work count (`MY_WORK` / `myWorkIds` in lib/server.js).
+- **Checks:** `npm test`, `next build`; the My Work queries run against the live database (read-only). Not clicked in
+  the browser (sign-in needed). Not committed.
 
 ---
 

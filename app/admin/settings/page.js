@@ -128,7 +128,7 @@ export default async function Settings() {
               <option value="">Not set</option>
               {fgStores.map((x) => <option key={x.id} value={x.code}>{storeLabel(x)}</option>)}
             </select>
-            <span className="hint">Plant Dispatch and the planning board show its stock; with the option below, a DO takes the pieces out of it.</span>
+            <span className="hint">Production Floor and the planning board show its stock; with the option below, a DO takes the pieces out of it.</span>
           </div>
           <div className="fg">
             <label className="row" style={{ gap: 8 }}><input type="checkbox" name="fg_link" defaultChecked={s.fg_link} />Orders use FG stock</label>
