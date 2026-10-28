@@ -4,7 +4,7 @@ export const HELP = {
   'rm-stock': { icon: 'ph-warehouse', text: 'How much raw material is in each store and on each production line. A red number means it is below the minimum: order more.' },
   po: {
     icon: 'ph-shopping-cart', text: 'Order raw material from a supplier.',
-    steps: ['Press New PO', 'Choose the supplier, the plant and the materials', 'Press Create PO — an admin approves it', 'When the goods arrive, use Receive Goods'],
+    steps: ['Press New PO', 'Choose the supplier, the plant and the materials', 'Press Create PO — an admin approves it', 'When the goods arrive, use Receive & Check'],
   },
   grn: {
     icon: 'ph-truck', text: 'Use this when a supplier’s truck arrives. Goods go into stock only after they are checked.',

@@ -26,7 +26,7 @@ const PAGES = [
   [/^\/admin\/reports\/customers/, 'Reports · Customers', 'Quotes, approvals and value per customer'],
   [/^\/admin\/reports\/waiting/, 'Reports · Waiting', 'What is waiting right now, and for how long'],
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
-  [/^\/admin\/reports/, 'Sales Report', 'Sales, waiting times and dispatch performance'],
+  [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
   [/^\/plant/, 'Production Floor', 'Mark finished pieces ready, then ship them'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
@@ -37,15 +37,15 @@ const PAGES = [
   [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
   [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
   [/^\/inventory\/po/, 'Purchase Orders', 'Order raw material from a supplier'],
-  [/^\/inventory\/grn/, 'Receive Goods', 'When goods arrive: enter what came, then check it'],
+  [/^\/inventory\/grn/, 'Receive & Check', 'When goods arrive: enter what came, then check it'],
   [/^\/inventory\/issue/, 'Issue to Line', 'Send raw material from the store to a production line'],
   [/^\/inventory\/adjust/, 'Stock Correction', 'Fix the stock after a count, or load the starting stock'],
-  [/^\/inventory/, 'Raw Material Stock', 'How much raw material is in each store and line'],
+  [/^\/inventory/, 'Stock', 'How much raw material is in each store and line'],
   [/^\/production\/plan/, 'Production Plan', 'What one line makes in one shift'],
-  [/^\/production\/dpr/, 'Enter Production', 'What each line made in a shift, and the raw material it used'],
-  [/^\/production\/qc/, 'Check Finished Goods', 'Check new pieces before they go into the finished goods store'],
-  [/^\/production\/fg/, 'Finished Goods Stock', 'Finished pieces by product and size'],
-  [/^\/production\/reports/, 'Production Report', 'How much was made, rejected and used'],
+  [/^\/production\/dpr/, 'Record Shift', 'Step 1: what each line made in a shift, and the raw material it used'],
+  [/^\/production\/qc/, 'Record Shift', 'Step 2: check new pieces before they go into the finished goods store'],
+  [/^\/production\/fg/, 'Stock', 'Finished pieces by product and size'],
+  [/^\/production\/reports/, 'Reports', 'How much was made, rejected and used'],
   [/^\/production/, 'Plan Production', 'What customer orders still need, and what to make'],
 ]
 
@@ -143,14 +143,15 @@ export default function Shell({ me, nav, settings, logout, children }) {
     return () => clearTimeout(t)
   }, [toast])
 
-  // The link whose path is the longest match lights up (on /inventory/po: Purchase Orders, not Raw Material Stock).
-  const best = [...nav, ...settings].map((n) => n.href?.split('?')[0])
-    .filter((p) => p && (pathname === p || pathname.startsWith(`${p}/`))).sort((a, b) => b.length - a.length)[0]
+  // The link whose path is the longest match lights up (on /inventory/po: Purchase Orders, not Stock). A link also owns
+  // its match pages (Stock lights up on Finished goods and Stock Correction, Record Shift on Check Finished Goods).
+  const best = [...nav, ...settings].flatMap((n) => (n.href ? [n.href, ...(n.match || [])].map((p) => [p.split('?')[0], n.href]) : []))
+    .filter(([p]) => pathname === p || pathname.startsWith(`${p}/`)).sort((a, b) => b[0].length - a[0].length)[0]?.[1]
   const active = (href) => {
     const [path, query] = href.split('?')
     if (query) return pathname === path && query === `status=${status}`
     if (path === '/orders') return pathname === '/orders' && !status
-    return path === best
+    return href === best
   }
   const [title, sub] = pathname === '/orders'
     ? LIST_TITLES[status] || LIST_TITLES['']

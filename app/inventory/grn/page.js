@@ -13,7 +13,7 @@ export async function generateMetadata({ searchParams }) {
     const { data } = await db().from('grns').select('grn_no').eq('id', sp.view).maybeSingle()
     if (data?.grn_no) return { title: { absolute: data.grn_no } }
   }
-  return { title: 'Receive Goods' }
+  return { title: 'Receive & Check' }
 }
 
 const LIMIT = 200

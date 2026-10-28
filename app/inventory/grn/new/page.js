@@ -7,7 +7,7 @@ import { createGRN } from '../../actions'
 import ActionForm from '../../ActionForm'
 import InvTabs from '../../InvTabs'
 
-export const metadata = { title: 'Receive Goods' }
+export const metadata = { title: 'Receive & Check' }
 
 // ?po=<id>: receive against that PO. Without it: pick one of the approved POs.
 export default async function NewGRN({ searchParams }) {

@@ -62,20 +62,17 @@ export default async function RootLayout({ children }) {
       // Badge in lines, the unit the Production Floor page counts in.
       can(me, 'plant') && { href: '/plant', label: 'Production Floor', short: 'Floor', icon: 'ph-factory', badge: lines },
       ...(boss ? [
-        { section: 'Store (raw material)' },
-        { href: '/inventory', label: 'Raw Material Stock', icon: 'ph-warehouse', more: true },
+        // Factory side in the order the work happens. Pages that belong together share a link and show tabs (PageTabs).
+        { section: 'Buying' },
         { href: '/inventory/po', label: 'Purchase Orders', icon: 'ph-shopping-cart', badge: me.role === 'admin' ? inv.po : 0, more: true },
-        { href: '/inventory/grn', label: 'Receive Goods', icon: 'ph-truck', badge: inv.grn, more: true },
-        { href: '/inventory/issue', label: 'Issue to Line', icon: 'ph-arrows-left-right', more: true },
-        { href: '/inventory/adjust', label: 'Stock Correction', icon: 'ph-sliders-horizontal', more: true },
-        { section: 'Production' },
+        { href: '/inventory/grn', label: 'Receive & Check', icon: 'ph-truck', badge: inv.grn, more: true },
+        { section: 'Factory' },
         { href: '/production', label: 'Plan Production', icon: 'ph-calendar-check', badge: inv.toPlan, more: true },
-        { href: '/production/dpr', label: 'Enter Production', icon: 'ph-gear-six', more: true },
-        { href: '/production/qc', label: 'Check Finished Goods', icon: 'ph-seal-check', badge: inv.qc, more: true },
-        { href: '/production/fg', label: 'Finished Goods Stock', icon: 'ph-stack', more: true },
+        { href: '/inventory/issue', label: 'Issue to Line', icon: 'ph-arrows-left-right', more: true },
+        { href: '/production/dpr', label: 'Record Shift', icon: 'ph-gear-six', badge: inv.qc, match: ['/production/qc'], more: true },
+        { href: '/inventory', label: 'Stock', icon: 'ph-warehouse', match: ['/production/fg', '/inventory/adjust'], more: true },
         { section: 'Reports' },
-        { href: '/admin/reports', label: 'Sales Report', icon: 'ph-chart-bar', more: true },
-        { href: '/production/reports', label: 'Production Report', icon: 'ph-chart-line-up', more: true },
+        { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', match: ['/production/reports'], more: true },
       ] : []),
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.

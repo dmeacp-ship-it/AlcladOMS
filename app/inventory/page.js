@@ -1,9 +1,10 @@
+import Link from 'next/link'
 import { requireRole } from '@/lib/server'
 import { invMasters, isLow, stockReport, storeLabel } from '@/lib/inventory'
 import { day, qty } from '@/lib/tas'
 import InvTabs from './InvTabs'
 
-export const metadata = { title: 'Raw Material Stock' }
+export const metadata = { title: 'Stock' }
 
 // Stock per store and material for a period: opening, in, out, closing. Red = below the material's min level.
 export default async function Stock({ searchParams }) {
@@ -32,7 +33,10 @@ export default async function Stock({ searchParams }) {
           <label className="row text-sm" style={{ gap: 6 }}><input type="checkbox" name="low" value="1" defaultChecked={p.low} />Below min only</label>
           <button className="btn btn-ghost btn-sm"><i className="ph ph-check" />Apply</button>
         </div>
-        <div className="acts"><a className="btn btn-ghost btn-sm" href={`/inventory/export?${p.qs}`}><i className="ph ph-download-simple" />Download CSV</a></div>
+        <div className="acts">
+          <Link prefetch={false} className="btn btn-ghost btn-sm" href="/inventory/adjust"><i className="ph ph-sliders-horizontal" />Stock correction</Link>
+          <a className="btn btn-ghost btn-sm" href={`/inventory/export?${p.qs}`}><i className="ph ph-download-simple" />Download CSV</a>
+        </div>
       </form>
 
       {error && !missing && <div className="banner error"><i className="ph ph-warning-circle" />Couldn't load the stock. Press Refresh to try again; if it keeps failing, tell the admin.</div>}

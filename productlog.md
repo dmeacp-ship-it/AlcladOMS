@@ -527,6 +527,19 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   (they would issue real DO / PI numbers).
 - **Also:** `.impeccable/config.json` ignores border-accent-on-rounded in globals.css (the red rule on printed documents).
 
+### 2026-10-28 — 26. Simpler order flow, phase 3 (factory sidebar regrouped)
+- **Sidebar (admin, manager):** 11 store / production / report links → 7, in the order the work happens:
+  **Buying** (Purchase Orders, Receive & Check) · **Factory** (Plan Production, Issue to Line, Record Shift, Stock) ·
+  **Reports** (Reports). No page or feature removed; every old URL still works.
+- **Shared links with tabs (`app/PageTabs.js`):** Record Shift = "1. Enter production | 2. Check pieces" (badge = pieces
+  to check); Stock = "Raw material | Finished goods"; Reports = "Sales | Production" above the sales report tabs.
+  A nav item's `match` list lets it light up on the pages it owns (Shell.js longest-match logic).
+- **Stock Correction** is a button on Stock (raw material) next to Download CSV; the correction page shows the Stock tabs.
+- "Receive Goods" is now "Receive & Check" (sidebar, title, help); top-bar titles follow the sidebar names.
+- **Checks:** `next build`; in the browser (admin): every store / production / report page shows the right tabs and
+  lights the right sidebar link; phone 375 px: More menu grouped Buying / Factory / Reports, tabs fit, no sideways scroll.
+- Note: this brings back tabs inside pages (removed in E1) — only where pages share one sidebar link.
+
 ---
 
 ## 5. Architecture
