@@ -508,7 +508,7 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   the 4 ready pieces (TEST order, set back). Other roles' hidden buttons not clicked (only an admin user exists).
 - **Phone tab bar fix:** the collapsible sidebar sections (E9) wrapped the phone tab bar onto extra rows; on phones the
   section wrappers now use display: contents and the headers hide.
-- **Shipped:** commit  on  (also carries the earlier uncommitted E8–E12 work), Vercel build success.
+- **Shipped:** commit `21bfe69` on `main` (also carries the earlier uncommitted E8–E12 work), Vercel build success.
 
 ---
 
