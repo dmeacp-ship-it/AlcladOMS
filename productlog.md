@@ -504,7 +504,11 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   **All Active** · **Everything**. Admin / manager land on All Active and get a **Filter** menu with the old queues.
   The Orders badge for single-job roles = the My Work count (`MY_WORK` / `myWorkIds` in lib/server.js).
 - **Checks:** `npm test`, `next build`; the My Work queries run against the live database (read-only). Not clicked in
-  the browser (sign-in needed). Not committed.
+  the browser by the user's sign-in (admin): tabs, Filter, tracker, Ship / Make PI, Production Floor, status change keeps
+  the 4 ready pieces (TEST order, set back). Other roles' hidden buttons not clicked (only an admin user exists).
+- **Phone tab bar fix:** the collapsible sidebar sections (E9) wrapped the phone tab bar onto extra rows; on phones the
+  section wrappers now use display: contents and the headers hide.
+- **Shipped:** commit  on  (also carries the earlier uncommitted E8–E12 work), Vercel build success.
 
 ---
 
