@@ -510,6 +510,23 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   section wrappers now use display: contents and the headers hide.
 - **Shipped:** commit `21bfe69` on `main` (also carries the earlier uncommitted E8–E12 work), Vercel build success.
 
+### 2026-10-28 — 25. Simpler order flow, phase 2 (ship from the floor, one billing step)
+- **Ship from Production Floor:** a ready line has a **Ship N PCS** button that ships every ready line of its order (one
+  Delivery Order, same dialog as Orders: `ShipAction` in `app/orders/OrderActions.js`); ticked ready lines of one order
+  get **Ship selected** (lines of several orders: "Ship one order at a time"). After shipping you stay on Production
+  Floor. Mark ready turns into a quiet button on lines that are already partly ready, so Ship is the main one.
+- **Billing per shipment:** in the order dialog the section is "Shipments and billing"; the separate PI and Tax Invoice
+  columns became one **Billing** column: "1 of 2: PI to make" → Make PI, "2 of 2: tax invoice to attach" → Attach tax
+  invoice, then "Billed". Documents (DO, PI, tax invoice, Replace) sit in their own column. "Upload invoice" is now
+  "Attach tax invoice" everywhere.
+- **Phone:** a Production Floor card with both Add ready and Ship puts the buttons on their own line (the status
+  dropdown was squeezed to "In ▾"); "Add ready (8 left)" is now "Add ready" (the balance is on the card).
+- **Checks:** `next build`, `npm test`; in the browser (admin): Ship 4 PCS on Q-2026-001 opens the dialog with the ready
+  line and returns to Production Floor; ticking that line shows Ship selected; the order dialog shows "Shipments and
+  billing" with "1 of 2: PI to make" + Make PI; phone 375 px without sideways scroll. Ship and Make PI were not pressed
+  (they would issue real DO / PI numbers).
+- **Also:** `.impeccable/config.json` ignores border-accent-on-rounded in globals.css (the red rule on printed documents).
+
 ---
 
 ## 5. Architecture

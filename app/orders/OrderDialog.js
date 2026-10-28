@@ -86,7 +86,7 @@ function nextStep(o) {
   if (readyLines.length > 0) todo.push(<><b>Ship</b> {plural(readyLines.length, 'ready line')} (makes the Delivery Order)</>)
   else if (openBalance) todo.push(<><b>Plant</b> marks finished pieces ready in Production Floor</>)
   if (p.piPending.length) todo.push(<><b>Accounts</b> makes the PI for {p.piPending.map(name).join(', ')}</>)
-  if (p.taxPending.length) todo.push(<><b>Accounts</b> uploads the tax invoice for {p.taxPending.map((b) => b.pi_no || 'the PI').join(', ')}</>)
+  if (p.taxPending.length) todo.push(<><b>Accounts</b> attaches the tax invoice for {p.taxPending.map((b) => b.pi_no || 'the PI').join(', ')}</>)
 
   if (!todo.length) return ['ok', 'ph-check-circle', <>Completed: dispatched, invoiced and every tax invoice uploaded.</>]
   return ['info', 'ph-arrow-right', <>Next: {todo.map((t, i) => <span key={i}>{i ? (i === todo.length - 1 ? ' and ' : ', ') : ''}{t}</span>)}.</>]
@@ -244,7 +244,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       {batches.length > 0 && (
         <section className="profile-section">
           <h2 className="profile-section-ttl">
-            <i className="ph ph-truck" />Delivery Orders and invoices <span className="badge b-none">{batches.length}</span>
+            <i className="ph ph-truck" />Shipments and billing <span className="badge b-none">{batches.length}</span>
           </h2>
           <div className="tbl-wrap">
             <table className="tbl batch-tbl">
@@ -252,39 +252,42 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                 <tr>
                   <th>#</th>
                   <th>Delivery Order</th>
-                  <th>Proforma Invoice</th>
-                  <th>Tax Invoice</th>
                   <th>Truck</th>
-                  <th className="r">Documents and next step</th>
+                  <th>Billing</th>
+                  <th className="r">Documents</th>
                 </tr>
               </thead>
               <tbody>
+                {/* Billing is one step per shipment in two parts: 1 make the PI, 2 attach the tax invoice. */}
                 {batches.map((b) => (
                   <tr key={b.id}>
                     <td className="fw6 muted">{b.batch_no}</td>
                     <td><b className="doc-ref">{b.do_no}</b><div className="muted text-sm">{day(b.do_date)}</div></td>
                     <td>
-                      {b.pi_no ? <><b className="doc-ref">{b.pi_no}</b><div className="muted text-sm">{day(b.pi_date)}</div></> : <span className="badge b-warn">PI pending</span>}
-                    </td>
-                    <td>
-                      {b.tax_invoice_path ? <span className="badge b-ok"><i className="ph ph-check" />Uploaded</span>
-                        : b.pi_no ? <span className="badge b-warn">Pending</span> : <span className="muted">—</span>}
-                    </td>
-                    <td>
                       {[b.vehicle_no, b.driver].filter(Boolean).join(' · ') || <span className="muted">—</span>}
                       {Number(b.transport) > 0 && <div className="muted text-sm">Transport SAR {money(b.transport)}</div>}
                     </td>
+                    <td>
+                      <div className="row-acts wrap">
+                        {!b.pi_no ? <span className="badge b-warn">1 of 2: PI to make</span>
+                          : !b.tax_invoice_path ? <span className="badge b-warn">2 of 2: tax invoice to attach</span>
+                            : <span className="badge b-ok"><i className="ph ph-check" />Billed</span>}
+                        {approved && !b.pi_no && can(me, 'accounts') && (
+                          <PiAction o={act} batch={actBatch[b.id]} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
+                        )}
+                        {approved && b.pi_no && !b.tax_invoice_path && can(me, 'accounts') && (
+                          <TaxAction o={act} b={actBatch[b.id]} back={back} label="Attach tax invoice" />
+                        )}
+                      </div>
+                      {b.pi_no && <div className="muted text-sm"><span className="doc-ref">{b.pi_no}</span> · {day(b.pi_date)}</div>}
+                    </td>
                     <td className="r">
-                      {/* View first, then this batch's next step (Generate PI, or upload / replace its tax invoice) */}
                       <div className="row-acts wrap">
                         <DocView href={`/orders/${o.id}/print/do?batch=${b.id}`} icon="ph-truck" label="DO" title={`Delivery Order ${b.do_no}`} />
                         {b.pi_no && <DocView href={`/orders/${o.id}/print/pi?batch=${b.id}`} icon="ph-receipt" label="PI" title={`Proforma Invoice ${b.pi_no}`} />}
                         {b.tax_invoice_path && <DocView href={`/orders/${o.id}/tax-invoice?batch=${b.id}`} icon="ph-paperclip" label="Tax inv." title={`Tax Invoice ${b.pi_no}`} />}
-                        {approved && !b.pi_no && can(me, 'accounts') && (
-                          <PiAction o={act} batch={actBatch[b.id]} back={back} autoOpen={String(openBatchPi) === String(b.id)} />
-                        )}
-                        {approved && b.pi_no && can(me, 'accounts') && (
-                          <TaxAction o={act} b={actBatch[b.id]} back={back} label={b.tax_invoice_path ? 'Replace' : 'Upload invoice'} />
+                        {approved && b.tax_invoice_path && can(me, 'accounts') && (
+                          <TaxAction o={act} b={actBatch[b.id]} back={back} label="Replace" />
                         )}
                       </div>
                     </td>

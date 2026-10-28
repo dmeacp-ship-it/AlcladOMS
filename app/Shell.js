@@ -28,7 +28,7 @@ const PAGES = [
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
   [/^\/admin\/reports/, 'Sales Report', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
-  [/^\/plant/, 'Production Floor', 'Mark finished pieces ready to ship'],
+  [/^\/plant/, 'Production Floor', 'Mark finished pieces ready, then ship them'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],

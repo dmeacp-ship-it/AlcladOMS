@@ -66,98 +66,7 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
 
       {/* Ship (makes the Delivery Order): only once the plant has marked pieces ready */}
       {approved && readyLines.length > 0 && can(me, 'operations', 'plant') && (
-        <Modal
-          title={`Ship ${o.quote_no} — Delivery Order`}
-          icon="ph-truck"
-          label={`Ship (${int(readyLines.reduce((n, it) => n + Math.min(readyOf(it), balanceOf(it)), 0))} PCS ready)`}
-          btnIcon="ph-truck"
-          btnClass={`btn btn-primary${size}`}
-          size="large"
-        >
-          <form action={generateBatchDO}>
-            {Hidden}
-            <div className="modal-body">
-              <p>Lines the plant marked ready. Each quantity starts at the ready quantity; change it if less is going on this truck. Saving makes the Delivery Order.</p>
-              <div className="tbl-wrap">
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Material</th>
-                      <th>DO qty (PCS)</th>
-                      <th className="r">Ready</th>
-                      <th className="r">Balance</th>
-                      <th className="r">Ordered</th>
-                      <th className="r">Dispatched</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {readyLines.map((it) => {
-                      const balance = balanceOf(it)
-                      const rQty = readyOf(it)
-                      const defVal = rQty > 0 ? Math.min(rQty, balance) : balance
-                      return (
-                        <tr key={it.id}>
-                          <td className="muted">{it.item_no}</td>
-                          <td className="desc wrap">{it.description}</td>
-                          <td>
-                            <input
-                              className="qty"
-                              name={`qty_${it.id}`}
-                              type="number"
-                              inputMode="numeric"
-                              min="1"
-                              max={balance}
-                              step="1"
-                              defaultValue={defVal}
-                              required
-                              aria-label={`DO qty line ${it.item_no}`}
-                            />
-                          </td>
-                          <td className="num fw6">{int(rQty)}</td>
-                          <td className="num">{int(balance)}</td>
-                          <td className="num">{int(it.qty)}</td>
-                          <td className="num">{int(it.dispatched_qty) || 0}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div style={{ marginTop: 16 }}>
-                <h3 className="sub-ttl"><i className="ph ph-truck" />Dispatch and transport details</h3>
-                <div className="fgrid">
-                  <div className="fg">
-                    <label htmlFor={`dd-${o.id}`}>Dispatch Date <span className="req">*</span></label>
-                    <input id={`dd-${o.id}`} type="date" name="dispatch_date" defaultValue={today()} max={today()} required />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`vn-${o.id}`}>Vehicle No</label>
-                    <input id={`vn-${o.id}`} name="vehicle_no" placeholder="e.g. 1234 ABC" maxLength={100} />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`tr-${o.id}`}>Transporter</label>
-                    <input id={`tr-${o.id}`} name="transporter" placeholder="e.g. Al-Saif Logistics" maxLength={100} />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`lr-${o.id}`}>LR / Bilty No</label>
-                    <input id={`lr-${o.id}`} name="lr_no" placeholder="LR number" maxLength={100} />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`dr-${o.id}`}>Driver (Name / Mobile)</label>
-                    <input id={`dr-${o.id}`} name="driver" placeholder="Driver name & phone" maxLength={100} />
-                  </div>
-                  <div className="fg">
-                    <label htmlFor={`tp-${o.id}`}>Transport Charges (SAR)</label>
-                    <input id={`tp-${o.id}`} type="number" inputMode="decimal" step="0.01" min="0" name="transport" placeholder="0.00" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <ModalFoot label="Ship & make DO" icon="ph-truck" />
-          </form>
-        </Modal>
+        <ShipAction o={o} lines={readyLines} back={back} size={size} />
       )}
 
       {/* Per-batch PI and tax invoice. In the order dialog they sit on each batch row instead (inDialog). */}
@@ -168,10 +77,110 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
       {approved && can(me, 'accounts') && (o.batches?.length ? (inDialog ? [] : o.batches.filter((b) => b.pi_date)) : hasAnyPI ? [null] : []).map((b) => {
         const cur = b ? b.tax_invoice_path : o.tax_invoice_path
         if (sm && cur) return null
-        return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace' : 'Upload'} Invoice${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
+        return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace tax invoice' : 'Attach tax invoice'}${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
       })}
 
     </>
+  )
+}
+
+// Ship: makes a Delivery Order from lines the plant marked ready (Orders and Production Floor). o: { id, quote_no };
+// lines: that order's lines with ready pieces not shipped yet (each starts at its ready quantity).
+export function ShipAction({ o, lines, back, size = '', label }) {
+  return (
+    <Modal
+      title={`Ship ${o.quote_no} — Delivery Order`}
+      icon="ph-truck"
+      label={label || `Ship (${int(lines.reduce((n, it) => n + Math.min(readyOf(it), balanceOf(it)), 0))} PCS ready)`}
+      btnIcon="ph-truck"
+      btnClass={`btn btn-primary${size}`}
+      size="large"
+    >
+      <form action={generateBatchDO}>
+        <input type="hidden" name="id" value={o.id} />
+        <input type="hidden" name="back" value={back} />
+        <div className="modal-body">
+          <p>Lines the plant marked ready. Each quantity starts at the ready quantity; change it if less is going on this truck. Saving makes the Delivery Order.</p>
+          <div className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Material</th>
+                  <th>DO qty (PCS)</th>
+                  <th className="r">Ready</th>
+                  <th className="r">Balance</th>
+                  <th className="r">Ordered</th>
+                  <th className="r">Dispatched</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((it) => {
+                  const balance = balanceOf(it)
+                  const rQty = readyOf(it)
+                  const defVal = rQty > 0 ? Math.min(rQty, balance) : balance
+                  return (
+                    <tr key={it.id}>
+                      <td className="muted">{it.item_no}</td>
+                      <td className="desc wrap">{it.description}</td>
+                      <td>
+                        <input
+                          className="qty"
+                          name={`qty_${it.id}`}
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          max={balance}
+                          step="1"
+                          defaultValue={defVal}
+                          required
+                          aria-label={`DO qty line ${it.item_no}`}
+                        />
+                      </td>
+                      <td className="num fw6">{int(rQty)}</td>
+                      <td className="num">{int(balance)}</td>
+                      <td className="num">{int(it.qty)}</td>
+                      <td className="num">{int(it.dispatched_qty) || 0}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <h3 className="sub-ttl"><i className="ph ph-truck" />Dispatch and transport details</h3>
+            <div className="fgrid">
+              <div className="fg">
+                <label htmlFor={`dd-${o.id}`}>Dispatch Date <span className="req">*</span></label>
+                <input id={`dd-${o.id}`} type="date" name="dispatch_date" defaultValue={today()} max={today()} required />
+              </div>
+              <div className="fg">
+                <label htmlFor={`vn-${o.id}`}>Vehicle No</label>
+                <input id={`vn-${o.id}`} name="vehicle_no" placeholder="e.g. 1234 ABC" maxLength={100} />
+              </div>
+              <div className="fg">
+                <label htmlFor={`tr-${o.id}`}>Transporter</label>
+                <input id={`tr-${o.id}`} name="transporter" placeholder="e.g. Al-Saif Logistics" maxLength={100} />
+              </div>
+              <div className="fg">
+                <label htmlFor={`lr-${o.id}`}>LR / Bilty No</label>
+                <input id={`lr-${o.id}`} name="lr_no" placeholder="LR number" maxLength={100} />
+              </div>
+              <div className="fg">
+                <label htmlFor={`dr-${o.id}`}>Driver (Name / Mobile)</label>
+                <input id={`dr-${o.id}`} name="driver" placeholder="Driver name & phone" maxLength={100} />
+              </div>
+              <div className="fg">
+                <label htmlFor={`tp-${o.id}`}>Transport Charges (SAR)</label>
+                <input id={`tp-${o.id}`} type="number" inputMode="decimal" step="0.01" min="0" name="transport" placeholder="0.00" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <ModalFoot label="Ship & make DO" icon="ph-truck" />
+      </form>
+    </Modal>
   )
 }
 
@@ -260,9 +269,9 @@ export function TaxAction({ o, b, back, label, size = ' btn-sm' }) {
   const cur = b ? b.tax_invoice_path : o.tax_invoice_path
   return (
     <Modal
-      title={`${cur ? 'Replace' : 'Upload'} tax invoice for ${b?.pi_no || o.quote_no}`}
+      title={`${cur ? 'Replace' : 'Attach'} tax invoice for ${b?.pi_no || o.quote_no}`}
       icon="ph-upload-simple"
-      label={label || (cur ? 'Replace invoice' : 'Upload invoice')}
+      label={label || (cur ? 'Replace tax invoice' : 'Attach tax invoice')}
       btnIcon="ph-upload-simple"
       btnClass={`btn ${cur ? 'btn-ghost' : 'btn-warn'}${size}`}
     >
@@ -274,7 +283,7 @@ export function TaxAction({ o, b, back, label, size = ' btn-sm' }) {
           <FileDrop name="file" accept="application/pdf,image/*" hint="PDF or image, max 4 MB" maxMB={4} />
           {cur && <p>The file already uploaded will be replaced.</p>}
         </div>
-        <ModalFoot label="Upload" icon="ph-upload-simple" />
+        <ModalFoot label={cur ? 'Replace' : 'Attach'} icon="ph-upload-simple" />
       </form>
     </Modal>
   )

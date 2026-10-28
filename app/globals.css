@@ -1638,6 +1638,9 @@ dialog.modal.closing::backdrop { animation: overlayOut var(--dur-exit) linear fo
     position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 4px;
     grid-template-areas: "q st" "cust cust" "desc bal" "plant act"; border-bottom: 1px solid var(--border);
   }
+  /* Add ready + Ship: the buttons get their own line so the status keeps its width */
+  .plant-tbl tr:has(.c-act .btn ~ .btn) { grid-template-areas: "q st" "cust cust" "desc bal" "plant plant" "act act"; }
+  .plant-tbl tr:has(.c-act .btn ~ .btn) .c-act .row-acts { justify-content: flex-end; }
   .plant-tbl tr:last-child { border-bottom: 0; }
   .plant-tbl tr:has(.c-sel input) { padding-left: 40px; }
   .plant-tbl td { display: block; min-width: 0; max-width: none; padding: 0 !important; border: 0; white-space: normal; text-align: left; position: static !important; background: none !important; box-shadow: none !important; }

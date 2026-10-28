@@ -371,6 +371,8 @@ export async function generateBatchDO(fd) {
   await logEvent(o.id, me, 'DO generated & dispatched', `${doNo} · ${plural(lines.length, 'line')} · ${truckDesc || 'No truck details'}`)
 
   revalidatePath('/', 'layout')
+  // Shipped from Production Floor: stay there. From Orders: open the order with the new DO's Make PI ready.
+  if (path.startsWith('/plant')) go(path, 'ok', `Shipped: Delivery Order ${doNo} made.`)
   redirect(`/orders?view=${o.id}&open_batch_pi=${batchId}&ok=${encodeURIComponent(`Shipped: Delivery Order ${doNo} made.`)}`)
 }
 

@@ -5,8 +5,10 @@ import { PRODUCTION, balanceOf, int, plural, readyOf } from '@/lib/tas'
 import { saveProduction } from '../orders/actions'
 import { PlantStatus } from '../ui'
 import MarkReadyModal from './MarkReadyModal'
+import { ShipAction } from '../orders/OrderActions'
 
-// Plant lines: tick lines (from one order or several) and mark them ready together, or one at a time.
+// Plant lines: tick lines (from one order or several) and mark them ready together, or one at a time; ship ready lines
+// (one order per Delivery Order) without going to Orders.
 export default function PlantClient({ rows, isOpen, here }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
@@ -27,6 +29,12 @@ export default function PlantClient({ rows, isOpen, here }) {
 
   const selectedRows = (rows || []).filter((r) => selectedIds.has(r.id))
   const orderCount = new Set(selectedRows.map((r) => r.order_id)).size
+  // Ready lines not shipped yet, per order: a row's Ship button ships all of its order's ready lines.
+  const isShippable = (r) => readyOf(r) > 0 && balanceOf(r) > 0
+  const readyByOrder = {}
+  for (const r of rows || []) if (isShippable(r)) (readyByOrder[r.order_id] ??= []).push(r)
+  const selReady = selectedRows.filter(isShippable)
+  const selReadyOrders = new Set(selReady.map((r) => r.order_id)).size
 
   return (
     <>
@@ -41,6 +49,8 @@ export default function PlantClient({ rows, isOpen, here }) {
             </button>
           </div>
           <MarkReadyModal lines={selectedRows} back={here} label="Mark selected ready" btnClass="btn btn-success btn-sm" />
+          {selReadyOrders === 1 && <ShipAction o={selReady[0].orders} lines={selReady} back={here} size=" btn-sm" label="Ship selected" />}
+          {selReadyOrders > 1 && <span className="muted text-sm">Ship one order at a time</span>}
         </div>
       )}
 
@@ -134,16 +144,18 @@ export default function PlantClient({ rows, isOpen, here }) {
                   </td>
                   <td className="nowrap c-act">
                     <div className="row-acts">
-                      {isOpen && !isDone && (canAdd ? (
+                      {isOpen && !isDone && canAdd && (
                         <MarkReadyModal
                           lines={[it]}
                           back={here}
-                          label={rQty > 0 ? `Add ready (${int(bal - rQty)} left)` : 'Mark ready'}
-                          btnClass="btn btn-success btn-sm"
+                          label={rQty > 0 ? 'Add ready' : 'Mark ready'}
+                          btnClass={`btn btn-sm ${isReady ? 'btn-ghost' : 'btn-success'}`}
                         />
-                      ) : (
-                        <span className="muted text-sm">All ready: Ship it from Orders</span>
-                      ))}
+                      )}
+                      {isOpen && isReady && (
+                        <ShipAction o={o} lines={readyByOrder[it.order_id]} back={here} size=" btn-sm"
+                          label={`Ship ${int(readyByOrder[it.order_id].reduce((n, r) => n + Math.min(readyOf(r), balanceOf(r)), 0))} PCS`} />
+                      )}
                     </div>
                   </td>
                 </tr>

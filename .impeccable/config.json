@@ -17,6 +17,15 @@
         ],
         "createdAt": "2026-10-23T08:57:52.357Z",
         "reason": "sanctioned exception: sidebar collapse (.sb width) and search-pill expand (.tsearch width) are copied from the user's GAS FMS Stylesheet.html, which the user asked the app to match exactly; both are short, one-off user-triggered transitions"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-10-28T07:49:11.111Z",
+        "reason": "Claude: line 928 is .doc footer, the 6px red rule of the printed TAS document format (from the first commit aa919c2); not a rounded card"
       }
     ]
   }
