@@ -81,7 +81,7 @@ export default async function RootLayout({ children }) {
       { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
       { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
       { href: '/admin/plants', label: 'Plants', icon: 'ph-factory' },
-      { href: '/admin/stores', label: 'Stores', icon: 'ph-warehouse' },
+      { href: '/admin/stores', label: 'Stores & Lines', icon: 'ph-warehouse' },
       { href: '/admin/materials', label: 'Materials', icon: 'ph-package' },
       { href: '/admin/vendors', label: 'Vendors', icon: 'ph-truck' },
       { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },

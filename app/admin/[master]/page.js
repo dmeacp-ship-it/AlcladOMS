@@ -22,22 +22,27 @@ export default async function Master({ params, searchParams }) {
   const page = Math.max(0, parseInt(sp.page) || 0)
   const term = String(sp.q || '').trim()
   const sort = ['name', 'code'].includes(sp.sort) ? sp.sort : 'id'
-  const one = cfg.title.slice(0, -1)
-
   const isCust = master === 'customers'
-  let q = db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' }).order(sort).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
+  // Stores: production lines (type WIP) hold stock too, so they live in the same table, shown on their own tab.
+  const isStores = master === 'stores'
+  const lines = isStores && sp.kind === 'lines'
+  const kind = (q, l = lines) => (!isStores ? q : l ? q.eq('type', 'WIP') : q.neq('type', 'WIP'))
+  const one = lines ? 'Production line' : cfg.title.slice(0, -1)
+
+  let q = kind(db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' })).order(sort).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
   if (term) q = q.ilike(cfg.search, `%${term}%`)
   const refs = Object.entries(cfg.refs || {})
-  const [{ data: rows, count }, { data: people }, ...refRows] = await Promise.all([
+  const [{ data: rows, count }, other, { data: people }, ...refRows] = await Promise.all([
     q,
+    isStores && kind(db().from(master).select('id', { count: 'exact', head: true }), !lines), // the other tab's count
     isCust ? db().from('profiles').select('id, full_name').in('role', ['sales', 'admin']).eq('active', true).order('full_name') : { data: [] },
     ...refs.map(([, table]) => db().from(table).select('code').order('code')),
   ])
   const lists = Object.fromEntries(refs.map(([col], i) => [col, (refRows[i].data || []).map((r) => r.code)]))
-  const link = (p, s = sort) => `/admin/${master}?${new URLSearchParams({ ...(p && { page: p }), ...(term && { q: term }), ...(s !== 'id' && { sort: s }) })}`
+  const link = (p, s = sort) => `/admin/${master}?${new URLSearchParams({ ...(lines && { kind: 'lines' }), ...(p && { page: p }), ...(term && { q: term }), ...(s !== 'id' && { sort: s }) })}`
   const sorts = Object.fromEntries(['code', 'name'].map((c) => [c, { href: link(0, c), dir: sort === c ? 'ascending' : 'none' }]))
   const here = link(page)
-  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: cfg.defaults, labels: cfg.labels }
+  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: lines ? { ...cfg.defaults, type: 'WIP' } : cfg.defaults, labels: cfg.labels }
   // Only what the table and its dialogs show goes to the browser.
   const pick = (r) => ({
     ...Object.fromEntries(['id', ...cfg.cols, ...(isCust ? ['salesperson_id'] : [])].map((c) => [c, r[c] ?? null])),
@@ -53,10 +58,20 @@ export default async function Master({ params, searchParams }) {
         </div>
       )}
       <div className="tbl-top">
-        <h2 className="tbl-ttl">
-          <i className={`ph ${cfg.icon}`} />{cfg.title}
-          <span className="badge b-none">{count ?? 0}</span>
-        </h2>
+        {isStores ? (
+          <nav className="tabs" aria-label="Stores or production lines" style={{ marginBottom: 0 }}>
+            {[[false, 'Stores', 'ph-warehouse'], [true, 'Production lines', 'ph-gear-six']].map(([l, label, icon]) => (
+              <Link prefetch={false} key={label} href={`/admin/stores${l ? '?kind=lines' : ''}`} className={`tab${l === lines ? ' on' : ''}`} aria-current={l === lines ? 'page' : undefined}>
+                <LinkBusy /><i className={`ph ${icon}`} />{label}<span className="badge b-none">{(l === lines ? count : other?.count) ?? 0}</span>
+              </Link>
+            ))}
+          </nav>
+        ) : (
+          <h2 className="tbl-ttl">
+            <i className={`ph ${cfg.icon}`} />{cfg.title}
+            <span className="badge b-none">{count ?? 0}</span>
+          </h2>
+        )}
         <div className="tbl-filters">
           <form className="sw">
             <i className="ph ph-magnifying-glass" />
@@ -94,7 +109,7 @@ export default async function Master({ params, searchParams }) {
           <div className="empty">
             <i className="ph ph-magnifying-glass" />
             <h3>Nothing found</h3>
-            <p>{term ? `No ${cfg.title.toLowerCase()} match “${term}”.` : `No ${cfg.title.toLowerCase()} yet.`}</p>
+            <p>{term ? `No ${lines ? 'production lines' : cfg.title.toLowerCase()} match “${term}”.` : `No ${lines ? 'production lines' : cfg.title.toLowerCase()} yet.`}</p>
           </div>
         )}
       </div>

@@ -540,6 +540,13 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   lights the right sidebar link; phone 375 px: More menu grouped Buying / Factory / Reports, tabs fit, no sideways scroll.
 - Note: this brings back tabs inside pages (removed in E1) — only where pages share one sidebar link.
 
+### 2026-10-28 — 27. Stores & Lines: two tabs
+- **Why:** the user asked why lines and stores are saved together. They share one table on purpose (a line holds the RM
+  issued to it, so issue = a move between two places and one stock report covers both); only the screen changed.
+- Settings → **Stores & Lines** (`/admin/stores`) has tabs **Stores** (every type except production line) and
+  **Production lines** (`?kind=lines`, type WIP), each with its count; on the lines tab "Add Production line" starts
+  with the type set. Import / Export still cover both.
+
 ---
 
 ## 5. Architecture

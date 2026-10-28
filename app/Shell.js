@@ -33,7 +33,7 @@ const PAGES = [
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
   [/^\/admin\/plants/, 'Plants', 'Factories; every store belongs to one'],
-  [/^\/admin\/stores/, 'Stores', 'Raw material stores, production lines, finished goods and scrap stores'],
+  [/^\/admin\/stores/, 'Stores & Lines', 'Stores hold stock; production lines hold the raw material issued to them until it is used'],
   [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
   [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
   [/^\/inventory\/po/, 'Purchase Orders', 'Order raw material from a supplier'],
