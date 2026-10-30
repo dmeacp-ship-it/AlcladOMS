@@ -8,15 +8,17 @@ import { ClickRow, LinkBusy } from '../ui'
 import ProdTabs from './ProdTabs'
 import PlanDialog from './PlanDialog'
 import OrderNeedDialog from './OrderNeedDialog'
+import NewPlanDialog from './NewPlanDialog'
 
 export async function generateMetadata({ searchParams }) {
   const sp = await searchParams
+  if (sp.new) return { title: 'New Production Plan' }
   if (/^\d+$/.test(sp.view || '')) {
     const { data } = await db().from('production_plans').select('plan_no').eq('id', sp.view).maybeSingle()
     if (data?.plan_no) return { title: { absolute: data.plan_no } }
   }
   if (sp.need) return { title: 'What Open Orders Need' }
-  return { title: 'Plan Production' }
+  return { title: 'Production Planning' }
 }
 
 const LIMIT = 100
@@ -27,6 +29,7 @@ export default async function Planning({ searchParams }) {
   const showPlans = sp.plans || 'open'
   const showAll = sp.show === 'all'
   const showNeed = Boolean(sp.need)
+  const isNew = Boolean(sp.new)
   const viewId = /^\d+$/.test(sp.view || '') ? sp.view : null
 
   let q = db().from('production_plans')
@@ -37,11 +40,13 @@ export default async function Planning({ searchParams }) {
 
   const planQuery = viewId
     ? db().from('production_plans')
-        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_name, m2_per_pc)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
+        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_name, m2_per_pc, grade, thickness, skin)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
         .eq('id', viewId).maybeSingle()
     : Promise.resolve({ data: null })
 
-  const [me, missing, s, pos, items, { stores }, lines, { data: plans }, { data: viewPlan }] = await Promise.all([
+  const optionsQuery = isNew ? db().rpc('item_options') : Promise.resolve({ data: {} })
+
+  const [me, missing, s, pos, items, { stores }, lines, { data: plans }, { data: viewPlan }, { data: options }] = await Promise.all([
     requireRole('manager'),
     prodMissing(),
     getSettings(),
@@ -52,6 +57,7 @@ export default async function Planning({ searchParams }) {
       .eq('orders.status', 'APPROVED').filter('orders.dispatch_status', 'isdistinct', 'SHORT_CLOSED')).catch(() => []),
     q,
     planQuery,
+    optionsQuery,
   ])
 
   let stock = null
@@ -77,6 +83,7 @@ export default async function Planning({ searchParams }) {
     .sort((a, b) => b.short - a.short || (a.f?.code || '').localeCompare(b.f?.code || ''))
   const rows = showAll ? allOrderRows : allOrderRows.filter((p) => p.short > 0)
   const toMake = allOrderRows.reduce((n, r) => n + r.short, 0)
+  const wip = (stores || []).filter((x) => x.type === 'WIP')
 
   const listParams = {
     ...(term && { q: term }),
@@ -84,6 +91,14 @@ export default async function Planning({ searchParams }) {
   }
   const viewHref = (id) => `/production?${new URLSearchParams({ ...listParams, view: id })}`
   const listHref = `/production${Object.keys(listParams).length ? `?${new URLSearchParams(listParams)}` : ''}`
+  const newHref = (all) => {
+    const p = new URLSearchParams()
+    p.set('new', '1')
+    if (all) p.set('show', 'all')
+    if (showPlans !== 'open') p.set('plans', showPlans)
+    if (term) p.set('q', term)
+    return `/production?${p.toString()}`
+  }
 
   const plansHref = (mode) => {
     const p = new URLSearchParams()
@@ -142,7 +157,7 @@ export default async function Planning({ searchParams }) {
               <i className="ph ph-magnifying-glass" />
               <input className="tsearch" name="q" defaultValue={term} placeholder="Plan no or line…" aria-label="Search plans" />
             </form>
-            <Link prefetch={false} href="/production/new" className="btn btn-primary btn-sm">
+            <Link prefetch={false} href={newHref(false)} scroll={false} className="btn btn-primary btn-sm">
               <LinkBusy /><i className="ph ph-plus" />New Plan
             </Link>
           </div>
@@ -186,15 +201,27 @@ export default async function Planning({ searchParams }) {
                         <span className="badge b-info">Scheduled</span>
                       )}
                     </td>
-                    <td className="r" data-label="Actions">
-                      <Link
-                        prefetch={false}
-                        href={`/production/dpr/new?plan=${p.id}`}
-                        className="btn btn-ghost btn-sm"
-                        title="Enter shift production report"
-                      >
-                        <i className="ph ph-factory" /> Enter DPR
-                      </Link>
+                    <td className="r nowrap" data-label="Actions">
+                      <div className="row-acts">
+                        {p.status === 'OPEN' && (
+                          <Link
+                            prefetch={false}
+                            href={`/inventory/issue/new?plan=${p.id}`}
+                            className="btn btn-ghost btn-sm"
+                            title="Issue raw materials to line for this plan"
+                          >
+                            <i className="ph ph-arrows-left-right" /> Issue RM
+                          </Link>
+                        )}
+                        <Link
+                          prefetch={false}
+                          href={`/production/dpr/new?plan=${p.id}`}
+                          className="btn btn-primary btn-sm"
+                          title="Enter shift production report"
+                        >
+                          <i className="ph ph-factory" /> Enter DPR
+                        </Link>
+                      </div>
                     </td>
                   </ClickRow>
                 )
@@ -228,6 +255,22 @@ export default async function Planning({ searchParams }) {
           stock={stock}
           m2={m2}
           s={s}
+          closeHref={listHref}
+        />
+      )}
+
+      {isNew && !viewPlan && !showNeed && (
+        <NewPlanDialog
+          wip={wip}
+          allOrderRows={allOrderRows}
+          rows={rows}
+          showAll={showAll}
+          toMake={toMake}
+          quotes={quotes}
+          catalogItems={items}
+          options={options || {}}
+          shortagesHref={newHref(false)}
+          allHref={newHref(true)}
           closeHref={listHref}
         />
       )}

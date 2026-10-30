@@ -1,7 +1,7 @@
 'use server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
-import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, requireRole } from '@/lib/server'
+import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, orderHistory, requireRole } from '@/lib/server'
 import { removeInvoices, saveInvoice } from '@/lib/drive'
 import { getSettings } from '@/lib/settings'
 import { fgPosition } from '@/lib/production'
@@ -371,9 +371,8 @@ export async function generateBatchDO(fd) {
   await logEvent(o.id, me, 'DO generated & dispatched', `${doNo} · ${plural(lines.length, 'line')} · ${truckDesc || 'No truck details'}`)
 
   revalidatePath('/', 'layout')
-  // Shipped from Production Floor: stay there. From Orders: open the order with the new DO's Make PI ready.
-  if (path.startsWith('/plant')) go(path, 'ok', `Shipped: Delivery Order ${doNo} made.`)
-  redirect(`/orders?view=${o.id}&open_batch_pi=${batchId}&ok=${encodeURIComponent(`Shipped: Delivery Order ${doNo} made.`)}`)
+  // Open the order with the new Delivery Order ready to print or invoice
+  redirect(`/orders?view=${o.id}&open_batch_pi=${batchId || ''}&ok=${encodeURIComponent(`Shipped: Delivery Order ${doNo} made.`)}`)
 }
 
 // Generate Proforma Invoice for a specific batch.
@@ -643,4 +642,13 @@ export async function updateOrder(_prev, fd) {
   await logEvent(o.id, me, 'Edited by admin', `${changes.join('; ')}${await creditNote(c, total, o.id)}`.slice(0, 1000))
   revalidatePath('/', 'layout')
   redirect(`/orders?view=${o.id}&ok=${encodeURIComponent(`${o.quote_no} updated.`)}`)
+}
+
+// Lightweight fetch for the instant order dialog: loads history and full order fields.
+export async function loadOrderDetail(id) {
+  const me = await requireRole()
+  const o = await findOrder(id, me)
+  if (!o) return null
+  const history = await orderHistory(id)
+  return { order: o, history: history || { dispatches: [], events: [] } }
 }

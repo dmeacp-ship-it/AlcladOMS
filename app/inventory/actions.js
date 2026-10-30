@@ -100,13 +100,13 @@ export async function createGRN(_prev, fd) {
   if (error) return { error: invError(error) }
   const { data: g } = await db().from('grns').select('id, po:purchase_orders(po_no)').eq('grn_no', no).single()
   await logEvent(null, me, 'GRN created', `${no} · ${g.po.po_no} · ${plural(lines.length, 'line')}`)
-  done(`/inventory/grn/${g.id}`, `${no} saved. Enter the QC result to put the accepted quantity into stock.`)
+  const back = str(fd, 'back'); done(back ? `${back}?view_grn=${g.id}` : `/inventory/po?view_grn=${g.id}`, `${no} saved. Enter the QC result to put the accepted quantity into stock.`)
 }
 
 export async function qcGRN(_prev, fd) {
   const me = await requireRole('manager')
   const id = str(fd, 'id')
-  const path = `/inventory/grn/${id}`
+  const path = str(fd, 'back') || `/inventory/po?view_grn=${id}`
   const lines = fd.getAll('item').map((i) => ({ id: Number(i), rejected: num(fd.get(`rej_${i}`) || 0), remarks: str(fd, `rem_${i}`) }))
   if (lines.some((l) => !(l.rejected >= 0))) return { error: 'Rejected quantities must be 0 or more.' }
   if (lines.some((l) => l.rejected > 0 && !l.remarks)) return { error: 'Say why on every line with a rejected quantity.' }

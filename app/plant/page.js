@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { LinkBusy } from '../ui'
+import { IntentLink, LinkBusy } from '../ui'
+import PageTabs from '../PageTabs'
 import { db, requireRole } from '@/lib/server'
 import { fgPosition } from '@/lib/production'
 import { getSettings } from '@/lib/settings'
@@ -8,17 +9,17 @@ import PlantClient from './PlantClient'
 // Plant dispatch (FMS plant screen): every approved order line in 1 flat row.
 // The plant marks items ready (partial/full), sets plant status, and generates Delivery Orders.
 const TABS = {
-  open: { label: 'Open', icon: 'ph-factory', cls: 'ca' },
-  ready: { label: 'Ready', icon: 'ph-check-square-offset', cls: 'cg' },
-  pending: { label: 'Pending', icon: 'ph-hourglass', cls: 'co' },
-  partial: { label: 'Partial', icon: 'ph-circle-half', cls: 'co' },
-  done: { label: 'Dispatched', icon: 'ph-check-circle', cls: 'cg' },
+  open: { label: 'Open', icon: 'ph-factory' },
+  ready: { label: 'Ready', icon: 'ph-check-square-offset' },
+  pending: { label: 'Pending', icon: 'ph-hourglass' },
+  partial: { label: 'Partial', icon: 'ph-circle-half' },
+  done: { label: 'Dispatched', icon: 'ph-check-circle' },
 }
 const ITEM = 'id, order_id, item_no, fg_item_id, description, color_name, qty, width, length, price, delivered_qty, ready_qty, dispatched_qty, balance_qty, production_status, coil_date'
 const ORDER = 'orders!inner(id, quote_no, doc_no, do_date, customer_name, status, dispatch_status)'
 const LIMIT = 300
 
-export const metadata = { title: 'Production Floor' }
+export const metadata = { title: 'Ready to Ship' }
 
 // What each tab shows, as a filter on the line (balance_qty = qty - dispatched_qty, kept by the database).
 const SHOWS = {
@@ -44,7 +45,7 @@ export default async function Plant({ searchParams }) {
   const list = (ids) => SHOWS[tab](lines(`${ITEM}, ${ORDER}`, undefined, ids)).order('order_id', { ascending: false }).order('item_no').limit(LIMIT)
   // One round trip: role check, every tab's count (plant_counts, migrate-014) and, without a search, this tab's lines.
   // One filter can't mix line and order columns, so a search finds the matching orders first and reads the lines after.
-  const [, found, pc, first, fg] = await Promise.all([
+  const [me, found, pc, first, fg] = await Promise.all([
     requireRole('plant'),
     term && db().from('orders').select('id').eq('status', 'APPROVED')
       .or(`doc_no.ilike.%${term}%,quote_no.ilike.%${term}%,customer_name.ilike.%${term}%`),
@@ -64,46 +65,61 @@ export default async function Plant({ searchParams }) {
   const counts = pc.error ? Object.fromEntries(tabs.map((k, i) => [k, n[i].count ?? 0])) : pc.data
   const error = found?.error || listError
 
+  const href = (p) => `/plant${Object.keys(p).length ? `?${new URLSearchParams(p)}` : ''}`
+  const tabHref = (t) => href({ ...(t !== 'open' && { tab: t }), ...(term && { q: term }) })
   const params = { ...(tab !== 'open' && { tab }), ...(term && { q: term }) }
-  const here = `/plant${Object.keys(params).length ? `?${new URLSearchParams(params)}` : ''}`
-  const tabHref = (t) => `/plant?${new URLSearchParams({ ...(t !== 'open' && { tab: t }), ...(term && { q: term }) })}`
+  const here = href(params)
   const isOpen = tab !== 'done'
+  const boss = ['admin', 'manager'].includes(me.role)
+  const exportParams = new URLSearchParams({ ...(tab !== 'open' ? { tab } : {}), ...(term ? { q: term } : {}) })
 
   return (
     <>
-      <div className="stats">
-        {Object.entries(TABS).map(([k, t]) => (
-          <Link prefetch={false} key={k} href={tabHref(k)} className={`stat${tab === k ? ' on' : ''}`}>
-            <LinkBusy />
-            <i className={`ph ${t.icon} stat-ic ${t.cls}`} />
-            <div className={`stat-n ${t.cls}`}>{counts[k] ?? 0}</div>
-            <div className="stat-l">{t.label} lines</div>
-          </Link>
-        ))}
-      </div>
-
+      <PageTabs group="production" on="/plant" label="Production" />
       <div className="card">
         <div className="tbl-top">
-          <h2 className="tbl-ttl">
-            <i className="ph ph-factory" />{TABS[tab].label} lines
-            <span className="badge b-none">{counts[tab] ?? 0}</span>
-          </h2>
-          <form className="tbl-filters">
-            {tab !== 'open' && <input type="hidden" name="tab" value={tab} />}
-            <div className="sw">
+          <nav className="tabs tabs-dynamic" aria-label="Which lines" style={{ marginBottom: 0 }}>
+            {Object.entries(TABS).map(([k, t]) => {
+              const isActive = tab === k
+              const count = counts[k] ?? 0
+              return (
+                <IntentLink
+                  key={k}
+                  href={tabHref(k)}
+                  className={`tab${isActive ? ' on' : ''}`}
+                  aria-current={isActive ? 'page' : undefined}
+                  title={`${t.label} (${count})`}
+                  aria-label={`${t.label} (${count})`}
+                >
+                  <LinkBusy />
+                  <i className={`ph ${t.icon}`} />
+                  <span className="tab-txt">{t.label}</span>
+                  <span className="badge b-none">{count}</span>
+                </IntentLink>
+              )
+            })}
+          </nav>
+          <div className="tbl-filters">
+            <form className="sw">
+              {tab !== 'open' && <input type="hidden" name="tab" value={tab} />}
               <i className="ph ph-magnifying-glass" />
               <input className="tsearch" name="q" defaultValue={term} placeholder="Quote no, customer, material…" aria-label="Search plant lines" />
-            </div>
-          </form>
+            </form>
+            {boss && (
+              <a className="btn btn-ghost btn-sm" href={`/admin/export/lines?${exportParams}`}>
+                <i className="ph ph-download-simple" />Export
+              </a>
+            )}
+          </div>
         </div>
 
         {error && (
-          <div className="banner error" style={{ margin: '0 20px 16px' }}>
+          <div className="banner error" style={{ margin: '0 20px 16px' }} title={error.message}>
             <i className="ph ph-warning-circle" />Couldn't load the plant lines. Press Refresh to try again; if it keeps failing, tell the admin.
           </div>
         )}
 
-        <PlantClient rows={rows?.map((r) => ({ ...r, fg_free: fg.on ? fg.pos[r.fg_item_id]?.free ?? 0 : null, fg_cap: fg.link }))} isOpen={isOpen} here={here} />
+        <PlantClient rows={rows?.map((r) => ({ ...r, fg_free: fg.on ? fg.pos[r.fg_item_id]?.free ?? 0 : null, fg_cap: fg.link }))} isOpen={isOpen} here={here} tab={tab} counts={counts} />
 
         {rows?.length === LIMIT && (
           <div className="tbl-foot center">

@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { DISPATCH, PRODUCTION, STATUS, prodLabel, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
-import { FootMore, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
+import { LinkBusy, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
 import OrderActions, { PiAction, TaxAction } from './OrderActions'
+import MarkReadyModal from '../plant/MarkReadyModal'
 
 // Order profile shown as a large dialog over the orders list (FMS viewOrderDetails).
 // Sections run in the order people work: next step, items and dispatch, DO batches, then the reference
@@ -84,7 +85,7 @@ function nextStep(o) {
 
   const todo = []
   if (readyLines.length > 0) todo.push(<><b>Ship</b> {plural(readyLines.length, 'ready line')} (makes the Delivery Order)</>)
-  else if (openBalance) todo.push(<><b>Plant</b> marks finished pieces ready in Production Floor</>)
+  else if (openBalance) todo.push(<><b>Plant</b> marks finished pieces ready to ship</>)
   if (p.piPending.length) todo.push(<><b>Accounts</b> makes the PI for {p.piPending.map(name).join(', ')}</>)
   if (p.taxPending.length) todo.push(<><b>Accounts</b> attaches the tax invoice for {p.taxPending.map((b) => b.pi_no || 'the PI').join(', ')}</>)
 
@@ -92,22 +93,34 @@ function nextStep(o) {
   return ['info', 'ph-arrow-right', <>Next: {todo.map((t, i) => <span key={i}>{i ? (i === todo.length - 1 ? ' and ' : ', ') : ''}{t}</span>)}.</>]
 }
 
-export default function OrderDialog({ o, history, me, back, closeHref, openBatchPi }) {
+export default function OrderDialog({ o, history, me, back, closeHref, openBatchPi, onClose, historyLoading }) {
   const t = totals(o.items, o.transport, o.vat_rate)
   const approved = o.status === 'APPROVED'
   const open = dispatchOpen(o)
   const editPlant = open && can(me, 'plant')
   const { dispatches = [], events = [] } = history || {}
   const lineNo = Object.fromEntries(o.items.map((it) => [it.id, it.item_no]))
+  const p = progress(o)
+  const readyLines = (o.items || []).filter((it) => readyOf(it) > 0 && balanceOf(it) > 0)
   const [tone, icon, text] = nextStep(o)
   const Hidden = <><input type="hidden" name="id" value={o.id} /><input type="hidden" name="back" value={back} /></>
   const batches = o.batches || []
   const issued = batches.length > 0 || !!o.do_date || !!o.pi_date
 
   const left = (
-    <FootMore>
+    <div className="foot-acts-left">
+      {can(me, 'sales') && (
+        <Link prefetch={false} className="btn btn-ghost btn-sm btn-ic" href={`/orders/new?from=${o.id}`} title="Duplicate order" aria-label="Duplicate order">
+          <LinkBusy /><i className="ph ph-copy" />
+        </Link>
+      )}
+      {me.role === 'admin' && (
+        <Link prefetch={false} className="btn btn-ghost btn-sm btn-ic" href={`/orders/${o.id}/edit`} title="Edit order" aria-label="Edit order">
+          <LinkBusy /><i className="ph ph-pencil-simple" />
+        </Link>
+      )}
       {['PENDING', 'APPROVED'].includes(o.status) && !batches.length && !o.do_date && can(me, 'approver') && (
-        <Modal title={`Cancel ${o.quote_no}`} icon="ph-prohibit" label="Cancel Order" btnIcon="ph-prohibit" btnClass="btn btn-warn" size="small">
+        <Modal title={`Cancel ${o.quote_no}`} icon="ph-prohibit" ariaLabel="Cancel order" btnIcon="ph-prohibit" btnClass="btn btn-ghost btn-sm btn-ic co" size="small">
           <form action={cancelOrder}>
             {Hidden}
             <div className="modal-body">
@@ -122,7 +135,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
         </Modal>
       )}
       {open && can(me, 'plant', 'approver') && (
-        <Modal title={`Short Close ${o.quote_no}`} icon="ph-scissors" label="Short Close" btnIcon="ph-scissors" btnClass="btn btn-warn" size="small">
+        <Modal title={`Short Close ${o.quote_no}`} icon="ph-scissors" ariaLabel="Short close order" btnIcon="ph-scissors" btnClass="btn btn-ghost btn-sm btn-ic co" size="small">
           <form action={shortClose}>
             {Hidden}
             <div className="modal-body">
@@ -136,24 +149,24 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
           </form>
         </Modal>
       )}
-      {can(me, 'sales') && <Link prefetch={false} className="btn btn-ghost" href={`/orders/new?from=${o.id}`}><i className="ph ph-copy" />Duplicate</Link>}
-      {me.role === 'admin' && <Link prefetch={false} className="btn btn-ghost" href={`/orders/${o.id}/edit`}><i className="ph ph-pencil-simple" />Edit order</Link>}
-      {me.role === 'admin' && <Modal title={`Delete ${o.quote_no}?`} icon="ph-trash" label="Delete" btnIcon="ph-trash" btnClass="btn btn-danger" size="small">
-        <form action={deleteOrder}>
-          <input type="hidden" name="id" value={o.id} />
-          <TypeToConfirm word={issued ? o.quote_no : null} label="Delete Order" icon="ph-trash">
-            <p>Permanently delete <b>{o.quote_no}</b> for <b><bdi>{o.customer_name}</bdi></b>? This can't be undone.</p>
-            {issued && (
-              <div className="banner error"><i className="ph ph-warning" /><span>
-                This order already has {plural(batches.length || 1, 'Delivery Order')}
-                {batches.some((b) => b.pi_no) || o.pi_date ? ', Proforma Invoices' : ''}
-                {batches.some((b) => b.tax_invoice_path) || o.tax_invoice_path ? ' and uploaded tax invoices' : ''}. All of them, the dispatch history and the timeline are removed.
-              </span></div>
-            )}
-          </TypeToConfirm>
-        </form>
-      </Modal>}
-    </FootMore>
+      {me.role === 'admin' && (
+        <Modal title={`Delete ${o.quote_no}?`} icon="ph-trash" ariaLabel="Delete order" btnIcon="ph-trash" btnClass="btn btn-ghost btn-sm btn-ic danger" size="small">
+          <form action={deleteOrder}>
+            <input type="hidden" name="id" value={o.id} />
+            <TypeToConfirm word={issued ? o.quote_no : null} label="Delete Order" icon="ph-trash">
+              <p>Permanently delete <b>{o.quote_no}</b> for <b><bdi>{o.customer_name}</bdi></b>? This can't be undone.</p>
+              {issued && (
+                <div className="banner error"><i className="ph ph-warning" /><span>
+                  This order already has {plural(batches.length || 1, 'Delivery Order')}
+                  {batches.some((b) => b.pi_no) || o.pi_date ? ', Proforma Invoices' : ''}
+                  {batches.some((b) => b.tax_invoice_path) || o.tax_invoice_path ? ' and uploaded tax invoices' : ''}. All of them, the dispatch history and the timeline are removed.
+                </span></div>
+              )}
+            </TypeToConfirm>
+          </form>
+        </Modal>
+      )}
+    </div>
   )
 
   // Footer keeps only the order's next step (approve, Ship…); per-batch PI and tax invoice are on the batch rows.
@@ -170,12 +183,26 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       header={<Tracker o={o} lastDispatch={dispatches[0]?.dispatch_date} />}
       footer={<>{left}{actions}</>}
       closeHref={closeHref}
+      onClose={onClose}
     >
-      <div className={`banner ${tone}`}><i className={`ph ${icon}`} /><span>{text}</span></div>
+      <div className={`banner ${tone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <i className={`ph ${icon}`} />
+          <span>{text}</span>
+        </div>
+        {approved && open && readyLines.length === 0 && can(me, 'plant') && o.items.some((it) => balanceOf(it) - readyOf(it) > 0) && (
+          <MarkReadyModal lines={o.items} back={back} label="Mark Ready" btnClass="btn btn-success btn-sm" />
+        )}
+      </div>
 
       <section className="profile-section">
         <h2 className="profile-section-ttl">
           <i className="ph ph-package" />Items and dispatch <span className="badge b-none">{o.items.length}</span>
+          {open && can(me, 'plant') && o.items.some((it) => balanceOf(it) - readyOf(it) > 0) && (
+            <span style={{ marginLeft: 'auto' }}>
+              <MarkReadyModal lines={o.items} back={back} label="Mark Ready" btnClass="btn btn-success btn-sm" />
+            </span>
+          )}
           {editPlant && <span className="ttl-hint">Production changes save straight away.</span>}
         </h2>
         <div className="tbl-wrap">
@@ -223,9 +250,14 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                       ) : <span className="muted">—</span>}
                     </td>
                     <td className="c-st">
-                      <span className={`badge ${isDispatched ? 'b-ok' : Number(it.dispatched_qty) > 0 ? 'b-info' : Number(it.ready_qty) > 0 ? 'b-teal' : 'b-none'}`}>
-                        {isDispatched ? 'Dispatched' : Number(it.dispatched_qty) > 0 ? 'Partial' : Number(it.ready_qty) > 0 ? 'Ready' : 'Not yet'}
-                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span className={`badge ${isDispatched ? 'b-ok' : Number(it.dispatched_qty) > 0 ? 'b-info' : Number(it.ready_qty) > 0 ? 'b-teal' : 'b-none'}`}>
+                          {isDispatched ? 'Dispatched' : Number(it.dispatched_qty) > 0 ? 'Partial' : Number(it.ready_qty) > 0 ? 'Ready' : 'Not yet'}
+                        </span>
+                        {editPlant && !isDispatched && balance - readyOf(it) > 0 && (
+                          <MarkReadyModal lines={[it]} back={back} label={readyOf(it) > 0 ? '+ Ready' : 'Ready'} btnClass="btn btn-ghost btn-sm" />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -297,6 +329,13 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
             </table>
           </div>
         </section>
+      )}
+
+      {historyLoading && !dispatches.length && !events.length && (
+        <div className="muted text-sm" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="link-busy" style={{ display: 'inline-block' }} />
+          <span>Loading dispatch history and timeline…</span>
+        </div>
       )}
 
       {dispatches.length > 0 && (

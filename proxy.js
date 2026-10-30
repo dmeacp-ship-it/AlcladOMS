@@ -36,5 +36,5 @@ export async function proxy(request) {
   return out
 }
 
-// Static files, the app icons and the install manifest (fetched without cookies) skip the check.
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|pwa-icon|.*\\.png$).*)'] }
+// Static files, service worker, the app icons and the install manifest (fetched without cookies) skip the check.
+export const config = { matcher: ['/((?!_next/static|_next/image|sw\\.js|offline\\.html|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|pwa-icon|.*\\.png$).*)'] }

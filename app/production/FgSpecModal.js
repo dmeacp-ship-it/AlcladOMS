@@ -54,7 +54,7 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
   }
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    if (e?.preventDefault) e.preventDefault()
     if (!brand) {
       setError('Please select a Brand.')
       return
@@ -118,7 +118,15 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <div
+        className="modal-form"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'BUTTON' && !pending) {
+            e.preventDefault()
+            handleSubmit(e)
+          }
+        }}
+      >
         <div className="modal-body">
           {error && (
             <div className="banner error shake">
@@ -270,7 +278,8 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
             Cancel
           </button>
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             className="btn btn-primary"
             disabled={pending || !brand || !width || !length || !thickness}
           >
@@ -278,7 +287,7 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
             {pending ? 'Adding…' : 'Add to Production'}
           </button>
         </div>
-      </form>
+      </div>
     </dialog>
   )
 }

@@ -14,7 +14,7 @@ export async function generateMetadata({ searchParams }) {
     const { data } = await db().from('productions').select('dpr_no').eq('id', sp.view).maybeSingle()
     if (data?.dpr_no) return { title: { absolute: data.dpr_no } }
   }
-  return { title: 'Enter Production' }
+  return { title: 'Daily Production Report (DPR)' }
 }
 
 const LIMIT = 200

@@ -1,9 +1,16 @@
 'use client'
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  const origError = console.error
+  console.error = (...args) => {
+    if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag')) return
+    origError.apply(console, args)
+  }
+}
 // Small interactive pieces shared by the server-rendered pages (FMS look & feel).
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from 'react'
 import { createPortal, useFormStatus } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { useLinkStatus } from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import { ROLES, prodLabel, prodStatus } from '@/lib/tas'
 
 // Same breakpoint as the phone layout in globals.css (narrow, or a phone held sideways).
@@ -24,6 +31,36 @@ export function LinkBusy() {
   const { pending } = useLinkStatus()
   useBusy(pending)
   return pending ? <span className="link-busy" aria-hidden="true" /> : null
+}
+
+// Prefetches on hover / touch (150-300 ms head start before click).
+// staleTimes.dynamic: 30 in next.config.mjs keeps the dynamic page ready for 30s.
+export function IntentLink({ href, prefetch = false, onPointerEnter, onTouchStart, children, ...props }) {
+  const router = useRouter()
+  const lastPrefetched = useRef(null)
+  const prefetchOnIntent = () => {
+    if (href && typeof href === 'string' && href.startsWith('/') && lastPrefetched.current !== href) {
+      lastPrefetched.current = href
+      try { router.prefetch(href) } catch {}
+    }
+  }
+  return (
+    <Link
+      href={href}
+      prefetch={prefetch}
+      onPointerEnter={(e) => {
+        prefetchOnIntent()
+        onPointerEnter?.(e)
+      }}
+      onTouchStart={(e) => {
+        prefetchOnIntent()
+        onTouchStart?.(e)
+      }}
+      {...props}
+    >
+      {children}
+    </Link>
+  )
 }
 
 // Plays the dialog's closing animation (shorter than its opening one), then closes it.
@@ -443,11 +480,12 @@ function DialogSkeleton() {
 
 // Whole table row opens the order (FMS tr.clickable); links inside the row still work on their own.
 // The quote number link goes the same way, so the row shows it is opening; Ctrl / ⌘ click still opens a tab.
-export function ClickRow({ href, children }) {
+export function ClickRow({ href, onOpen, children }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   useBusy(pending)
   const open = () => {
+    if (onOpen) return onOpen()
     // Lets the dialog close with Back instead of adding the list to the history a second time.
     try { sessionStorage.dlgFrom = JSON.stringify({ url: location.pathname + location.search, at: Date.now() }) } catch {}
     start(() => router.push(href, { scroll: false }))
@@ -473,7 +511,7 @@ export function ClickRow({ href, children }) {
 // A dialog that is its own URL (?view=…), like the FMS order profile: Esc, backdrop or Close go back to the list.
 // Opened from the list, closing steps Back (no duplicate history entry); opened from a link or after an
 // action inside it, closing replaces the URL with the list.
-export function RouteDialog({ title, icon, header, footer, closeHref, children }) {
+export function RouteDialog({ title, icon, header, footer, closeHref, onClose, children }) {
   const ref = useRef(null)
   const tid = useId()
   const router = useRouter()
@@ -487,11 +525,14 @@ export function RouteDialog({ title, icon, header, footer, closeHref, children }
     try { from = JSON.parse(sessionStorage.dlgFrom || 'null') } catch {}
     back.current = from?.url === closeHref && Date.now() - from.at < 15000 ? history.length : null
   }, [closeHref])
-  const leave = () => start(() => {
-    try { sessionStorage.removeItem('dlgFrom') } catch {}
-    if (back.current === history.length) router.back()
-    else router.replace(closeHref, { scroll: false })
-  })
+  const leave = () => {
+    if (onClose) return onClose()
+    start(() => {
+      try { sessionStorage.removeItem('dlgFrom') } catch {}
+      if (back.current === history.length) router.back()
+      else router.replace(closeHref, { scroll: false })
+    })
+  }
   // Every way of closing ends in the dialog's close event, which updates the URL.
   const close = () => closeAnimated(ref.current)
   useSheetDrag(ref, close)

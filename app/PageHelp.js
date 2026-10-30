@@ -10,6 +10,10 @@ export const HELP = {
     icon: 'ph-truck', text: 'Use this when a supplier’s truck arrives. Goods go into stock only after they are checked.',
     steps: ['Press Receive goods and choose the purchase order', 'Type how much arrived and press Save what arrived', 'Check the goods: type what is rejected and why', 'Press Save check — the rest goes into stock'],
   },
+  bom: {
+    icon: 'ph-receipt', text: 'Parametric recipes and standard raw material consumption per M2 for Aluminum Composite Panels.',
+    steps: ['Select or create a panel recipe (Grade, Thickness, Top & Bottom Skin)', 'Check layer consumption rates per M2 and scrap allowances', 'Use the live calculator or issue materials directly to a production line'],
+  },
   issue: {
     icon: 'ph-arrows-left-right', text: 'Send raw material from the store to a production line.',
     steps: ['Press New issue', 'Choose From store and To line', 'Choose the materials and how much', 'Press Save issue and print the slip for signatures'],

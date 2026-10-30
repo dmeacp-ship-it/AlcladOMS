@@ -1,3 +1,11 @@
+if (process.env.NODE_ENV === 'development') {
+  const origError = console.error
+  console.error = (...args) => {
+    if (typeof args[0] === 'string' && args[0].includes('Encountered a script tag')) return
+    origError.apply(console, args)
+  }
+}
+
 import './globals.css'
 import './icons/phosphor.css' // only the icons in use: npm run icons
 import { redirect } from 'next/navigation'
@@ -39,14 +47,22 @@ export default async function RootLayout({ children }) {
   // with the counts (LINES, migrate-014); until that runs, plant users wait for one more query.
   const signedIn = !!(await sessionUserId())
   // inv: store / production waiting work (badges), started alongside so it adds no round trip; used by admin / manager.
-  const [me, c, usage, inv] = await Promise.all([currentUser(), signedIn ? orderCounts(null) : null, signedIn ? getUsage() : null, signedIn ? invTodo() : null])
+  const mePromise = currentUser()
+  const myWorkPromise = mePromise.then((me) => (me && MY_WORK[me.role] ? myWorkIds(me.role) : null))
+  const [me, c, usage, inv, mineIds] = await Promise.all([
+    mePromise,
+    signedIn ? orderCounts(null) : null,
+    signedIn ? getUsage() : null,
+    signedIn ? invTodo() : null,
+    myWorkPromise,
+  ])
   const lines = me && can(me, 'plant') ? c.LINES ?? await openLineCount() : 0
   let nav = []
   let settings = []
   if (me) {
     // Orders badge = orders waiting on something this user's role does: the My Work list for a single-job role
-    // (ponytail: one more round trip for those users only), every queue added up for admin / manager.
-    const todo = MY_WORK[me.role] ? (await myWorkIds(me.role)).length : [
+    // (run concurrently with counts above), every queue added up for admin / manager.
+    const todo = mineIds ? mineIds.length : [
       can(me, 'plant') ? c.AWAIT_DISPATCH : 0,
       can(me, 'approver') ? c.PENDING : 0,
       can(me, 'accounts') ? c.AWAIT_PI + c.AWAIT_TAX : 0,
@@ -56,24 +72,30 @@ export default async function RootLayout({ children }) {
     // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
     const boss = ['admin', 'manager'].includes(me.role)
     nav = [
-      { section: 'Sales' },
+      { href: '/', label: 'Dashboard', short: 'Home', icon: 'ph-squares-four' },
       { href: '/orders', label: 'Orders', short: 'Orders', icon: 'ph-list-checks', badge: todo },
-      can(me, 'sales') && { href: '/orders/new', label: 'New Quotation', short: 'New Quote', icon: 'ph-file-plus' },
-      // Badge in lines, the unit the Production Floor page counts in.
-      can(me, 'plant') && { href: '/plant', label: 'Production Floor', short: 'Floor', icon: 'ph-factory', badge: lines },
       ...(boss ? [
-        // Factory side in the order the work happens. Pages that belong together share a link and show tabs (PageTabs).
-        { section: 'Buying' },
-        { href: '/inventory/po', label: 'Purchase Orders', icon: 'ph-shopping-cart', badge: me.role === 'admin' ? inv.po : 0, more: true },
-        { href: '/inventory/grn', label: 'Receive & Check', icon: 'ph-truck', badge: inv.grn, more: true },
-        { section: 'Factory' },
-        { href: '/production', label: 'Plan Production', icon: 'ph-calendar-check', badge: inv.toPlan, more: true },
-        { href: '/inventory/issue', label: 'Issue to Line', icon: 'ph-arrows-left-right', more: true },
-        { href: '/production/dpr', label: 'Record Shift', icon: 'ph-gear-six', badge: inv.qc, match: ['/production/qc'], more: true },
-        { href: '/inventory', label: 'Stock', icon: 'ph-warehouse', match: ['/production/fg', '/inventory/adjust'], more: true },
-        { section: 'Reports' },
+        // Flat navigation list: one clean item per major workflow hub
+        { href: '/inventory/po', label: 'Purchasing', short: 'Buying', icon: 'ph-shopping-cart', badge: (me.role === 'admin' ? inv.po : 0) + (inv.grn || 0), match: ['/inventory/grn'], more: true },
+        can(me, 'plant') && {
+          href: '/plant',
+          label: 'Production',
+          short: 'Floor',
+          icon: 'ph-factory',
+          badge: lines + (inv.toPlan || 0) + (inv.qc || 0),
+          match: ['/plant', '/production', '/production/dpr', '/production/qc', '/production/plan'],
+        },
+        {
+          href: '/inventory',
+          label: 'Inventory', short: 'Stock',
+          icon: 'ph-warehouse',
+          match: ['/inventory', '/production/fg', '/inventory/issue', '/inventory/adjust'],
+          more: true,
+        },
         { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', match: ['/production/reports'], more: true },
-      ] : []),
+      ] : [
+        can(me, 'plant') && { href: '/plant', label: 'Production', short: 'Floor', icon: 'ph-factory', badge: lines },
+      ]),
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
     if (me.role === 'admin') settings = [
@@ -93,7 +115,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME }} suppressHydrationWarning />
+        <script id="theme-init" src="/theme-init.js" />
       </head>
       <body>
         {me ? (

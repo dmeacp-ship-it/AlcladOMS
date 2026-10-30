@@ -19,8 +19,8 @@ export default function OrderNeedDialog({ rows, toMake, showAll, quotes, filterH
             Close
           </Link>
           {toMake > 0 && (
-            <Link prefetch={false} href="/production/new" className="btn btn-primary">
-              <i className="ph ph-calendar-plus" />Plan Production
+            <Link prefetch={false} href="/production?new=1" scroll={false} className="btn btn-primary">
+              <i className="ph ph-calendar-plus" />New Plan
             </Link>
           )}
         </>

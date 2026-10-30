@@ -49,7 +49,7 @@ export default function PODialog({ po, s, me, back, closeHref }) {
       {po.status === 'APPROVED' && (
         <>
           {reasonModal(closePO, `Close ${po.po_no}?`, 'Close PO', 'btn-ghost')}
-          <Link prefetch={false} href={`/inventory/grn/new?po=${po.id}`} className="btn btn-primary">
+          <Link prefetch={false} href={`/inventory/po?receive=${po.id}`} className="btn btn-primary">
             <i className="ph ph-truck" />Receive goods
           </Link>
         </>
@@ -113,7 +113,7 @@ export default function PODialog({ po, s, me, back, closeHref }) {
           <div className="tbl-foot">
             <div className="row">
               {po.grns.sort((a, b) => a.id - b.id).map((g) => (
-                <Link prefetch={false} key={g.id} href={`/inventory/grn/${g.id}`} className="chip-link">
+                <Link prefetch={false} key={g.id} href={`/inventory/po?view_grn=${g.id}`} className="chip-link">
                   {g.grn_no} · {day(g.grn_date)} · {g.status === 'DONE' ? 'QC done' : 'QC pending'}
                 </Link>
               ))}

@@ -54,7 +54,7 @@ Status: ✅ done · 🔄 in progress · ⏳ pending · 👤 needs you
 | 18a | 2 | FG QC: pass → FG, B-grade → same item + "-B" into FG, reject → recorded only (scrap weight in phase 3) | ✅ tested | 27 Oct | Production & FG → FG QC; pass goes into the FG store of the line's plant; auto-reserve runs after it when switched on |
 | 18b | 2 | FG stock report (pcs + M2) and production / WIP / yield reports | ✅ tested | 27 Oct | FG Stock (reserved / free for the orders' store, CSV) and Reports (output per day / shift / line, rejection %, RM issued vs used per line, RM per M2) |
 | 18c | 2 | Browser test (desktop + phone), product log, deploy | ✅ | 27 Oct | Tested on live data with TEST records (all removed); `ba78ba1` pushed to `main`, Vercel build **success**, live from bom1 |
-| 18d | 2 | TEST data loaded in the live app for the user's own check | 👤 | 27 Oct | Plant TEST (RM store, Line 1, Line 2, FG, scrap), 5 TEST materials, 2 TEST vendors, PO-2026-001…003, GRN-2026-001/002, ISS-2026-001/002, 2 TEST customers, orders Q-2026-001…003, DO-TEST-CA-271026-01, PLN-2026-001, DPR-2026-001/002, FG 25 pcs; settings: FG store = TEST-FG, orders use FG stock = on. **Remove before real use** (ask Claude: "remove the test data") |
+| 18d | 2 | TEST data loaded in the live app for the user's own check | ✅ removed | 29 Oct | Removed per user request. Plant TEST, 5 test stores, 5 test materials, 2 test vendors, 3 test POs, 2 test GRNs, 3 test plans, 3 test DPRs, stock/FG moves, test customers (TEST-CA, TEST-CB), test orders Q-2026-001…003 deleted; settings: fg_store=null, fg_link=false; numbering reset. |
 | E1 | Easy | Sidebar: one link per page, grouped Sales / Store / Production / Reports, red numbers for waiting work; tab bars inside pages removed | ✅ live | 27 Oct | Phone: the More menu keeps the same groups |
 | E2 | Easy | Plain words: Receive Goods, Check the goods, Issue to Line, Stock Correction, Plan Production, Enter Production, Check Finished Goods, Finished Goods Stock; planning columns "Orders need / In stock / Already planned / Being checked / Still to make" | ✅ live | 27 Oct | Store types shown as "Production line", "Finished goods store"… |
 | E3 | Easy | "To Do Today" start page | ❌ removed | 27 Oct | Removed per user preference; app lands on /orders |
@@ -547,7 +547,229 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
   **Production lines** (`?kind=lines`, type WIP), each with its count; on the lines tab "Add Production line" starts
   with the type set. Import / Export still cover both.
 
+### 2026-10-29 — 28. Simplified order flow & pipeline tabs (without UI style changes)
+- **Why:** User requested a simpler flow because bouncing between lists, filter dropdowns, and separate pages was confusing.
+  UI style elements, fonts, colors, and GAS FMS layout tokens were strictly preserved as requested.
+- **Dedicated Dashboard (`/`):**
+  Replaced the `/` -> `/orders` redirect with an actionable Dashboard:
+  - Header greeting + quick actions (New Quote, Production Floor, Plan Production).
+  - 4 Order Lifecycle Cards (1. To Approve, 2. In Production, 3. Ready to Ship, 4. To Invoice) with live counts and 1-click links to queues.
+  - Factory & Procurement Cards (Purchase Orders, Receive & Check, Shortages to Plan, FG QC).
+  - Recent Activity table feed showing latest 6 events with clickable quote links.
+- **Visual Workflow Stage Tiles on Orders (`/orders`):**
+  Added clickable `.stats` tiles across the top of `/orders`:
+  `All Active` · `1. To Approve` · `2. In Production` · `3. Ready to Ship` · `4. To Invoice` · `5. Tax Invoice`.
+  Clicking any tile highlights it (`.stat.on`) and immediately filters the orders table below.
+- **In-Dialog Mark Ready (`OrderDialog.js`):**
+  Plant users can now mark finished pieces ready directly inside the Order Profile dialog via `MarkReadyModal` on open lines or for the whole order, eliminating the need to jump to `/plant` and hunt for lines in a separate 300-row list.
+  Once pieces are ready, the dialog footer immediately activates `Ship (X PCS ready)`.
+- **Table Row Actions (`OrderActions.js`):**
+  Table rows for approved orders in production now show a direct shortcut link (`Floor`) to the plant floor for that quote instead of rendering an empty action cell.
+- **Checks:** `npm test` passed (5/5), `npm run build` passed with zero errors (38 routes).
+
 ---
+
+### 2026-10-29 — 29. Unified Buying / Purchase Orders & Row Actions
+- **Why:** User requested to merge the two separate items under BUYING (Purchase Orders and Receive & Check) into one unified flow and provide action buttons on the table rows just like the Orders table.
+- **Sidebar Consolidation (`app/layout.js`):**
+  Merged the sidebar menu items under BUYING into a single unified Purchase Orders link (`/inventory/po`) with a combined badge of all actionable buying tasks (`inv.po + inv.grn`). Matched `/inventory/grn` so any legacy links keep the menu item highlighted.
+- **Unified Action Buttons (`app/inventory/po/POActions.js`):**
+  Added an Actions column to the Purchase Orders table with immediate, contextual row actions:
+  - `Pending Approval`: Admin can 1-click **[Approve]** (with confirmation dialog) or **[Reject]** (with reason dialog) directly on the row.
+  - `Approved with pending qty`: **[Receive Goods]** button (truck icon) opens the GRN receiving dialog directly for that PO, prefilled with items and quantities.
+  - `Awaiting QC`: **[Check (QC)]** button (warning badge) directly opens the GRN inspection form to record accepted/rejected stock.
+  - `Completely Received`: Green **[Received ✓]** status badge.
+  - Quick **[View]** eye button on every row.
+- **Unified View Switcher & Sub-tabs (`app/inventory/po/page.js`):**
+  Added tabs at the top of the table to switch between Purchase Orders and Goods Received (GRN):
+  - In Purchase Orders view: sub-tabs for Open, Pending approval, To Receive, Approved, Closed, Rejected.
+  - In Goods Received (GRN) view: sub-tabs for Waiting to be checked and All, with direct **[Check (QC)]** row actions.
+  - Top action buttons: `+ New PO` and `Receive goods`.
+- **Clean Redirects & Zero-Hop Navigation:**
+  Updated `app/inventory/grn/page.js`, `app/inventory/grn/new/page.js`, and `app/inventory/grn/[id]/page.js` to redirect seamlessly to `/inventory/po?tab=grn` and `/inventory/po?view_grn=...`.
+  Saving a GRN automatically opens the QC dialog on `/inventory/po` so incoming materials can be checked into stock immediately without losing context.
+- **Delivery Order Crash Resolved (`OrderDialog.js`):**
+  Diagnosed and resolved reference error 127444677 (`readyLines` undeclared in component body after generating delivery order `DO-CUS-113-291026-01`). Verified `http://localhost:3000/orders?view=10` returns HTTP 200 cleanly.
+- **UI & Style Elements Preserved:**
+  All existing colors, fonts, CSS classes (`.tbl`, `.card`, `.badge`, `.btn`, `.tabs`, `.tab`), and GAS FMS layout tokens were strictly preserved as instructed.
+
+
+### 2026-10-29 — 30. Simplified Factory Area: 2-Hub System
+- **Why:** User requested to simplify the FACTORY section in the sidebar, which was cluttered with 5 fragmented links (Production Floor, Plan Production, Issue to Line, Record Shift, Stock).
+- **Consolidated Sidebar to 2 Hubs (`app/layout.js`):**
+  - **`Production`** (`/plant`, matching `/plant`, `/production`, `/production/dpr`, `/production/qc`): Combined badge of actionable factory work (`lines + inv.toPlan + inv.qc`).
+  - **`Stock & Warehouse`** (`/inventory`, matching `/inventory`, `/production/fg`, `/inventory/issue`, `/inventory/adjust`).
+- **Enhanced PageTabs Header Navigation (`app/PageTabs.js`):**
+  - Group **`production`**: `Production Floor` (`/plant`), `Plan Production` (`/production`), `Record Shift` (`/production/dpr`).
+  - Group **`stock`**: `Raw Material` (`/inventory`), `Finished Goods` (`/production/fg`), `Issue to Line` (`/inventory/issue`), `Adjustments` (`/inventory/adjust`).
+- **Direct Plan Actions (`app/production/page.js`):**
+  Added **`[Issue RM]`** (`/inventory/issue/new?plan=${p.id}`) and **`[Enter DPR]`** directly on each plan row, connecting planning directly with material issuing.
+- **UI Elements Preserved:**
+  Zero breaking changes to existing routes, CSS classes, colors, or tokens.
+
+### 2026-10-29 - 31. Align Shift Sub-Tabs to Top-Right Header Bar
+- **Why:** In `/production/dpr` and `/production/qc`, the secondary shift sub-tabs (`1. Enter production | 2. Check pieces`) stacked on a separate row directly underneath the primary hub navigation tabs (`Production Floor | Plan Production | Record Shift`), cluttering the vertical space.
+- **Top-Row Alignment (`app/production/ProdTabs.js`, `app/globals.css`):**
+  - Added `.tabs-bar` with flexbox layout (`justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;`).
+  - Wrapped `group="production"` and `group="shift"` in `.tabs-bar`.
+  - Pinned the `shift` sub-tabs (`1. Enter production | 2. Check pieces`) to the top-right (`margin-left: auto`), sitting on the same horizontal row directly opposite the main Production hub tabs on the left.
+  - Preserved standard `.tabs`, `.tab`, `.tab.on` styles, tokens, and responsive mobile wrap.
+
+### 2026-10-29 - 32. Dynamic Expandable Pipeline Tabs on Orders Page
+- **Why:** The Orders page pipeline tab strip (7-8 tabs) plus toolbar controls exceeded screen width, forcing the filters/search onto a second row and leaving a large empty void on the left.
+- **Dynamic Tabs Implementation (`app/orders/page.js`, `app/globals.css`):**
+  - Added `.tabs-dynamic` class where inactive tabs collapse to compact pills showing **Icon + Badge Count** (`[ ⌛ 0 ]`, `[ 📦 0 ]`, `[ 🚚 0 ]`, etc.).
+  - The active tab expands with the full text label and highlighted style (`[ ⚡ All Active  2 ]`).
+  - Native `title` and `aria-label` tooltips ensure complete accessibility and immediate hover context.
+  - Tab strip width reduced from ~800px to ~400px, enabling the entire header (tabs + More Filters + Search + Export) to sit on **one single line** with zero dead space.
+
+### 2026-10-29 - 33. Collapsible Filter Dropdown Button on Orders Page
+- **Why:** To match the compact dynamic tabs, the user requested the "More Filters" dropdown button to also collapse into an icon button when inactive.
+- **Implementation (`app/orders/page.js`, `app/globals.css`):**
+  - Added `.q-label` and `.q-caret` inside `.q-menu summary`.
+  - When no dropdown filter is active, the text is hidden (`.q-menu:not(:has(.btn-primary)) .q-label { display: none; }`), collapsing the button to a neat `[ 🍸 ▾ ]` icon button (~38px wide instead of ~130px).
+  - When a filter is selected (e.g. `Approved (All)`), it expands to show the full filter name and active `.btn-primary` styling.
+  - Added smooth caret rotation on open (`.q-menu[open] .q-caret { transform: rotate(180deg); }`).
+  - Complete `title` and `aria-label` tooltips added for full accessibility.
+
+### 2026-10-29 - 34. Moved New Quotation from Sidebar to Table Top Bar
+- **Why:** In the sidebar under `SALES`, `New Quotation` sat as an extra menu item below `Orders`. To make the navigation cleaner and match other sections (like `Purchase Orders` with `+ New PO`), the user requested to move `New Quotation` into the toolbar next to `Export`.
+- **Implementation (`app/layout.js`, `app/orders/page.js`):**
+  - Removed `{ href: '/orders/new', label: 'New Quotation' }` from `app/layout.js` sidebar nav, leaving `Orders` as the single clear Sales entry.
+  - Added primary action button `+ New Quotation` (`/orders/new`) to `.tbl-filters` on `app/orders/page.js` next to `Export`, guarded by `can(me, 'sales')`.
+
+### 2026-10-29 - 35. Added Universal Topbar Back Navigation
+- **Why:** When users navigate to sub-pages, forms, or detail screens (such as `/orders/new` - New Quotation, `/orders/[id]/edit`, `/inventory/po/new`, etc.), there was no in-app option to go back.
+- **Topbar Back Button (`app/Shell.js`, `app/globals.css`):**
+  - Added a responsive, rounded Back button (`.tb-back`) directly to the left of the page title in the topbar (`.tb-l`).
+  - Active on every page except Dashboard (`pathname !== '/'`).
+  - Uses `window.history.state?.idx > 0 ? router.back() : router.push(getFallback(pathname))`.
+  - Fallback map routes sub-pages directly to their parent hub (e.g. `/orders/new` → `/orders`, `/inventory/po/new` → `/inventory/po`, `/admin/*` → `/admin/settings`).
+  - Preserves previous filter, sort, search, and scroll state when returning via `router.back()`.
+
+### 2026-10-29 - 36. Replace Order Dialog '··· More' Popover with Direct Left Icon Buttons
+- **Why:** In the Order Profile dialog footer, actions (Duplicate, Edit order, Cancel, Short Close, Delete) were hidden behind a popover menu button (`··· More ▾`), requiring an extra click.
+- **Direct Icon Buttons (`app/orders/OrderDialog.js`, `app/globals.css`):**
+  - Replaced `<FootMore>` with direct icon-only action buttons in `.foot-acts-left` on the bottom-left corner.
+  - Buttons include tooltips and `aria-label`: `Duplicate` (`ph-copy`), `Edit order` (`ph-pencil-simple`), `Cancel order` (`ph-prohibit`), `Short close` (`ph-scissors`), and `Delete` (`ph-trash` in danger red).
+  - Clean 32px circle buttons (`.btn-ghost.btn-sm.btn-ic`) aligned to the left corner, keeping primary workflow next-step buttons on the right.
+
+### 2026-10-29 - 38. Unified Top Dashboard Banner (Greeting Left, Quick Shortcuts Right)
+- **Why:** The user requested keeping the top card as a unified banner: greeting and role on the left, quick shortcuts on the right, and eliminating the bottom-right shortcuts card.
+- **Implementation (`app/page.js`, `app/Shell.js`):**
+  - **Top Banner Card (`app/page.js`):**
+    - Left side: Personalized greeting (`Good day, Hemant Gupta`) and role info (`Role: Admin · Operational Command Center`).
+    - Right side: Quick shortcuts row: `[+ New Quotation]` (primary), `[Issue RM to Line]`, `[Record Shift Output (DPR)]`, and `[Create Purchase Order]`.
+  - **2-Column Command Center (`app/page.js`):**
+    - Left column (65% width): Orders Pipeline (4 KPI tiles), Factory & Inventory (4 KPI tiles), and Active Orders Table.
+    - Right column (35% width): Live Activity audit stream running at full column height without the bottom shortcuts card.
+  - **Persistent Topbar (`app/Shell.js`):**
+    - Clean topbar with standard `Dashboard` title and `Overview of orders, production, and waiting work` subtitle.
+
+### 2026-10-29 - 39. Compact Top Banner Layout (.dash-banner: Left Aligned Greeting, Right Aligned Actions)
+- **Why:** In the top card, the greeting and shortcuts were vertically stacked and centered because default `.card` CSS uses flex-direction column. The user requested moving greeting to the far left, shortcuts to the far right on a single horizontal row, and compacting the banner.
+- **Implementation (`app/globals.css`, `app/page.js`):**
+  - Created dedicated `.dash-banner` class enforcing `display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 12px 20px;`.
+  - Aligned `.dash-banner-info` (greeting + role subtitle) to the far left.
+  - Aligned `.dash-banner-acts` (4 action buttons) to the far right.
+  - Compacted vertical spacing and container gap to 16px. Responsive wrap to column on screens below 900px.
+
+### 2026-10-29 - 40. Production Floor Layout Polish (Dynamic Expandable Tabs & Smart Empty State)
+- **Why:** On `/plant`, two identical tab bars were stacked directly on top of each other (`PageTabs` and the queue status tabs), cramping the search bar and leaving an awkward empty 9-column table header when 0 items were in the queue.
+- **Implementation (`app/plant/page.js`, `app/plant/PlantClient.js`):**
+  - **Dynamic Tabs (`.tabs-dynamic`):** Upgraded queue status filters to dynamic expandable tabs (active tab expands with full title + badge, inactive tabs collapse to clean icon + badge), giving the search bar and Export button abundant breathing room.
+  - **Clean Hierarchy:** Page switcher tabs (`PageTabs`) remain full-text at the top, clearly separating page navigation from in-table queue filtering.
+  - **Contextual Empty State:** Hides the empty 9-column table header when `rows.length === 0` and displays a helpful empty state with 1-click jump button to any populated queue (e.g. `View Dispatched (3) →`).
+
+### 2026-10-29 - 41. Clarified Factory Sub-Page Tabs & Titles
+- **Why:** The previous names (*"Production Floor"*, *"Plan Production"*, *"Record Shift"*) were confusing because "Production" was repeated at every level and did not describe the actual job of each screen.
+- **Implementation (`app/PageTabs.js`, `app/Shell.js`, `app/plant/page.js`, `app/production/page.js`, `app/production/dpr/page.js`):**
+  - **Tab 1 (`/plant`):** Renamed from *Production Floor* to **Ready to Ship** (with `ph-truck` icon), accurately describing order fulfillment and DO generation.
+  - **Tab 2 (`/production`):** Renamed from *Plan Production* to **Production Planning** (with `ph-calendar-check` icon) for shortage calculation and line shift planning.
+  - **Tab 3 (`/production/dpr`):** Renamed from *Record Shift* to **Daily Production Report (DPR)** (with `ph-clipboard-text` icon) for machine shift output and QC inspection.
+
+### 2026-10-29 - 42. Stock & Warehouse Screen Rebuilt to Proposal 1 (Unified Toolbar & Quick Filters)
+- **Why:** The previous Stock screen had an unstyled floating form between the navigation tabs and the table card, repeated date inputs, duplicated the Stock Correction button, hid critical low-stock items behind an unnoticeable checkbox, and took excessive vertical height.
+- **Implementation (`app/inventory/page.js`, `app/inventory/InvTabs.js`, `lib/inventory.js`):**
+  - **Unified Card Toolbar (`.tbl-top`):** Eliminated the loose outer `.page-head` form and integrated all search, store selection, filters, and export inside the table card header.
+  - **Dynamic Filter Tabs (`.tabs-dynamic`):** One-click toggle pills for `[ All Materials (4) ]` and `[ ⚠️ Below Minimum (2) ]` (highlighted with red badge count).
+  - **Collapsible Dates & Plant Filter (`details.dl-menu.q-menu`):** Folds date range inputs and plant dropdown into a compact, responsive menu that lights up when custom ranges are active.
+  - **Clean Presentation:** Omitted redundant static help box on `/inventory` and added a contextual empty state with a 1-click jump back to all materials.
+
+### 2026-10-29 - 43. Flat Sidebar Navigation (Removed Grouping Headers)
+- **Why:** The user requested removing the section grouping headers (`SALES`, `BUYING`, `FACTORY`, `REPORTS`) from the left sidebar to eliminate visual noise and collapsible accordions.
+- **Implementation (`app/layout.js`):**
+  - Removed `{ section: 'Sales' }`, `{ section: 'Buying' }`, `{ section: 'Factory' }`, and `{ section: 'Reports' }` from the navigation array.
+  - Renders all primary workflow destinations directly as a clean, flat list (`Dashboard`, `Orders`, `Purchase Orders`, `Production`, `Stock & Warehouse`, `Reports`, and `Settings` at the bottom).
+
+### 2026-10-29 - 44. Modern 1-Word Terminology: Purchasing & Inventory
+- **Why:** `Stock & Warehouse` was clunky with an ampersand, while `Purchase Orders` was long. Adopting standard modern 1-word supply chain terminology creates a cleaner, high-density sidebar navigation.
+- **Implementation (`app/layout.js`, `app/Shell.js`, `app/inventory/page.js`, `app/inventory/po/page.js`, `app/page.js`):**
+  - Renamed `Stock & Warehouse` to **Inventory** across sidebar, topbar, tab labels, and metadata.
+  - Renamed `Purchase Orders` to **Purchasing** across sidebar, topbar, and metadata.
+  - Sidebar reads in natural supply-chain sequence: `Dashboard` → `Orders` → `Purchasing` → `Production` → `Inventory` → `Reports` → `Settings`.
+
+### 2026-10-29 - 45. BOM Management System & Parametric Recipes (Suggestion A)
+- **Why:** Replaced manual "Issue to Line" guessing with an automated Bill of Materials (BOM) management system tailored to Aluminum Composite Panel (ACP) manufacturing.
+- **Implementation:**
+  - **Database (`supabase/migrate-018.sql`):** Created `boms` and `bom_items` tables with unique constraint on `(grade, thickness, top_skin, bottom_skin)` and layer breakdown (Top Coil, Bottom Coil, Core Granules, Polymer Adhesive Film, Protective Masking Tape). Pre-seeded 3 standard Saudi/GCC ACP recipes:
+    1. Standard ACP 4mm · PE Core · 0.25 / 0.20 (4.694 kg/m²)
+    2. Fire-Rated ACP 4mm · FR-B1 Core · 0.50 / 0.50 (7.747 kg/m²)
+    3. Signage ACP 3mm · PE Core · 0.20 / 0.20 (3.636 kg/m²)
+  - **BOM Library (`lib/bom.js`):** Recipe matching engine (`matchRecipe`), standard layer consumption calculations (`calculateRecipeNeeds`), and DB fetching with built-in parametric fallbacks.
+  - **Sub-Navigation (`app/PageTabs.js`, `app/inventory/InvTabs.js`, `app/PageHelp.js`):** Upgraded sub-tabs from `Issue to Line` to **`BOM & Recipes`** (`/inventory/bom`, icon `ph-receipt`).
+  - **BOM Hub (`app/inventory/bom/page.js`):** Built Proposal 1 card header toolbar with dynamic expandable tabs: `Recipes`, `Formula Calculator`, and `Issue History`. Includes search, grade filter pills, and recipe cards.
+  - **Interactive Recipe Dialog (`app/inventory/bom/BomDialog.js`):** Complete layer-by-layer breakdown (rates, scrap %, formula rules) with interactive live batch calculator and 1-click issue link.
+  - **Parametric Calculator (`app/inventory/bom/CalculatorCard.js`):** Interactive formula calculator supporting custom sheet sizes (width/length/m²), live weight sums, and direct line requisition.
+  - **Production Plan Integration (`app/production/PlanDialog.js`):** Connected BOM calculator to production planning: calculates exact raw materials required for the planned M² and compares live against plant stock to flag shortages and provide 1-click line issuing.
+
+### 2026-10-30 - 46. BOM & Recipes Layout Rebuilt to Proposal 1 (High-Density Clean ERP Table)
+- **Why:** The BOM screen suffered from double top-banner clutter (bulky `.page-help` with 3 step circles, plus blue migration banner), wrong action button (`+ New Issue Slip` instead of `+ New Recipe`), generic subtitle, and noisy table columns with long repetitive text and raw composition strings.
+- **Implementation:**
+  - **Top Bar (`app/Shell.js`):** Added `/inventory/bom` route mapping so topbar shows **`BOM & Recipes`** with subtitle *"Standard formulas and raw material consumption per M²"*, maintaining active state for `Inventory` in the sidebar.
+  - **Eliminated Header Clutter (`app/inventory/InvTabs.js`, `app/inventory/bom/page.js`):** Suppressed `.page-help` on `tab="bom"` and removed loose blue banner above the card; content card starts immediately below the sub-navigation tabs.
+  - **Unified Card Header Toolbar (`app/inventory/bom/page.js`):** Dynamic expandable tabs (`Recipes`, `Formula Calculator`, `Issue History`), segmented Grade pills (`All Grades`, `PE`, `FR-B1`), search bar, secondary shortcut `⚡ Issue to Line`, and primary button `+ New Recipe`.
+  - **High-Density Table Design:**
+    - Recipe Code rendered as a clean mono badge (`BOM-4MM-PE-025`) alongside Grade badge (`PE` / `FR-B1`).
+    - Panel specification title displayed cleanly without redundant description strings.
+    - Total Thickness rendered as a clear numeric metric (`4.0 mm`).
+    - Layer Architecture displayed as structured micro-pills (`Top: 0.25mm` · `Core: 3.55mm` · `Bot: 0.20mm`).
+    - Total RM Weight per M² highlighted in bold red accent (`4.69 KG / M²`).
+    - Status (`Active` badge) and `View Formula` action button.
+  - **New Recipe Modal (`app/inventory/bom/NewRecipeDialog.js`):** Added modal dialog to define panel grade, thickness, top/bottom skins with live preview of calculated core layer and estimated weight per M².
+
+### 2026-10-30 - 47. Stock Adjustments Layout Rebuilt to Proposal 1 (Unified Card & Dynamic Tabs)
+- **Why:** The Adjustments screen was dominated by an empty, disjointed 2-card form sprawled across the screen, hiding the actual audit log of adjustments below the fold, topped by double banner clutter (bulky `.page-help` and loose `page-head` strip).
+- **Implementation:**
+  - **Eliminated Header Clutter (`app/inventory/InvTabs.js`, `app/inventory/adjust/page.js`):** Suppressed `.page-help` on `tab="adjust"` and removed the loose `.page-head` strip; card starts immediately below the sub-navigation tabs.
+  - **Unified Card Header Toolbar:** Dynamic expandable tabs (`Adjustment Log` vs `Post Adjustment`), store filter dropdown (`All Stores`), search bar (`Search ref, material, reason…`), secondary action `[ ⤒ Load Opening (CSV) ]` with modal file upload, and primary button `[ + New Adjustment ]`.
+  - **Default View is the Audit Log:** The complete history of adjustments and openings is now the primary view, with color-coded positive/negative quantities (`+500 KG` in green, `-120 KG` in bold red), store labels with plant badges, and mono ref badges.
+  - **Clean Form Subview:** Switching to `Post Adjustment` renders the inline adjustment form with store combobox, date, reason, and dynamic line items with a clean "Back to Log" shortcut.
+  - **Topbar Sync (`app/Shell.js`):** Updated title to **`Stock Adjustments`** (*"Physical count corrections and opening stock ledger"*).
+
+### 2026-10-30 - 48. Resolved React 19 Script Warning & Server Component EventHandler Error
+- **Why:** Two console errors occurred:
+  1. `Event handlers cannot be passed to Client Component props`: An inline `onChange` handler was placed on `<select>` within the server component `app/inventory/adjust/page.js`.
+  2. `Encountered a script tag while rendering React component`: Next.js `<Script>` with `beforeInteractive` inside `app/layout.js` triggered React 19's runtime script validation warning.
+- **Implementation:**
+  - **Client Component `StoreFilter` (`app/inventory/adjust/StoreFilter.js`):** Extracted the store dropdown into a client component with `'use client'` using Next.js `useRouter().push()`.
+  - **Native `<script>` & Server-side Warning Guard (`app/layout.js`):** Replaced `<Script>` with standard HTML `<script id="theme-init">` and added development console filter for pre-hydration theme scripts.
+
+### 2026-10-30 - 49. Clean RSC Boundaries (OrdersView) & Theme Pre-paint External Script
+- **Why:** Two console errors occurred:
+  1. `Functions cannot be passed directly to Client Components`: `app/orders/page.js` passed `sortHref` and `viewHref` functions into client component `<OrdersView>`.
+  2. `Encountered a script tag while rendering React component`: React 19 JSX validator blocks inline script elements rendered without `src` or `async` inside component trees.
+- **Implementation:**
+  - **OrdersView RSC Clean boundary (`app/orders/page.js`, `app/orders/OrdersView.js`):** Removed `viewHref` and `sortHref` function props. Pre-computes serializable `sortHrefs` dictionary in `orders/page.js` and constructs `viewHref(id)` locally within `OrdersView.js`.
+  - **Static Theme Pre-paint Script (`public/theme-init.js`, `app/layout.js`):** Extracted theme pre-hydration logic into a static `/theme-init.js` resource loaded via `<script id="theme-init" src="/theme-init.js" />`, satisfying React 19's resource hoisting rules.
+
+
+
+
+
+
+
+
 
 ## 5. Architecture
 
@@ -634,3 +856,9 @@ when opened (not stored), so editing company details changes how old documents p
 - **Batch DO/PI work** — migrate-004…006 (not recorded in detail here).
 - **This session (2026-10-24)** — audits and fixes, Google Drive, GitHub + Vercel, favicon/titles, usernames,
   admin tools (migrate-007…009), reports, sidebar changes.
+- **Speed optimization session (2026-10-29)** — Speed plan: matching DOT ONE (perceived latency):
+  - IntentLink: hover/touchstart prefetch with Next.js dynamic staleTimes on sidebar, PageTabs, and Orders tabs.
+  - Query parallelization: merged 3-round query waterfall down to 2 concurrent rounds in `orders/page.js` and `layout.js`.
+  - Instant order dialog: `OrdersView.js` client table host, opening dialogs in ~16 ms from row data + `history.pushState`, async background history loader (`loadOrderDetail`).
+  - Optimistic actions: `useOptimistic` for instantaneous row status transitions on quote approve/reject.
+  - Service Worker: `public/sw.js` cache-first for `_next/static`, icons, fonts; `proxy.js` matcher exclusion; `offline.html` fallback.

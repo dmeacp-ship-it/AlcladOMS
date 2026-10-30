@@ -8,7 +8,7 @@ import { FileDrop, Modal, ModalFoot } from '../ui'
 // Each button shows only to the roles the server lets press it.
 // A client component: each dialog is built in the browser when it opens, so a list of 100 orders sends their
 // data once instead of every row's dialogs as well. me: just { role }.
-export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog }) {
+export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog, onAction }) {
   const approved = o.status === 'APPROVED'
   const size = sm ? ' btn-sm' : ''
   const t = totals(o.items, o.transport, o.vat_rate)
@@ -31,7 +31,10 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
       {o.status === 'PENDING' && can(me, 'approver') && (
         <>
           <Modal title={`Reject ${o.quote_no}`} icon="ph-x-circle" label="Reject" btnIcon="ph-x-circle" btnClass={`btn btn-danger${size}`} size="small">
-            <form action={decide}>
+            <form action={async (fd) => {
+              onAction?.(o.id, 'REJECT')
+              await decide(fd)
+            }}>
               {Hidden}
               <input type="hidden" name="decision" value="reject" />
               <div className="modal-body">
@@ -44,12 +47,15 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
             </form>
           </Modal>
           <Modal title={`Approve ${o.quote_no}`} icon="ph-seal-check" label="Approve" btnIcon="ph-check-circle" btnClass={`btn btn-success${size}`} size="small">
-            <form action={decide}>
+            <form action={async (fd) => {
+              onAction?.(o.id, 'APPROVE')
+              await decide(fd)
+            }}>
               {Hidden}
               <input type="hidden" name="decision" value="approve" />
               <div className="modal-body">
                 <p>Approve the quotation for <b><bdi>{o.customer_name}</bdi></b> worth <b>SAR {money(t.total)}</b> (incl. VAT)?</p>
-                <p>The order then appears in Production Floor, where the plant marks finished pieces ready to ship.</p>
+                <p>The order then appears in Ready to Ship, where the plant marks finished pieces ready to ship.</p>
               </div>
               <ModalFoot label="Approve" icon="ph-check-circle" cls="btn-success" />
             </form>
@@ -58,9 +64,9 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog })
       )}
 
       {/* Approved but nothing is marked ready yet: link directly to Production Floor */}
-      {approved && !sm && dispatchOpen(o) && readyLines.length === 0 && can(me, 'plant') && (
-        <Link prefetch={false} href="/plant" className={`btn btn-ghost${size}`} title="Go to Production Floor to mark finished pieces ready">
-          <i className="ph ph-factory" />Production Floor
+      {approved && dispatchOpen(o) && readyLines.length === 0 && can(me, 'plant') && (
+        <Link prefetch={false} href={`/plant?q=${o.quote_no}`} className={`btn btn-ghost${size}`} title="Go to Ready to Ship to mark finished pieces ready">
+          <i className="ph ph-truck" />{sm ? 'Ready' : 'Ready to Ship'}
         </Link>
       )}
 

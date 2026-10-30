@@ -9,7 +9,15 @@ import { ShipAction } from '../orders/OrderActions'
 
 // Plant lines: tick lines (from one order or several) and mark them ready together, or one at a time; ship ready lines
 // (one order per Delivery Order) without going to Orders.
-export default function PlantClient({ rows, isOpen, here }) {
+const TAB_NAMES = {
+  open: 'Open',
+  ready: 'Ready',
+  pending: 'Pending',
+  partial: 'Partial',
+  done: 'Dispatched',
+}
+
+export default function PlantClient({ rows, isOpen, here, tab = 'open', counts = {} }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
   // Lines that can still take ready pieces.
@@ -35,6 +43,7 @@ export default function PlantClient({ rows, isOpen, here }) {
   for (const r of rows || []) if (isShippable(r)) (readyByOrder[r.order_id] ??= []).push(r)
   const selReady = selectedRows.filter(isShippable)
   const selReadyOrders = new Set(selReady.map((r) => r.order_id)).size
+  const otherPopulated = Object.entries(counts).find(([k, cnt]) => k !== tab && cnt > 0)
 
   return (
     <>
@@ -55,25 +64,26 @@ export default function PlantClient({ rows, isOpen, here }) {
       )}
 
       <div className="tbl-wrap">
-        <table className="tbl plant-tbl">
-          <thead>
-            <tr>
-              {isOpen && (
-                <th className="c-sel">
-                  <input type="checkbox" aria-label="Select every line that can be marked ready" checked={allOn} onChange={toggleAll} disabled={!openRows.length} />
-                </th>
-              )}
-              <th>Quote No</th>
-              <th>Customer</th>
-              <th>Material</th>
-              <th className="r">Balance</th>
-              <th className="r">Ready</th>
-              <th>Production</th>
-              <th>Dispatch</th>
-              <th className="r c-act-h">Action</th>
-            </tr>
-          </thead>
-          <tbody>
+        {rows?.length > 0 ? (
+          <table className="tbl plant-tbl">
+            <thead>
+              <tr>
+                {isOpen && (
+                  <th className="c-sel">
+                    <input type="checkbox" aria-label="Select every line that can be marked ready" checked={allOn} onChange={toggleAll} disabled={!openRows.length} />
+                  </th>
+                )}
+                <th className="c-q">Quote No</th>
+                <th className="c-cust">Customer</th>
+                <th className="c-desc">Material</th>
+                <th className="r c-bal">Balance</th>
+                <th className="r c-ready">Ready</th>
+                <th className="c-plant">Production</th>
+                <th className="c-st">Dispatch</th>
+                <th className="r c-act">Action</th>
+              </tr>
+            </thead>
+            <tbody>
             {rows?.map((it) => {
               const o = it.orders
               const bal = balanceOf(it)
@@ -115,8 +125,8 @@ export default function PlantClient({ rows, isOpen, here }) {
                   <td className="nowrap c-q">
                     <Link prefetch={false} href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
                   </td>
-                  <td className="fw6 c-cust">
-                    <bdi>{o?.customer_name}</bdi>
+                  <td className="c-cust">
+                    <bdi className="cust-name">{o?.customer_name}</bdi>
                   </td>
                   <td className="c-desc">
                     <span className="mat-name">{it.description}</span>
@@ -162,12 +172,25 @@ export default function PlantClient({ rows, isOpen, here }) {
               )
             })}
           </tbody>
-        </table>
-        {!rows?.length && (
-          <div className="empty">
-            <i className="ph ph-factory" />
-            <h3>No lines here</h3>
-            <p>{isOpen ? 'Nothing is waiting for the plant right now.' : 'Nothing has been dispatched yet.'}</p>
+          </table>
+        ) : (
+          <div className="empty" style={{ padding: '52px 20px', textAlign: 'center' }}>
+            <i className="ph ph-factory" style={{ fontSize: '2.5rem', color: 'var(--muted)', marginBottom: 10, display: 'inline-block' }} />
+            <h3 style={{ margin: '0 0 6px', fontSize: '1.0625rem', fontWeight: 700 }}>
+              No lines in {TAB_NAMES[tab] || 'this queue'}
+            </h3>
+            <p className="muted text-sm" style={{ margin: '0 auto 16px', maxWidth: 420 }}>
+              {otherPopulated ? (
+                <>All lines in this queue are clear. <strong>{otherPopulated[1]}</strong> {otherPopulated[1] === 1 ? 'line is' : 'lines are'} currently in <strong>{TAB_NAMES[otherPopulated[0]]}</strong>.</>
+              ) : (
+                <>{isOpen ? 'Nothing is waiting for the plant right now.' : 'Nothing has been dispatched yet.'}</>
+              )}
+            </p>
+            {otherPopulated && (
+              <Link prefetch={false} href={`/plant?tab=${otherPopulated[0]}`} className="btn btn-ghost btn-sm">
+                View {TAB_NAMES[otherPopulated[0]]} ({otherPopulated[1]}) →
+              </Link>
+            )}
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { storeLabel } from '@/lib/inventory'
 import { SHIFTS } from '@/lib/production'
+import { DEFAULT_BOMS, calculateRecipeNeeds, matchRecipe } from '@/lib/bom'
 import { day, dmy, money, qty } from '@/lib/tas'
 import { PrintButton, RouteDialog } from '../ui'
 import Slip from '../inventory/Slip'
@@ -11,6 +12,38 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
 
   const totalPlannedPcs = plan.items.reduce((n, i) => n + Number(i.qty || 0), 0)
   const totalProducedPcs = plan.items.reduce((n, i) => n + Number(i.produced_qty || 0), 0)
+
+  // Calculate BOM requirements for the plan
+  const bomReqMap = {}
+  for (const item of (plan.items || [])) {
+    const itemM2 = Number(item.qty || 0) * Number(item.f?.m2_per_pc || 0)
+    if (itemM2 > 0) {
+      const recipe = matchRecipe(DEFAULT_BOMS, {
+        grade: item.f?.grade,
+        thickness: item.f?.thickness,
+        topSkin: item.f?.skin,
+        bottomSkin: 0.20,
+      })
+      if (recipe) {
+        const needs = calculateRecipeNeeds(recipe, itemM2)
+        for (const need of needs) {
+          const key = need.mat_code !== '—' ? need.mat_code : need.layer_name
+          if (!bomReqMap[key]) {
+            bomReqMap[key] = {
+              name: need.mat_name,
+              code: need.mat_code,
+              layer: need.layer_name,
+              category: need.category,
+              uom: need.uom,
+              total_qty: 0,
+            }
+          }
+          bomReqMap[key].total_qty += need.total_qty
+        }
+      }
+    }
+  }
+  const bomReqs = Object.values(bomReqMap)
 
   const footer = (
     <>
@@ -135,11 +168,77 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
           </div>
         </div>
 
+        {/* ── BOM Material Requisition for this Plan ── */}
+        {bomReqs.length > 0 && (
+          <div className="card" style={{ marginTop: 16, border: '1px solid var(--border)' }}>
+            <div className="tbl-top">
+              <h2 className="tbl-ttl">
+                <i className="ph ph-receipt" />BOM Required Raw Material <span className="badge b-none">{money(m2)} M²</span>
+              </h2>
+              {plan.status === 'OPEN' && (
+                <Link
+                  prefetch={false}
+                  href={`/inventory/issue/new?plan=${plan.id}`}
+                  className="btn btn-primary btn-sm"
+                >
+                  <i className="ph ph-arrows-left-right" />Issue RM to Line
+                </Link>
+              )}
+            </div>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Required Material</th>
+                    <th>Layer Spec</th>
+                    <th className="r">Formula Needed</th>
+                    <th className="r">Plant Stock Today</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bomReqs.map((req, idx) => {
+                    const matchStock = (stock || []).find(
+                      (s) => (req.code && req.code !== '—' && s.code === req.code) || s.name?.toLowerCase() === req.name?.toLowerCase()
+                    )
+                    const stockQty = matchStock ? Number(matchStock.closing || 0) : 0
+                    const isEnough = stockQty >= req.total_qty
+                    return (
+                      <tr key={idx}>
+                        <td data-label="Material">
+                          <span className="mat-name">{req.name}</span>
+                          {req.code && req.code !== '—' && <span className="mat-sub">{req.code}</span>}
+                        </td>
+                        <td data-label="Layer Spec">
+                          <span className="text-xs muted">{req.layer}</span>
+                        </td>
+                        <td className="num fw7" data-label="Formula Needed" style={{ color: 'var(--ink)' }}>
+                          {qty(req.total_qty)} {req.uom}
+                        </td>
+                        <td className="num fw6" data-label="Plant Stock Today">
+                          {matchStock ? `${qty(stockQty)} ${matchStock.uom}` : <span className="muted">0 {req.uom}</span>}
+                        </td>
+                        <td data-label="Status">
+                          {isEnough ? (
+                            <span className="badge b-ok">Available</span>
+                          ) : (
+                            <span className="badge b-danger">Shortage: -{qty(req.total_qty - stockQty)} {req.uom}</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── RM in Plant Today ── */}
         <div className="card" style={{ marginTop: 16 }}>
           <div className="tbl-top">
-            <h2 className="tbl-ttl"><i className="ph ph-warehouse" />RM in plant {plan.line?.plant_code} today</h2>
-            <span className="muted text-sm">{money(m2)} M2 planned. RM per M2 will be calculated here once a BOM is added.</span>
+            <h2 className="tbl-ttl"><i className="ph ph-warehouse" />Current RM in plant {plan.line?.plant_code}</h2>
+            <span className="muted text-sm">{money(m2)} M2 planned across {plan.items?.length || 0} items.</span>
           </div>
           <div className="tbl-wrap">
             <table className="tbl">

@@ -3,21 +3,23 @@ import Link from 'next/link'
 import Form from 'next/form'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { LinkBusy, TableLabels, Tooltips } from './ui'
+import { IntentLink, LinkBusy, TableLabels, Tooltips } from './ui'
 
 const LIST_TITLES = {
-  '': ['Orders', 'Every quotation and order'],
-  ACTIVE: ['Orders', 'Orders in progress: approve, DO, PI and tax invoice'],
-  PENDING: ['Pending Approval', 'Quotations waiting for a decision'],
-  APPROVED: ['Approved Orders', 'Approved quotations in progress'],
-  REJECTED: ['Rejected Quotations', 'Duplicate one to resubmit it'],
+  '': ['All Orders', 'Every quotation and order in the system'],
+  MINE: ['My Work', 'Orders waiting for your action'],
+  ACTIVE: ['Active Orders', 'Orders in progress: approve, make, ship, and invoice'],
+  PENDING: ['To Approve', 'Quotations waiting for approver sign-off'],
+  APPROVED: ['Approved Orders', 'Approved quotations moving through the workflow'],
+  REJECTED: ['Rejected Quotations', 'Duplicate a rejected quote to revise and resubmit'],
   CANCELLED: ['Cancelled Orders', 'Orders cancelled before delivery'],
-  AWAIT_DO: ['Awaiting DO', 'Approved orders that need a Delivery Order'],
-  AWAIT_DISPATCH: ['Awaiting Dispatch', 'DOs the plant has not fully dispatched yet'],
-  AWAIT_PI: ['Awaiting PI', 'Delivery Orders that need a Proforma Invoice'],
-  AWAIT_TAX: ['Awaiting Tax Invoice', 'Proforma Invoices without an uploaded tax invoice'],
+  AWAIT_DO: ['Ready to Ship', 'Finished orders waiting for Delivery Order & shipment'],
+  AWAIT_DISPATCH: ['In Production', 'Orders being manufactured on the plant floor'],
+  AWAIT_PI: ['To Invoice', 'Delivery Orders waiting for Proforma Invoices'],
+  AWAIT_TAX: ['Tax Invoices', 'Proforma Invoices waiting for tax invoice upload'],
 }
 const PAGES = [
+  [/^\/$/, 'Dashboard', 'Overview of orders, production, and waiting work'],
   [/^\/orders\/new/, 'New Quotation', 'Pick the customer and line items, then submit for approval'],
   [/^\/orders\/\d+\/edit/, 'Edit Order', 'Admin correction: customer, salesperson, lines and prices'],
   [/^\/admin\/settings/, 'Company Settings', 'Company, documents, VAT, numbering and approval rules'],
@@ -28,7 +30,7 @@ const PAGES = [
   [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
   [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
   [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
-  [/^\/plant/, 'Production Floor', 'Mark finished pieces ready, then ship them'],
+  [/^\/plant/, 'Ready to Ship', 'Mark finished pieces ready, then ship them'],
   [/^\/admin\/customers/, 'Customers', 'Customer master'],
   [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
   [/^\/admin\/users/, 'Users', 'Logins and roles'],
@@ -36,17 +38,18 @@ const PAGES = [
   [/^\/admin\/stores/, 'Stores & Lines', 'Stores hold stock; production lines hold the raw material issued to them until it is used'],
   [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
   [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
-  [/^\/inventory\/po/, 'Purchase Orders', 'Order raw material from a supplier'],
+  [/^\/inventory\/po/, 'Purchasing', 'Order raw material from a supplier'],
   [/^\/inventory\/grn/, 'Receive & Check', 'When goods arrive: enter what came, then check it'],
+  [/^\/inventory\/bom/, 'BOM & Recipes', 'Standard formulas and raw material consumption per M²'],
   [/^\/inventory\/issue/, 'Issue to Line', 'Send raw material from the store to a production line'],
-  [/^\/inventory\/adjust/, 'Stock Correction', 'Fix the stock after a count, or load the starting stock'],
-  [/^\/inventory/, 'Stock', 'How much raw material is in each store and line'],
+  [/^\/inventory\/adjust/, 'Stock Adjustments', 'Physical count corrections and opening stock ledger'],
+  [/^\/inventory/, 'Inventory', 'How much raw material is in each store and line'],
   [/^\/production\/plan/, 'Production Plan', 'What one line makes in one shift'],
-  [/^\/production\/dpr/, 'Record Shift', 'Step 1: what each line made in a shift, and the raw material it used'],
-  [/^\/production\/qc/, 'Record Shift', 'Step 2: check new pieces before they go into the finished goods store'],
-  [/^\/production\/fg/, 'Stock', 'Finished pieces by product and size'],
+  [/^\/production\/dpr/, 'Daily Production Report (DPR)', 'Step 1: what each line made in a shift, and the raw material it used'],
+  [/^\/production\/qc/, 'Check Pieces (QC)', 'Step 2: check new pieces before they go into the finished goods store'],
+  [/^\/production\/fg/, 'Finished Goods', 'Finished pieces by product and size'],
   [/^\/production\/reports/, 'Reports', 'How much was made, rejected and used'],
-  [/^\/production/, 'Plan Production', 'What customer orders still need, and what to make'],
+  [/^\/production/, 'Production Planning', 'What customer orders still need, and what to make'],
 ]
 
 // Closes a popover on outside press and Esc while it is open.
@@ -59,6 +62,21 @@ function useDismiss(open, setOpen, ref) {
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', out); document.removeEventListener('keydown', esc) }
   }, [open, setOpen, ref])
+}
+
+function getFallback(path) {
+  if (path.startsWith('/orders/new') || path.startsWith('/orders/')) return '/orders'
+  if (path.startsWith('/inventory/po/new') || path.startsWith('/inventory/po/')) return '/inventory/po'
+  if (path.startsWith('/inventory/grn/')) return '/inventory/po'
+  if (path.startsWith('/inventory/bom')) return '/inventory'
+  if (path.startsWith('/inventory/issue/')) return '/inventory'
+  if (path.startsWith('/inventory/adjust')) return '/inventory'
+  if (path.startsWith('/production/dpr/new') || path.startsWith('/production/dpr/')) return '/production/dpr'
+  if (path.startsWith('/production/qc')) return '/production/dpr'
+  if (path.startsWith('/production/new') || path.startsWith('/production/plan/')) return '/production'
+  if (path.startsWith('/admin/reports/')) return '/admin/reports'
+  if (path.startsWith('/admin/')) return '/admin/settings'
+  return '/'
 }
 
 // Sidebar + topbar around every signed-in page, as in the FMS app. On phones the sidebar becomes a bottom
@@ -85,6 +103,14 @@ export default function Shell({ me, nav, settings, logout, children }) {
   const sp = useSearchParams()
   const status = sp.get('status') || ''
   const router = useRouter()
+  const canGoBack = pathname !== '/'
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.state?.idx > 0) {
+      router.back()
+    } else {
+      router.push(getFallback(pathname))
+    }
+  }
   const [refreshing, startRefresh] = useTransition()
   useEffect(() => {
     if (!refreshing) return
@@ -125,6 +151,13 @@ export default function Shell({ me, nav, settings, logout, children }) {
     return () => { removeEventListener('online', on); removeEventListener('offline', on) }
   }, [])
 
+  // Register static asset service worker for instant repeat visits and zero-byte JS/CSS boot
+  useEffect(() => {
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
+
   // ?ok= / ?error= from a server action -> toast, then drop them from the URL.
   const msg = sp.get('error') || sp.get('ok')
   const kind = sp.get('error') ? 'error' : 'success'
@@ -156,10 +189,10 @@ export default function Shell({ me, nav, settings, logout, children }) {
   const [title, sub] = pathname === '/orders'
     ? LIST_TITLES[status] || LIST_TITLES['']
     : (PAGES.find(([re]) => re.test(pathname)) || [null, 'TAS OMS', '']).slice(1)
-  // prefetch={false} on every Link in the app: pages depend on the signed-in user and are never cached,
-  // so background prefetches only cost a login check and a server render each, without speeding anything up.
+  // IntentLink prefetches on hover/touch (150-300 ms head start).
+  // staleTimes.dynamic: 30 keeps the prefetched page ready for 30s.
   const item = (n) => (
-    <Link prefetch={false} key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}${n.more ? ' phone-more' : ''}`}
+    <IntentLink key={n.href} href={n.href} className={`ni${active(n.href) ? ' active' : ''}${n.more ? ' phone-more' : ''}`}
       aria-current={active(n.href) ? 'page' : undefined} title={n.label}>
       <LinkBusy />
       <i className={`ph ${n.icon}`} />
@@ -167,7 +200,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
       {/* Phone tab bar: one-word label so every icon sits on the same line */}
       {n.short && <span className="ni-short">{n.short}</span>}
       {n.badge > 0 && <span className="ni-bd" aria-label={`${n.badge} waiting`}>{n.badge}</span>}
-    </Link>
+    </IntentLink>
   )
   const moreItems = [...nav.filter((n) => n.more), ...settings]
   // The More sheet keeps the sidebar's group headings (only those with a page in the sheet).
@@ -354,8 +387,21 @@ export default function Shell({ me, nav, settings, logout, children }) {
       <div className="main">
         <header className="topbar">
           <div className="tb-l">
-            <h1>{title}</h1>
-            <span>{sub}</span>
+            {canGoBack && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-ic tb-back"
+                onClick={handleBack}
+                title="Go back"
+                aria-label="Go back"
+              >
+                <i className="ph ph-arrow-left" />
+              </button>
+            )}
+            <div className="tb-titles">
+              <h1>{title}</h1>
+              <span>{sub}</span>
+            </div>
           </div>
           <div className="tb-r">
             <Form action="/orders" prefetch={false} className="gsearch" role="search">
