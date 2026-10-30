@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, useOptimistic } from 'react'
+import { useState, useEffect, useOptimistic, useRef } from 'react'
 import Link from 'next/link'
 import { DISPATCH, STATUS, actionData, day, int, money, plural, totals } from '@/lib/tas'
 import { ClickRow, DocsMenu, LinkBusy } from '../ui'
 import OrderDialog from './OrderDialog'
 import OrderActions from './OrderActions'
-import { loadOrderDetail } from './actions'
+// Details come from a GET route, not a Server Action, so a slow server never blocks the dialog.
+const loadOrderDetail = (id) => fetch(`/orders/${id}/detail`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
 
 // Client-rendered table view that enables instant (16 ms) order dialog opening from row data
 // without full page server round-trips. History loads asynchronously in the background.
@@ -25,6 +26,7 @@ export default function OrdersView({
   const [history, setHistory] = useState(initialHistory || null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [orders, setOrders] = useState(rows || [])
+  const openId = useRef(initialView?.id ?? null) // drops late details meant for an order already closed
 
   const viewHref = (id) => `${listHref}${listHref.includes('?') ? '&' : '?'}view=${id}`
   const getSortHref = (next) => sortHrefs[next] || `${listHref}${listHref.includes('?') ? '&' : '?'}sort=${next}`
@@ -53,6 +55,7 @@ export default function OrdersView({
   // Sync state if initialView changes from server navigation
   useEffect(() => {
     if (initialView) {
+      openId.current = initialView.id
       setActiveOrder(initialView)
       setHistory(initialHistory || null)
     }
@@ -64,6 +67,7 @@ export default function OrdersView({
       const sp = new URLSearchParams(window.location.search)
       const v = sp.get('view')
       if (!v) {
+        openId.current = null
         setActiveOrder(null)
         setHistory(null)
         return
@@ -72,8 +76,9 @@ export default function OrdersView({
       if (match) {
         openOrder(match, false)
       } else {
+        openId.current = v
         loadOrderDetail(v).then((res) => {
-          if (res?.order) {
+          if (res?.order && String(openId.current) === String(v)) {
             setActiveOrder(res.order)
             setHistory(res.history)
           }
@@ -85,6 +90,7 @@ export default function OrdersView({
   }, [rows])
 
   const openOrder = (order, push = true) => {
+    openId.current = order.id
     setActiveOrder(order)
     setHistory(null)
     setHistoryLoading(true)
@@ -94,6 +100,7 @@ export default function OrdersView({
     }
     loadOrderDetail(order.id)
       .then((res) => {
+        if (openId.current !== order.id) return
         if (res?.history) setHistory(res.history)
         if (res?.order) {
           setActiveOrder((prev) => (prev?.id === res.order.id ? { ...prev, ...res.order } : prev))
@@ -104,6 +111,7 @@ export default function OrdersView({
   }
 
   const closeOrder = () => {
+    openId.current = null
     setActiveOrder(null)
     setHistory(null)
     window.history.pushState(null, '', listHref)

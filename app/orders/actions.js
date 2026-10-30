@@ -644,11 +644,3 @@ export async function updateOrder(_prev, fd) {
   redirect(`/orders?view=${o.id}&ok=${encodeURIComponent(`${o.quote_no} updated.`)}`)
 }
 
-// Lightweight fetch for the instant order dialog: loads history and full order fields.
-export async function loadOrderDetail(id) {
-  const me = await requireRole()
-  const o = await findOrder(id, me)
-  if (!o) return null
-  const history = await orderHistory(id)
-  return { order: o, history: history || { dispatches: [], events: [] } }
-}
