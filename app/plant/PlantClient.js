@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { PRODUCTION, balanceOf, int, plural, readyOf } from '@/lib/tas'
 import { saveProduction } from '../orders/actions'
-import { PlantStatus } from '../ui'
+import { CustName, PlantStatus } from '../ui'
 import MarkReadyModal from './MarkReadyModal'
 import { ShipAction } from '../orders/OrderActions'
 
@@ -126,7 +126,7 @@ export default function PlantClient({ rows, isOpen, here, tab = 'open', counts =
                     <Link prefetch={false} href={`/orders?view=${o?.id}`} className="qno">{o?.quote_no}</Link>
                   </td>
                   <td className="c-cust">
-                    <bdi className="cust-name">{o?.customer_name}</bdi>
+                    <CustName name={o?.customer_name} className="cust-name" />
                   </td>
                   <td className="c-desc">
                     <span className="mat-name">{it.description}</span>
@@ -176,7 +176,7 @@ export default function PlantClient({ rows, isOpen, here, tab = 'open', counts =
         ) : (
           <div className="empty" style={{ padding: '52px 20px', textAlign: 'center' }}>
             <i className="ph ph-factory" style={{ fontSize: '2.5rem', color: 'var(--muted)', marginBottom: 10, display: 'inline-block' }} />
-            <h3 style={{ margin: '0 0 6px', fontSize: '1.0625rem', fontWeight: 700 }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 700 }}>
               No lines in {TAB_NAMES[tab] || 'this queue'}
             </h3>
             <p className="muted text-sm" style={{ margin: '0 auto 16px', maxWidth: 420 }}>

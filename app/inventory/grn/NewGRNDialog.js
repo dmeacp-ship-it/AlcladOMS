@@ -41,13 +41,13 @@ export default function NewGRNDialog({ pos = [], stores = [], selectedPoId, clos
         closeHref={closeHref}
       >
         {selectedPoId && (
-          <div className="banner warn" style={{ marginBottom: 16 }}>
+          <div className="banner warn mb-16">
             <i className="ph ph-warning" />
             <span>That purchase order isn't approved and open, so goods can't be received on it. Pick an approved PO below:</span>
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <div className="d-flex jc-sb ai-c mb-14 f-wrap gap-10">
           <span className="muted text-sm">Select an approved purchase order to receive incoming goods against.</span>
           {pos.length > 3 && (
             <div className="sw" style={{ margin: 0, minWidth: 240 }}>
@@ -129,8 +129,8 @@ export default function NewGRNDialog({ pos = [], stores = [], selectedPoId, clos
   }
 
   const dialogHeader = (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+    <div className="d-flex jc-sb ai-c mt-8 f-wrap gap-10">
+      <div className="d-flex ai-c gap-8 f-wrap">
         <span className="badge b-info fw6">{po.po_no}</span>
         <span className="fw6 text-sm"><bdi>{po.vendor_name}</bdi></span>
         <span className="badge b-none">Plant {po.plant_code}</span>
@@ -167,7 +167,7 @@ export default function NewGRNDialog({ pos = [], stores = [], selectedPoId, clos
         <input type="hidden" name="po" value={po.id} />
 
         {state?.error && (
-          <div ref={errRef} tabIndex={-1} role="alert" className="banner error shake" style={{ marginBottom: 14 }}>
+          <div ref={errRef} tabIndex={-1} role="alert" className="banner error shake mb-14">
             <i className="ph ph-warning-circle" />
             <span><b>Not saved.</b> {state.error}</span>
           </div>
@@ -208,7 +208,7 @@ export default function NewGRNDialog({ pos = [], stores = [], selectedPoId, clos
             </div>
           </div>
           {!plantStores.length && (
-            <p className="red text-sm" style={{ marginTop: 10 }}>
+            <p className="red text-sm mt-10">
               Plant {po.plant_code} has no store yet: add one under Settings → Stores.
             </p>
           )}
@@ -254,7 +254,7 @@ export default function NewGRNDialog({ pos = [], stores = [], selectedPoId, clos
                       </td>
                       <td className="r" data-label="Received now">
                         <input type="hidden" name="po_item" value={i.id} />
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        <div className="d-iflex ai-c gap-6 jc-e">
                           <input
                             id={`qty_${i.id}`}
                             className="qty"

@@ -177,7 +177,7 @@ export async function saveSettings(fd) {
 }
 
 // Customers and the inventory masters from Excel (CSV). Headers are the column names, as in the Export file.
-// Rows are matched on code: new codes are added, existing ones updated.
+// Rows are matched on code: new codes are added, existing ones updated in place.
 export async function importMaster(fd) {
   const me = await requireRole('admin')
   const table = str(fd, 'table')
@@ -186,17 +186,25 @@ export async function importMaster(fd) {
   const P = `/admin/${table}`
   const file = fd.get('file')
   if (!file?.size) go(P, 'error', 'Choose a CSV file first.')
-  const rows = parseCSV(await file.text()).map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.replace(/\s+/g, '_'), v])))
-  if (!rows.length) go(P, 'error', 'That file has no rows under the header.')
-  if (!cfg.cols.some((c) => c in rows[0])) go(P, 'error', `No known columns. Use the headers from Export: ${cfg.cols.join(', ')}.`)
+  const prefix = table.replace(/s$/, '')
+  const rawRows = parseCSV(await file.text())
+  if (!rawRows.length) go(P, 'error', 'That file has no rows under the header.')
+  const rows = rawRows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => {
+    let key = k.toLowerCase().replace(/[\s-]+/g, '_')
+    if (key === `${prefix}_code` || key === `${table}_code`) key = 'code'
+    if (key === `${prefix}_name` || key === `${table}_name`) key = 'name'
+    return [key, v]
+  })))
+  if (!cfg.cols.some((c) => c in rows[0])) go(P, 'error', `No known columns found. Accepted headers: ${cfg.cols.join(', ')}.`)
 
   let people = []
-  if (table === 'customers' && 'salesperson' in rows[0]) {
+  const hasSalesperson = table === 'customers' && ('salesperson' in rows[0])
+  if (hasSalesperson) {
     ;({ data: people } = await db().from('profiles').select('id, full_name, email, username'))
   }
   const out = []
   for (const [i, r] of rows.entries()) {
-    const row = Object.fromEntries(cfg.cols.filter((c) => c in r).map((c) => [c, r[c] || null]))
+    const row = Object.fromEntries(cfg.cols.map((c) => [c, c in r && r[c] !== '' ? r[c] : null]))
     for (const c of cfg.numbers || []) {
       if (row[c] != null) {
         const v = Number(String(row[c]).replace(/,/g, ''))
@@ -205,9 +213,8 @@ export async function importMaster(fd) {
       }
     }
     for (const c of cfg.required) if (!row[c]) go(P, 'error', `Row ${i + 2}: ${c} is required.`)
-    // Every row gets the same columns, so a blank salesperson cell unassigns rather than being skipped.
-    if (table === 'customers' && 'salesperson' in r) {
-      const k = r.salesperson.toLowerCase()
+    if (hasSalesperson) {
+      const k = (r.salesperson || '').toLowerCase().trim()
       const p = k && people.find((x) => [x.full_name, x.email, x.username].some((v) => v?.toLowerCase() === k))
       if (k && !p) go(P, 'error', `Row ${i + 2}: no user called "${r.salesperson}".`)
       row.salesperson_id = p?.id || null
@@ -226,9 +233,9 @@ export async function importMaster(fd) {
     if (error) go(P, 'error', /name/.test(error.message) ? `A name in the file already belongs to a different code.` : masterError(error))
   }
   const what = `${out.length} ${cfg.title.toLowerCase()} added or updated`
-  await logEvent(null, me, `${cfg.title} imported`, `${what} · ${file.name}`)
+  await logEvent(null, me, `${cfg.title} bulk upload/update`, `${what} · ${file.name}`)
   revalidatePath('/', 'layout')
-  go(P, 'ok', `Imported: ${what}.`)
+  go(P, 'ok', `Bulk upload complete: ${what}.`)
 }
 
 // ── Item master lists (Items page) ──
@@ -274,23 +281,39 @@ export async function deleteItemValue(fd) {
   go(ITEMS, 'ok', `${row.value} removed. Existing orders keep it.`)
 }
 
-// Upload the whole item master as CSV in the sheet layout: replaces every list with the file's columns.
+// Upload or update item master as CSV in the sheet layout.
+// Default mode: merges and upserts on (list, value) - updates names and adds new entries without deleting existing ones.
+// When `replace === '1'`, wipes all lists first and replaces with file contents.
 export async function importItemLists(fd) {
   const me = await requireRole('admin')
   const file = fd.get('file')
+  const replace = fd.get('replace') === '1'
   if (!file?.size) go(ITEMS, 'error', 'Choose a CSV file first.')
   const rows = parseCSV(await file.text())
   if (!rows.length) go(ITEMS, 'error', 'That file has no values under the header row.')
-  const head = Object.keys(rows[0])
-  const missing = ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).filter((h) => !head.includes(h.toLowerCase()))
-  if (missing.length) go(ITEMS, 'error', `Missing columns: ${missing.join(', ')}. Download the template for the right headers.`)
+  const head = Object.keys(rows[0]).map((h) => h.toLowerCase().trim())
+
+  if (replace) {
+    const missing = ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).filter((h) => !head.includes(h.toLowerCase()))
+    if (missing.length) go(ITEMS, 'error', `Missing columns for replacement: ${missing.join(', ')}. Download the template for the right headers.`)
+  }
+
+  // Determine lists present in the file
+  const activeLists = replace
+    ? ITEM_LISTS
+    : ITEM_LISTS.filter((d) => head.includes(d.header.toLowerCase()))
+
+  if (!activeLists.length) {
+    go(ITEMS, 'error', `No recognized item columns found. Accepted columns: ${ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).join(', ')}.`)
+  }
 
   const out = []
-  for (const d of ITEM_LISTS) {
+  for (const d of activeLists) {
     const seen = new Set()
     for (const [i, r] of rows.entries()) {
-      const value = cleanValue(d, r[d.header.toLowerCase()])
-      if (value === null) go(ITEMS, 'error', `Row ${i + 2}, ${d.header}: "${r[d.header.toLowerCase()]}" is not a number above 0.`)
+      const colVal = r[d.header.toLowerCase()]
+      const value = cleanValue(d, colVal)
+      if (value === null) go(ITEMS, 'error', `Row ${i + 2}, ${d.header}: "${colVal}" is not a number above 0.`)
       if (!value) continue
       const k = value.toUpperCase()
       // Colour codes must be unique in the file; other lists just drop repeats.
@@ -301,14 +324,65 @@ export async function importItemLists(fd) {
       if (d.nameHeader && !name) go(ITEMS, 'error', `Row ${i + 2}: color ${value} has no Color Name.`)
       out.push({ list: d.key, value, name })
     }
-    if (!seen.size) go(ITEMS, 'error', `The ${d.header} column is empty — every list needs at least one value.`)
+    if (replace && !seen.size) go(ITEMS, 'error', `The ${d.header} column is empty — every list needs at least one value when replacing.`)
   }
-  const { error: e1 } = await db().from('item_lists').delete().gt('id', 0)
-  if (e1) go(ITEMS, 'error', /item_lists/.test(e1.message) ? 'Run migrate-010.sql in Supabase first.' : e1.message)
-  const { error: e2 } = await db().from('item_lists').insert(out)
-  if (e2) go(ITEMS, 'error', e2.message)
-  const counts = ITEM_LISTS.map((d) => `${out.filter((x) => x.list === d.key).length} ${d.label.toLowerCase()}`).join(', ')
-  await logEvent(null, me, 'Item master uploaded', `${counts} · ${file.name}`)
+
+  if (!out.length) go(ITEMS, 'error', 'The file did not contain any valid values.')
+
+  if (replace) {
+    const { error: e1 } = await db().from('item_lists').delete().gt('id', 0)
+    if (e1) go(ITEMS, 'error', /item_lists/.test(e1.message) ? 'Run migrate-010.sql in Supabase first.' : e1.message)
+    for (let i = 0; i < out.length; i += 500) {
+      const { error: e2 } = await db().from('item_lists').insert(out.slice(i, i + 500))
+      if (e2) go(ITEMS, 'error', e2.message)
+    }
+  } else {
+    // Non-destructive upsert on unique constraint (list, value)
+    for (let i = 0; i < out.length; i += 500) {
+      const { error: e2 } = await db().from('item_lists').upsert(out.slice(i, i + 500), { onConflict: 'list,value' })
+      if (e2) go(ITEMS, 'error', e2.message)
+    }
+  }
+
+  const counts = activeLists.map((d) => `${out.filter((x) => x.list === d.key).length} ${d.label.toLowerCase()}`).join(', ')
+  await logEvent(null, me, replace ? 'Item master replaced' : 'Item master uploaded / updated', `${counts} · ${file.name}`)
   revalidatePath('/', 'layout')
-  go(ITEMS, 'ok', `Item master replaced: ${counts}.`)
+  go(ITEMS, 'ok', replace ? `Item master replaced: ${counts}.` : `Item master updated: ${counts}.`)
+}
+
+// Continuous scroll / infinite loading for master tables
+export async function loadMasterRows({ table, offset = 0, limit = 50, term = '', sort = 'id', kind = null }) {
+  await requireRole('admin')
+  const cfg = MASTERS[table]
+  if (!cfg) return { rows: [], hasMore: false, total: 0 }
+  const isCust = table === 'customers'
+  const isStores = table === 'stores'
+  const lines = isStores && kind === 'lines'
+  const kindFilter = (q, l = lines) => (!isStores ? q : l ? q.eq('type', 'WIP') : q.neq('type', 'WIP'))
+
+  let q = kindFilter(db().from(table).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' }))
+    .order(sort)
+    .order('id')
+    .range(offset, offset + limit - 1)
+
+  if (term) q = q.ilike(cfg.search, `%${term}%`)
+
+  const { data: rows, count, error } = await q
+  if (error) {
+    console.error('loadMasterRows error:', error)
+    return { rows: [], hasMore: false, total: 0 }
+  }
+
+  const pick = (r) => ({
+    ...Object.fromEntries(['id', ...cfg.cols, ...(isCust ? ['salesperson_id'] : [])].map((c) => [c, r[c] ?? null])),
+    ...(isCust && { sp_name: r.sp?.full_name || null }),
+  })
+
+  const total = count ?? 0
+  const outRows = (rows || []).map(pick)
+  return {
+    rows: outRows,
+    total,
+    hasMore: (offset + limit) < total
+  }
 }

@@ -72,56 +72,62 @@ export default async function RootLayout({ children }) {
     // more: on phones it sits in the More tab, so the tab bar keeps five tabs.
     const boss = ['admin', 'manager'].includes(me.role)
     nav = [
-      { href: '/', label: 'Dashboard', short: 'Home', icon: 'ph-squares-four' },
-      { href: '/orders', label: 'Orders', short: 'Orders', icon: 'ph-list-checks', badge: todo },
+      { href: '/', label: 'Dashboard', icon: 'ph-squares-four' },
+      { href: '/orders', label: 'Orders', icon: 'ph-list-checks', badge: todo },
       ...(boss ? [
         // Flat navigation list: one clean item per major workflow hub
-        { href: '/inventory/po', label: 'Purchasing', short: 'Buying', icon: 'ph-shopping-cart', badge: (me.role === 'admin' ? inv.po : 0) + (inv.grn || 0), match: ['/inventory/grn'], more: true },
+        { href: '/inventory/po', label: 'Purchasing', icon: 'ph-shopping-cart', badge: (me.role === 'admin' ? inv.po : 0) + (inv.grn || 0), match: ['/inventory/grn'], more: true },
         can(me, 'plant') && {
           href: '/plant',
           label: 'Production',
-          short: 'Floor',
           icon: 'ph-factory',
           badge: lines + (inv.toPlan || 0) + (inv.qc || 0),
           match: ['/plant', '/production', '/production/dpr', '/production/qc', '/production/plan'],
         },
         {
           href: '/inventory',
-          label: 'Inventory', short: 'Stock',
+          label: 'Inventory',
           icon: 'ph-warehouse',
           match: ['/inventory', '/production/fg', '/inventory/issue', '/inventory/adjust'],
-          more: true,
         },
         { href: '/admin/reports', label: 'Reports', icon: 'ph-chart-bar', match: ['/production/reports'], more: true },
       ] : [
-        can(me, 'plant') && { href: '/plant', label: 'Production', short: 'Floor', icon: 'ph-factory', badge: lines },
+        can(me, 'plant') && { href: '/plant', label: 'Production', icon: 'ph-factory', badge: lines },
       ]),
     ].filter(Boolean)
     // Admin masters sit in the Settings group at the bottom of the sidebar.
-    if (me.role === 'admin') settings = [
-      { href: '/admin/settings', label: 'Company', icon: 'ph-gear' },
-      { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
-      { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
-      { href: '/admin/plants', label: 'Plants', icon: 'ph-factory' },
-      { href: '/admin/stores', label: 'Stores & Lines', icon: 'ph-warehouse' },
-      { href: '/admin/materials', label: 'Materials', icon: 'ph-package' },
-      { href: '/admin/vendors', label: 'Vendors', icon: 'ph-truck' },
-      { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
-      { href: '/admin/activity', label: 'Activity Log', icon: 'ph-clock-counter-clockwise' },
-    ]
+    if (me.role === 'admin') {
+      settings = [
+        { href: '/admin/settings', label: 'Company', icon: 'ph-gear' },
+        { href: '/admin/customers', label: 'Customers', icon: 'ph-buildings' },
+        { href: '/admin/items', label: 'Items', icon: 'ph-cube' },
+        { href: '/admin/plants', label: 'Plants', icon: 'ph-factory' },
+        { href: '/admin/stores', label: 'Stores & Lines', icon: 'ph-warehouse' },
+        { href: '/admin/materials', label: 'Materials', icon: 'ph-package' },
+        { href: '/admin/vendors', label: 'Vendors', icon: 'ph-truck' },
+        { href: '/admin/bom', label: 'BOM & Recipes', icon: 'ph-receipt' },
+        { href: '/admin/users', label: 'Users', icon: 'ph-users-three' },
+        { href: '/admin/activity', label: 'Activity Log', icon: 'ph-clock-counter-clockwise' },
+      ]
+    } else if (me.role === 'manager') {
+      settings = [
+        { href: '/admin/bom', label: 'BOM & Recipes', icon: 'ph-receipt' },
+      ]
+    }
   }
   // Admins see a warning on every page once any free-plan limit passes 80% (checked hourly).
   const near = me?.role === 'admin' ? usage?.filter((u) => u.share >= WARN) : null
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Plain blocking script on purpose: it must set the theme before first paint (next/script only preloads) */}
         <script id="theme-init" src="/theme-init.js" />
       </head>
       <body>
         {me ? (
           <Shell me={{ full_name: me.full_name, role: me.role }} nav={nav} settings={settings} logout={logout}>
             {near?.length > 0 && (
-              <a href="/admin/settings" className="banner warn no-print" style={{ marginBottom: 14 }}>
+              <a href="/admin/settings" className="banner warn no-print mb-14">
                 <i className="ph ph-warning" />Free plan nearly full: {near.map((u) => `${u.label} ${Math.round(u.share * 100)}%`).join(', ')}. See Company Settings.
               </a>
             )}

@@ -9,9 +9,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 // Small interactive pieces shared by the server-rendered pages (FMS look & feel).
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from 'react'
 import { createPortal, useFormStatus } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link, { useLinkStatus } from 'next/link'
-import { ROLES, prodLabel, prodStatus } from '@/lib/tas'
+import { ROLES, day, prodLabel, prodStatus, splitName, today } from '@/lib/tas'
 
 // Same breakpoint as the phone layout in globals.css (narrow, or a phone held sideways).
 export const PHONE = '(max-width: 768px), (max-height: 500px) and (pointer: coarse)'
@@ -131,7 +131,10 @@ export function Modal({ title, icon = 'ph-info', label, btnIcon, btnClass = 'btn
     return () => { d.removeEventListener('input', mark); d.removeEventListener('change', mark) }
   }, [open])
   const close = () => closeAnimated(ref.current)
-  const request = () => { if (!dirty.current || window.confirm('Discard what you typed?')) close() }
+  const request = () => {
+    if (!dirty.current) return close()
+    askConfirm('Discard what you typed?', { ok: 'Discard', danger: true }).then((y) => y && close())
+  }
   useSheetDrag(ref, request)
   // label can be JSX (DocView): only plain text may become an aria-label / tooltip.
   const name = ariaLabel || (typeof label === 'string' && label) || undefined
@@ -205,9 +208,41 @@ export function TypeToConfirm({ word, label, icon = 'ph-trash', children }) {
   )
 }
 
+// The app's own yes/no dialog instead of the browser's grey confirm(). Resolves true when the action is chosen.
+// Built with plain DOM so it works from event handlers anywhere, including on top of another open dialog.
+export function askConfirm(message, { ok = 'OK', danger = false } = {}) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog')
+    d.className = 'modal small confirm-dlg'
+    d.innerHTML = `<div class="modal-body"><p class="confirm-msg"></p></div>
+      <div class="modal-foot"><button type="button" class="btn btn-ghost" data-v="0">Cancel</button>
+      <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-v="1"></button></div>`
+    d.querySelector('.confirm-msg').textContent = message
+    d.querySelector('[data-v="1"]').textContent = ok
+    let answer = false
+    d.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]')
+      if (b) { answer = b.dataset.v === '1'; d.close() } else if (e.target === d) d.close()
+    })
+    d.addEventListener('close', () => { d.remove(); resolve(answer) })
+    document.body.append(d)
+    d.showModal()
+    // Enter on a destructive question must not do the destructive thing: focus starts on Cancel there.
+    d.querySelector(danger ? '[data-v="0"]' : '[data-v="1"]').focus()
+  })
+}
+
 // A submit button that asks first (small destructive actions inside plain forms).
 export function ConfirmButton({ message, children, ...props }) {
-  return <button {...props} onClick={(e) => { if (!window.confirm(message)) e.preventDefault() }}>{children}</button>
+  const yes = useRef(false)
+  return (
+    <button {...props} onClick={(e) => {
+      if (yes.current) { yes.current = false; return }
+      e.preventDefault()
+      const b = e.currentTarget
+      askConfirm(message, { ok: 'Remove', danger: true }).then((y) => { if (y) { yes.current = true; b.click() } })
+    }}>{children}</button>
+  )
 }
 
 // One styled tooltip for the whole app. Any element with a title (or data-tip) gets it on mouse hover and on
@@ -310,8 +345,11 @@ export function UnsavedGuard() {
     const leave = (e) => {
       const a = e.target.closest?.('a[href]')
       if (!dirty || !a || a.target === '_blank' || a.hasAttribute('download') || a.getAttribute('href').startsWith('#') || a.closest('dialog')) return
-      if (window.confirm('Leave this page? Your changes are not saved.')) dirty = false
-      else { e.preventDefault(); e.stopPropagation() }
+      e.preventDefault()
+      e.stopPropagation()
+      askConfirm('Leave this page? Your changes are not saved.', { ok: 'Leave', danger: true }).then((y) => {
+        if (y) { dirty = false; a.click() }
+      })
     }
     form.addEventListener('input', mark)
     form.addEventListener('change', mark)
@@ -888,5 +926,119 @@ export function RoleSelect({ id, name = 'role', value, defaultValue, required = 
       requiredMsg="Choose a role."
       placeholder="Select role…"
     />
+  )
+}
+
+// Customer name: English on the first line, Arabic (right-to-left) under it, so neither script reorders the other.
+export function CustName({ name, className = '' }) {
+  const { en, ar } = splitName(name)
+  return (
+    <span className={`cn ${className}`}>
+      <bdi className="cn-en">{en}</bdi>
+      {ar && <span className="cn-ar" dir="rtl" lang="ar">{ar}</span>}
+    </span>
+  )
+}
+
+// Dropdown menus built on <details class="dl-menu">: Esc closes the open one (focus back on its button),
+// a press outside closes it, and so does any navigation. Mounted once in the Shell.
+export function MenuCloser() {
+  const pathname = usePathname()
+  const sp = useSearchParams()
+  useEffect(() => {
+    for (const d of document.querySelectorAll('details.dl-menu[open]')) d.open = false
+  }, [pathname, sp])
+  useEffect(() => {
+    const open = () => [...document.querySelectorAll('details.dl-menu[open]')]
+    const esc = (e) => {
+      if (e.key !== 'Escape') return
+      const list = open()
+      if (!list.length) return
+      e.preventDefault()
+      e.stopPropagation()
+      for (const d of list) { d.open = false; d.querySelector('summary')?.focus() }
+    }
+    const out = (e) => { for (const d of open()) if (!d.contains(e.target)) d.open = false }
+    document.addEventListener('keydown', esc, true)
+    document.addEventListener('pointerdown', out, true)
+    return () => { document.removeEventListener('keydown', esc, true); document.removeEventListener('pointerdown', out, true) }
+  }, [])
+  return null
+}
+
+// The one period picker: a button showing the range; it opens quick choices and From / To fields.
+// Put it inside the page's GET form; it submits fields named from and to. children: extra filters for the panel.
+export function DateRange({ from, to, children }) {
+  const ref = useRef(null)
+  const iso = (d) => d.toISOString().slice(0, 10)
+  const t = today()
+  const [y, m] = t.split('-').map(Number)
+  const presets = [
+    ['Today', t, t],
+    ['Last 7 days', iso(new Date(Date.parse(t) - 6 * 864e5)), t],
+    ['This month', `${t.slice(0, 7)}-01`, t],
+    ['Last month', iso(new Date(Date.UTC(y, m - 2, 1))), iso(new Date(Date.UTC(y, m - 1, 0)))],
+  ]
+  const pick = (f, to2) => {
+    const form = ref.current?.closest('form')
+    if (!form) return
+    form.elements.namedItem('from').value = f
+    form.elements.namedItem('to').value = to2
+    form.requestSubmit()
+  }
+  return (
+    <details className="dl-menu q-menu date-range" ref={ref} onToggle={(e) => {
+      // Open under the button, towards whichever side has room
+      const list = e.currentTarget.querySelector('.dl-list')
+      if (!e.currentTarget.open || !list) return
+      list.style.left = '0'; list.style.right = 'auto'
+      if (list.getBoundingClientRect().right > innerWidth - 8) { list.style.left = 'auto'; list.style.right = '0' }
+    }}>
+      <summary className="btn btn-ghost btn-sm" aria-label="Change the period">
+        <i className="ph ph-calendar-blank" /><span className="q-label">{from || to ? `${from ? day(from) : '…'} – ${to ? day(to) : '…'}` : 'Any date'}</span><i className="ph ph-caret-down q-caret" />
+      </summary>
+      <div className="dl-list dr-panel">
+        <div className="dr-presets">
+          {presets.map(([l, f, to2]) => (
+            <button key={l} type="button" className={`chip-btn${f === from && to2 === to ? ' on' : ''}`} onClick={() => pick(f, to2)}>{l}</button>
+          ))}
+        </div>
+        <div className="dr-fields">
+          <label>From<input type="date" name="from" defaultValue={from} max={t} /></label>
+          <label>To<input type="date" name="to" defaultValue={to} max={t} /></label>
+        </div>
+        {children}
+        <button type="submit" className="btn btn-primary btn-sm">Show this period</button>
+      </div>
+    </details>
+  )
+}
+
+// "What is this page for" box. Got it folds it to one link, remembered in this browser per page.
+export function HelpBox({ id, icon, text, steps }) {
+  const [open, setOpen] = useState(true)
+  useEffect(() => {
+    try { if (localStorage.getItem(`help:${id}`) === '0') setOpen(false) } catch {}
+  }, [id])
+  const set = (v) => {
+    setOpen(v)
+    try { localStorage.setItem(`help:${id}`, v ? '1' : '0') } catch {}
+  }
+  if (!open) {
+    return (
+      <button type="button" className="help-link" onClick={() => set(true)}>
+        <i className="ph ph-question" />How this page works
+      </button>
+    )
+  }
+  return (
+    <div className="page-help">
+      <i className={`ph ${icon} page-help-ic`} aria-hidden="true" />
+      <div className="page-help-txt">
+        <p>{text}</p>
+        {steps && <ol>{steps.map((s) => <li key={s}>{s}</li>)}</ol>}
+      </div>
+      <button type="button" className="btn btn-ghost btn-sm page-help-x" onClick={() => set(false)}>Got it</button>
+    </div>
   )
 }

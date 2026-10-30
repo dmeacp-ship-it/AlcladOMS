@@ -64,11 +64,83 @@ const EXPORTS = {
     const rows = await all(() => db().from('customers').select('*, sp:profiles(full_name)').order('id'))
     return toCSV(rows, [...MASTERS.customers.cols.map((c) => [c, (r) => r[c]]), ['salesperson', (r) => r.sp?.full_name]])
   },
+  'customers-template': async () => {
+    const example = [{
+      code: 'CUST-001',
+      name: 'Al Rajhi Construction Ltd',
+      type: 'CORPORATE',
+      country: 'Saudi Arabia',
+      address: 'King Fahd Road, Riyadh',
+      cr_no: '1010123456',
+      vat_no: '300123456700003',
+      mobile: '+966501234567',
+      email: 'purchasing@alrajhi.com',
+      credit_limit: 500000,
+      salesperson: '',
+    }]
+    return toCSV(example, [...MASTERS.customers.cols.map((c) => [c, (r) => r[c]]), ['salesperson', (r) => r.salesperson]])
+  },
   // Inventory masters: same headers as their import.
   ...Object.fromEntries(['plants', 'stores', 'materials', 'vendors'].map((t) => [t, async () => {
     const rows = await all(() => db().from(t).select('*').order('id'))
     return toCSV(rows, MASTERS[t].cols.map((c) => [c, (r) => r[c]]))
   }])),
+  'plants-template': async () => {
+    const example = [{ code: 'PLANT-1', name: 'Riyadh Plant 1', address: '2nd Industrial City, Riyadh' }]
+    return toCSV(example, MASTERS.plants.cols.map((c) => [c, (r) => r[c]]))
+  },
+  'stores-template': async () => {
+    const example = [
+      { plant_code: 'PLANT-1', code: 'RM-MAIN', name: 'Main Raw Material Store', type: 'RM' },
+      { plant_code: 'PLANT-1', code: 'FG-MAIN', name: 'Main Finished Goods Store', type: 'FG' },
+      { plant_code: 'PLANT-1', code: 'LINE-1', name: 'Continuous ACP Line 1', type: 'WIP' },
+    ]
+    return toCSV(example, MASTERS.stores.cols.map((c) => [c, (r) => r[c]]))
+  },
+  'vendors-template': async () => {
+    const example = [{
+      code: 'VDR-001',
+      name: 'Saudi Aluminium Industries',
+      vat_no: '300987654300003',
+      mobile: '+966551234567',
+      email: 'sales@saudialum.com',
+      address: 'Industrial Area Phase 1, Jeddah',
+    }]
+    return toCSV(example, MASTERS.vendors.cols.map((c) => [c, (r) => r[c]]))
+  },
+  'materials-template': async () => {
+    const example = [
+      {
+        code: 'AL4001-SDPE-0.40*1270-Industrial Ash',
+        name: 'Industrial Ash Coil (0.40*1270)',
+        category: 'RM',
+        kind: 'TOP_COIL',
+        mat_type: 'SDPE',
+        color_code: 'AL4001',
+        thickness: 0.40,
+        width: 1270,
+        uom: 'KG',
+        cost_price: 18.5,
+        min_level: 1000,
+        max_level: 10000,
+      },
+      {
+        code: '1000027815',
+        name: 'LDPE RECYCLED GRANULE',
+        category: 'GRANULE',
+        kind: 'CORE',
+        mat_type: 'PE',
+        color_code: null,
+        thickness: null,
+        width: null,
+        uom: 'KG',
+        cost_price: 4.2,
+        min_level: 2000,
+        max_level: 20000,
+      },
+    ]
+    return toCSV(example, MASTERS.materials.cols.map((c) => [c, (r) => r[c]]))
+  },
   // Item master in the sheet layout (one column per list); items-template = headers + one example row.
   items: async () => {
     const rows = await all(() => db().from('item_lists').select('list, value, name').order('id'))

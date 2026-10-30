@@ -50,7 +50,7 @@ export default function DprDialog({ dpr, used, s, closeHref }) {
     >
       <div className="no-print">
         {/* ── Metadata / Summary Section ── */}
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card mb-16">
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className="ph ph-info" />Shift Details</h2>
           </div>
@@ -74,7 +74,7 @@ export default function DprDialog({ dpr, used, s, closeHref }) {
           </div>
           {dpr.notes && (
             <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)' }}>
-              <span className="muted text-xs" style={{ display: 'block', marginTop: 10 }}>Notes</span>
+              <span className="muted text-xs d-block mt-10">Notes</span>
               <span className="text-sm">{dpr.notes}</span>
             </div>
           )}
@@ -142,12 +142,13 @@ export default function DprDialog({ dpr, used, s, closeHref }) {
           </div>
         </div>
 
-        {/* ── Table: Raw Material Used on Line ── */}
-        {used?.length > 0 && (
-          <div className="card" style={{ marginTop: 16 }}>
+        {/* ── Table: Raw Material Consumed (System vs Actual) ── */}
+        {(dpr.consumptions?.length > 0 || used?.length > 0) && (
+          <div className="card mt-16">
             <div className="tbl-top">
               <h2 className="tbl-ttl">
-                <i className="ph ph-package" />Raw Material Used on Line <span className="badge b-none">{used.length}</span>
+                <i className="ph ph-package" />Material Consumption (System BOM vs Actual Confirmed){' '}
+                <span className="badge b-none">{dpr.consumptions?.length || used?.length || 0}</span>
               </h2>
             </div>
             <div className="tbl-wrap">
@@ -155,22 +156,73 @@ export default function DprDialog({ dpr, used, s, closeHref }) {
                 <thead>
                   <tr>
                     <th>Material</th>
-                    <th>Code</th>
-                    <th className="r">Quantity Used</th>
+                    <th>Layer</th>
+                    <th className="r">System (BOM)</th>
+                    <th className="r">Actual Used</th>
+                    <th className="r">Difference</th>
+                    <th>Reason</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {used.map((u, idx) => (
-                    <tr key={idx}>
-                      <td data-label="Material">
-                        <span className="mat-name">{u.m?.name}</span>
-                      </td>
-                      <td data-label="Code">{u.m?.code}</td>
-                      <td className="num fw6" data-label="Quantity Used">
-                        {qty(Math.abs(u.qty))} {u.m?.uom}
-                      </td>
-                    </tr>
-                  ))}
+                  {dpr.consumptions?.length > 0 ? (
+                    dpr.consumptions.map((c) => {
+                      const isOver = Math.abs(Number(c.diff_pct || 0)) > 5.0
+                      const diffSign = Number(c.diff_qty) > 0 ? '+' : ''
+                      return (
+                        <tr key={c.id} style={isOver ? { background: 'rgba(239, 68, 68, 0.05)' } : undefined}>
+                          <td data-label="Material">
+                            <span className="mat-name">{c.m?.name || c.material_id}</span>
+                            {c.m?.code && <span className="mat-sub">{c.m.code}</span>}
+                            {c.sm?.code && c.sm.code !== c.m?.code && (
+                              <span className="muted text-xs block">Suggested: {c.sm.code}</span>
+                            )}
+                          </td>
+                          <td data-label="Layer">
+                            <span className="badge b-none text-xs">{c.layer_type.replace('_', ' ')}</span>
+                          </td>
+                          <td className="num" data-label="System (BOM)">
+                            <span className="fw6">{qty(c.system_qty)}</span> <span className="muted text-xs">{c.uom}</span>
+                          </td>
+                          <td className="num fw6" data-label="Actual Used">
+                            {qty(c.actual_qty)} <span className="muted text-xs">{c.uom}</span>
+                          </td>
+                          <td className="num" data-label="Difference">
+                            <span className={`badge ${isOver ? 'b-danger' : Math.abs(Number(c.diff_pct || 0)) > 0.05 ? 'b-warn' : 'b-none'}`} style={{ fontWeight: 600 }}>
+                              {diffSign}{Number(c.diff_pct || 0).toFixed(1)}%
+                            </span>
+                            <div className="muted text-xs mt-2">
+                              {diffSign}{qty(c.diff_qty)} {c.uom}
+                            </div>
+                          </td>
+                          <td data-label="Reason">
+                            {c.reason ? (
+                              <span style={isOver ? { color: 'var(--red)', fontWeight: 500 } : undefined}>
+                                {c.reason}
+                              </span>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    used.map((u, idx) => (
+                      <tr key={idx}>
+                        <td data-label="Material">
+                          <span className="mat-name">{u.m?.name}</span>
+                          <span className="mat-sub">{u.m?.code}</span>
+                        </td>
+                        <td data-label="Layer">—</td>
+                        <td className="num" data-label="System (BOM)">—</td>
+                        <td className="num fw6" data-label="Actual Used">
+                          {qty(Math.abs(u.qty))} <span className="muted text-xs">{u.m?.uom}</span>
+                        </td>
+                        <td className="num" data-label="Difference">—</td>
+                        <td data-label="Reason"><span className="muted">—</span></td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

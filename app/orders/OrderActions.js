@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import { useState } from 'react'
 import { balanceOf, can, dispatchOpen, int, money, readyOf, today, totals } from '@/lib/tas'
 import { decide, generateBatchDO, generateBatchPI, uploadTaxInvoice } from './actions'
 import { FileDrop, Modal, ModalFoot } from '../ui'
@@ -76,15 +77,26 @@ export default function OrderActions({ o, me, back, sm, openBatchPi, inDialog, o
       )}
 
       {/* Per-batch PI and tax invoice. In the order dialog they sit on each batch row instead (inDialog). */}
-      {approved && can(me, 'accounts') && !(inDialog && o.batches?.length) && pendingPIBatches.map((batch) => (
+      {approved && can(me, 'accounts') && !(inDialog && o.batches?.length) && (sm ? pendingPIBatches.slice(0, 1) : pendingPIBatches).map((batch) => (
         <PiAction key={batch.id} o={o} batch={batch} back={back} size={size} autoOpen={String(openBatchPi) === String(batch.id)}
-          label={`Make PI${pendingPIBatches.length > 1 ? ` (${batch.do_no || `#${batch.batch_no}`})` : ''}`} />
+          label={`Make PI${pendingPIBatches.length > 1 ? (sm ? ` (${pendingPIBatches.length})` : ` (${batch.do_no || `#${batch.batch_no}`})`) : ''}`} />
       ))}
-      {approved && can(me, 'accounts') && (o.batches?.length ? (inDialog ? [] : o.batches.filter((b) => b.pi_date)) : hasAnyPI ? [null] : []).map((b) => {
-        const cur = b ? b.tax_invoice_path : o.tax_invoice_path
-        if (sm && cur) return null
-        return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace tax invoice' : 'Attach tax invoice'}${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
-      })}
+      {/* List rows show one next step only: when a PI is waiting, its tax invoices come after it */}
+      {approved && can(me, 'accounts') && !(sm && pendingPIBatches.length) && (() => {
+        let list = o.batches?.length ? (inDialog ? [] : o.batches.filter((b) => b.pi_date)) : hasAnyPI ? [null] : []
+        // List rows show one labelled button for the next missing tax invoice; the order dialog lists every PI.
+        if (sm) {
+          const missing = list.filter((b) => !(b ? b.tax_invoice_path : o.tax_invoice_path))
+          return missing.slice(0, 1).map((b) => (
+            <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size}
+              label={`Attach tax invoice${missing.length > 1 ? ` (1 of ${missing.length})` : ''}`} />
+          ))
+        }
+        return list.map((b) => {
+          const cur = b ? b.tax_invoice_path : o.tax_invoice_path
+          return <TaxAction key={b?.id || 'order'} o={o} b={b} back={back} size={size} label={`${cur ? 'Replace tax invoice' : 'Attach tax invoice'}${b?.pi_no ? ` (${b.pi_no})` : ''}`} />
+        })
+      })()}
 
     </>
   )
@@ -154,7 +166,7 @@ export function ShipAction({ o, lines, back, size = '', label }) {
             </table>
           </div>
 
-          <div style={{ marginTop: 16 }}>
+          <div className="mt-16">
             <h3 className="sub-ttl"><i className="ph ph-truck" />Dispatch and transport details</h3>
             <div className="fgrid">
               <div className="fg">
@@ -192,6 +204,12 @@ export function ShipAction({ o, lines, back, size = '', label }) {
 
 // Generate PI for one DO batch (row action in the order dialog, footer / list action elsewhere).
 export function PiAction({ o, batch, back, label = 'Make PI', size = ' btn-sm', autoOpen }) {
+  // The reason box appears (and is required) only once a unit price differs from the quotation.
+  const [changed, setChanged] = useState(false)
+  const check = (e) => {
+    const f = e.currentTarget
+    setChanged([...f.querySelectorAll('input[data-quoted]')].some((i) => Number(i.value) !== Number(i.dataset.quoted)))
+  }
   return (
     <Modal
       title={`Make Proforma Invoice for ${batch.do_no || `Batch #${batch.batch_no}`}`}
@@ -202,12 +220,12 @@ export function PiAction({ o, batch, back, label = 'Make PI', size = ' btn-sm', 
       size="large"
       defaultOpen={autoOpen}
     >
-      <form action={generateBatchPI}>
+      <form action={generateBatchPI} onInput={check}>
         <input type="hidden" name="id" value={o.id} />
         <input type="hidden" name="back" value={back} />
         <input type="hidden" name="batch_id" value={batch.id} />
         <div className="modal-body">
-          <p>Quantities are pre-filled from this Delivery Order (<b>{batch.do_no}</b>). If you modify a quoted unit price, provide a reason.</p>
+          <p>Quantities come from Delivery Order <b>{batch.do_no}</b>. Change a unit price only if it differs from the quotation.</p>
           <div className="tbl-wrap">
             <table className="tbl">
               <thead>
@@ -250,6 +268,7 @@ export function PiAction({ o, batch, back, label = 'Make PI', size = ' btn-sm', 
                         min="0"
                         step="0.01"
                         defaultValue={bi.order_item?.price || 0}
+                        data-quoted={bi.order_item?.price || 0}
                         required
                         aria-label="Unit price"
                       />
@@ -259,10 +278,12 @@ export function PiAction({ o, batch, back, label = 'Make PI', size = ' btn-sm', 
               </tbody>
             </table>
           </div>
-          <div className="fg" style={{ marginTop: 14 }}>
-            <label htmlFor={`note-${batch.id}`}>Reason for price change <span className="hint">— only if a unit price differs from quotation</span></label>
-            <textarea id={`note-${batch.id}`} name="price_note" rows={2} placeholder="e.g. special discount approved by management" />
-          </div>
+          {changed && (
+            <div className="fg pi-reason">
+              <label htmlFor={`note-${batch.id}`}>Reason for the price change <span className="req">*</span></label>
+              <textarea id={`note-${batch.id}`} name="price_note" rows={2} required placeholder="e.g. special discount approved by management" />
+            </div>
+          )}
         </div>
         <ModalFoot label="Make PI" icon="ph-receipt" />
       </form>

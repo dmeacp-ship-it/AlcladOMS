@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/server'
 import { period, waiting } from '@/lib/reports'
 import { day } from '@/lib/tas'
 import ReportsHead from '../ReportsHead'
+import { CustName } from '@/app/ui'
 
 export const metadata = { title: 'Waiting · Reports' }
 
@@ -52,7 +53,7 @@ export default async function Waiting({ searchParams }) {
                 {q.rows.map((r) => (
                   <tr key={`${r.id}-${r.ref || ''}`}>
                     <td className="nowrap"><Link prefetch={false} className="qno" href={`/orders?view=${r.id}`}>{r.quote_no}</Link></td>
-                    <td className="fw6"><bdi>{r.customer_name}</bdi></td>
+                    <td className="fw6"><CustName name={r.customer_name} /></td>
                     <td className="nowrap">{r.salesperson_name}</td>
                     {(q.key === 'pi' || q.key === 'tax') && <td className="nowrap">{r.ref}</td>}
                     <td className="nowrap muted">{r.since ? day(r.since) : '—'}</td>

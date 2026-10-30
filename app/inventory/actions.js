@@ -156,14 +156,15 @@ export async function postAdjustment(_prev, fd) {
   })
   if (error) return { error: invError(error) }
   await logEvent(null, me, 'Stock adjusted', `${no} · ${plural(lines.length, 'line')} · ${reason}`)
-  done('/inventory/adjust', `${no} posted.`)
+  const back = str(fd, 'back') || '/inventory'
+  done(back, `${no} posted.`)
 }
 
 // Go-live stock from Excel (CSV): store_code, material_code, qty. Refused for any store + material that
 // already has stock entries, so it can't be loaded twice.
 export async function importOpening(fd) {
   const me = await requireRole('manager')
-  const P = '/inventory/adjust'
+  const P = str(fd, 'back') || '/inventory'
   const date = dateOf(fd)
   if (!date) go(P, 'error', 'Pick the opening date, not in the future.')
   const file = fd.get('file')
@@ -177,19 +178,74 @@ export async function importOpening(fd) {
   const seen = new Set()
   const lines = []
   for (const [i, r] of rows.entries()) {
+    const rawQ = String(r.qty || '').trim().replace(/,/g, '')
+    if (!rawQ || rawQ === '0') continue // Skip empty or zero template rows
+    const q = num(rawQ)
+    if (!(q > 0)) go(P, 'error', `Row ${i + 2}: qty "${r.qty}" must be above 0.`)
     const s = store[r.store_code.toUpperCase()]
     const m = mat[r.material_code.toUpperCase()]
-    const q = num(r.qty.replace(/,/g, ''))
     if (!s) go(P, 'error', `Row ${i + 2}: no store with code "${r.store_code}".`)
     if (!m) go(P, 'error', `Row ${i + 2}: no material with code "${r.material_code}".`)
-    if (!(q > 0)) go(P, 'error', `Row ${i + 2}: qty "${r.qty}" must be above 0.`)
     if (seen.has(`${s}-${m}`)) go(P, 'error', `Row ${i + 2}: ${r.material_code} in ${r.store_code} appears twice.`)
     seen.add(`${s}-${m}`)
     lines.push({ store: s, material: m, qty: q, note: file.name })
   }
+  if (!lines.length) go(P, 'error', 'No materials with qty > 0 were found in the file. Enter quantities for the items you have in stock.')
   const { data: no, error } = await db().rpc('post_adjustment', { p_type: 'OPENING', p_date: date, p_lines: lines, p_by: me.full_name })
   if (error) go(P, 'error', invError(error))
   const total = lines.reduce((n, l) => n + l.qty, 0)
   await logEvent(null, me, 'Opening stock loaded', `${no} · ${plural(lines.length, 'line')} · ${fmt(total)} total · ${file.name}`)
   done(P, `${no}: opening stock loaded for ${plural(lines.length, 'line')}.`)
+}
+
+
+// ── BOM & Core Settings ──
+export async function updateCoreSettingsAction(_prev, fd) {
+  const me = await requireRole('manager')
+  const coreType = str(fd, 'core_type')
+  if (!coreType) return { error: 'Core type is required.' }
+  const density = num(fd.get('density'))
+  const scrapPct = num(fd.get('scrap_pct'))
+  if (!(density > 0)) return { error: 'Density must be greater than 0.' }
+  if (scrapPct < 0) return { error: 'Scrap % cannot be negative.' }
+
+  const blendEnabled = fd.get('blend_enabled') === 'on' || fd.get('blend_enabled') === 'true' || fd.get('blend_enabled') === '1'
+  let blendComponents = []
+  const rawBlend = fd.get('blend_components_json')
+  if (rawBlend) {
+    try {
+      blendComponents = JSON.parse(rawBlend)
+    } catch {}
+  }
+  if (blendEnabled) {
+    if (!blendComponents.length) return { error: 'Add at least one raw material to the core blend, or turn off the blend toggle.' }
+    const totalRatio = blendComponents.reduce((sum, c) => sum + (Number(c.ratio_pct) || 0), 0)
+    if (Math.abs(totalRatio - 100) > 0.5) return { error: `Blend percentages must add up to 100% (currently ${totalRatio}%).` }
+    if (blendComponents.some((c) => !c.material_id)) return { error: 'Pick a stock material for every blend component.' }
+  }
+
+  try {
+    const { saveCoreSetting } = await import('@/lib/bom-server')
+    await saveCoreSetting({
+      core_type: coreType,
+      name: str(fd, 'name'),
+      density,
+      scrap_pct: scrapPct,
+      uom: str(fd, 'uom') || 'KG',
+      core_material_id: num(fd.get('core_material_id')) || null,
+      adh_material_id: num(fd.get('adh_material_id')) || null,
+      adh_rate_per_m2: num(fd.get('adh_rate_per_m2')) || 0.090,
+      mask_material_id: num(fd.get('mask_material_id')) || null,
+      mask_rate_per_m2: num(fd.get('mask_rate_per_m2')) || 1.020,
+      bottom_skin_mode: str(fd, 'bottom_skin_mode') || 'SAME_AS_TOP',
+      blend_enabled: blendEnabled,
+      blend_components: blendComponents,
+    })
+  } catch (e) {
+    return { error: e.message }
+  }
+  // Outside the try: done() redirects by throwing, which the catch would turn into a "NEXT_REDIRECT" error.
+  await logEvent(null, me, 'BOM Core Setting updated', `${coreType} · Density ${density} · Scrap ${scrapPct}%${blendEnabled ? ` · Blend (${blendComponents.length} materials)` : ''}`)
+  const back = str(fd, 'back') || '/admin/bom'
+  done(back, `Core settings for ${coreType} saved.`)
 }

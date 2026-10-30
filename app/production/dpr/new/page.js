@@ -1,6 +1,7 @@
 import { db, requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { SHIFTS, fgItems, prodMissing } from '@/lib/production'
+import { listCoreSettings } from '@/lib/bom-server'
 import { qty, today } from '@/lib/tas'
 import { Combobox } from '../../../ui'
 import ProdTabs from '../../ProdTabs'
@@ -11,8 +12,8 @@ export const metadata = { title: 'Enter Production' }
 // ?plan=<id>: production against an open plan (line, shift and items filled in from it).
 export default async function NewDpr({ searchParams }) {
   const planId = (await searchParams).plan
-  const [, missing, { stores, materials }, fg, { data: options }, plan] = await Promise.all([
-    requireRole('manager'), prodMissing(), invMasters(), fgItems(), db().rpc('item_options'),
+  const [, missing, { stores, materials }, fg, { data: options }, { settings: coreSettings }, plan] = await Promise.all([
+    requireRole('manager'), prodMissing(), invMasters(), fgItems(), db().rpc('item_options'), listCoreSettings(),
     /^\d+$/.test(planId || '')
       ? db().from('production_plans').select('id, plan_no, shift, line_store_id, status, items:plan_items(id, fg_item_id, qty, produced_qty, f:fg_items(code, color_name))').eq('id', planId).maybeSingle().then((r) => r.data)
       : null,
@@ -25,7 +26,7 @@ export default async function NewDpr({ searchParams }) {
   return (
     <>
       <ProdTabs tab="dpr" missing={missing} />
-      <DprForm fg={fg.filter((f) => !f.b_grade)} materials={materials} planRows={planRows || null} options={options || {}}>
+      <DprForm fg={fg.filter((f) => !f.b_grade)} materials={materials} planRows={planRows || null} options={options || {}} coreSettings={coreSettings}>
         <h2 className="fsec-ttl"><i className="ph ph-factory" />Production entry{planRows && ` for ${plan.plan_no}`}</h2>
         {planRows && <input type="hidden" name="plan" value={plan.id} />}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(130px, 0.9fr) minmax(120px, 0.8fr) minmax(180px, 1.4fr) minmax(150px, 1.1fr) minmax(180px, 1.8fr)', gap: 12, alignItems: 'flex-end' }}>

@@ -164,7 +164,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
             {(c.address || c.country) && (
               <div className="cust-meta-item cust-meta-addr">
                 <span className="lbl">Address:</span>
-                <span className="val">{[c.address, c.country].filter(Boolean).join(', ')}</span>
+                <span className="val">{c.country && !String(c.address || '').toLowerCase().includes(String(c.country).toLowerCase()) ? [c.address, c.country].filter(Boolean).join(', ') : c.address || c.country}</span>
               </div>
             )}
             {limit != null && (
@@ -218,11 +218,14 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
                     <td className="num c-m2" data-label="Total M2">{calc[i]?.m2 ? money(calc[i].m2) : <span className="muted">—</span>}</td>
                     <td className="num fw6 c-total" data-label="Total (SAR)">{calc[i]?.total ? money(calc[i].total) : <span className="muted">—</span>}</td>
                     <td className="c-del">
-                      <button type="button" className="btn-link danger" disabled={l.locked} aria-label={`Remove line ${i + 1}`}
-                        title={l.locked ? 'On a Delivery Order, so it cannot be removed' : 'Remove line'}
-                        onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>
-                        <i className="ph ph-trash" />
-                      </button>
+                      {l.locked ? (
+                        <span className="line-lock" role="img" aria-label={`Line ${i + 1} is on a Delivery Order and can't be removed`} title="On a Delivery Order, so it can't be removed"><i className="ph ph-lock-simple" /></span>
+                      ) : (
+                        <button type="button" className="btn-link danger" aria-label={`Remove line ${i + 1}`} title="Remove line"
+                          onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>
+                          <i className="ph ph-trash" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                   <tr className="qline-desc">
@@ -270,11 +273,12 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
         </div>
       </div>
 
-      <div className="row" style={{ justifyContent: 'flex-end' }}>
-        {edit && <Link prefetch={false} className="btn btn-ghost btn-lg" href={`/orders?view=${edit.id}`}>Cancel</Link>}
-        <button className="btn btn-primary btn-lg" disabled={pending}>
+      <div className="form-bar">
+        <span className="form-bar-total">Total incl. VAT <b>SAR {money(t.total)}</b></span>
+        <Link prefetch={false} className="btn btn-ghost" href={edit ? `/orders?view=${edit.id}` : '/orders'}>Cancel</Link>
+        <button className="btn btn-primary" disabled={pending}>
           {pending ? <span className="spin" /> : <i className={`ph ${edit ? 'ph-check' : 'ph-seal-check'}`} />}
-          {pending ? 'Saving…' : edit ? 'Save changes' : 'Submit for Approval'}
+          {pending ? 'Saving…' : edit ? 'Save changes' : 'Submit for approval'}
         </button>
       </div>
 
@@ -290,7 +294,7 @@ export default function QuoteForm({ customers, options, salespersons, me, initia
           {overLimit && <div className="banner warn"><i className="ph ph-warning" /><span>Over the credit limit: SAR {money(used)} of SAR {money(limit)}.</span></div>}
           <p>{edit
             ? 'Documents already issued keep their numbers; printing them again shows the corrected details.'
-            : "An approver will see it in Pending Approval. You can't edit it after submitting."}</p>
+            : "An approver will see it under To approve. You can't edit it after submitting."}</p>
         </div>
         <div className="modal-foot">
           <button type="button" className="btn btn-ghost" onClick={() => confirmRef.current.close()}>Cancel</button>

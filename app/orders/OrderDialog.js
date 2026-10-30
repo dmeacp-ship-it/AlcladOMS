@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { DISPATCH, PRODUCTION, STATUS, prodLabel, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
 import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
-import { LinkBusy, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
+import { CustName, FootMore, LinkBusy, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
 import OrderActions, { PiAction, TaxAction } from './OrderActions'
 import MarkReadyModal from '../plant/MarkReadyModal'
 
@@ -48,16 +48,16 @@ function Tracker({ o, lastDispatch }) {
   const steps = [
     { label: 'Quotation', short: 'Quote', icon: 'ph-file-text', done: true, time: day(o.quote_date) },
     {
-      label: closed ? cap(o.status) : 'Approved', short: closed ? cap(o.status) : 'Approve', icon: closed ? 'ph-x' : 'ph-seal-check',
+      label: closed ? cap(o.status) : 'Approved', short: closed ? cap(o.status) : 'Approved', icon: closed ? 'ph-x' : 'ph-seal-check',
       done: approved, rejected: closed, active: o.status === 'PENDING', time: day(o.action_at),
     },
     { label: 'Ready', short: 'Ready', icon: 'ph-check-square-offset', done: approved && allReady, active: approved && !allReady, time: approved && !allReady && someReady ? 'Partial' : null },
     {
-      label: ds === 'SHORT_CLOSED' ? 'Short Closed' : 'Shipped', short: ds === 'SHORT_CLOSED' ? 'Closed' : 'Ship', icon: 'ph-truck',
+      label: ds === 'SHORT_CLOSED' ? 'Short Closed' : 'Shipped', short: ds === 'SHORT_CLOSED' ? 'Closed' : 'Shipped', icon: 'ph-truck',
       done: shipped, active: approved && !shipped && items.some((it) => readyOf(it) > 0 && balanceOf(it) > 0),
       time: ds === 'PARTIAL' ? 'Partial' : day(lastDispatch),
     },
-    { label: 'Invoiced', short: 'Bill', icon: 'ph-receipt', done: invoiced && !billOpen, active: approved && billOpen, time: p.of > 1 && p.taxDone < p.of ? `${p.taxDone} of ${p.of}` : null },
+    { label: 'Invoiced', short: 'Invoiced', icon: 'ph-receipt', done: invoiced && !billOpen, active: approved && billOpen, time: p.of > 1 && p.taxDone < p.of ? `${p.taxDone} of ${p.of}` : null },
     { label: 'Done', short: 'Done', icon: 'ph-check-circle', done },
   ]
   return (
@@ -66,7 +66,7 @@ function Tracker({ o, lastDispatch }) {
         <div key={s.label} className={`status-step${s.done ? ' completed' : s.rejected ? ' rejected' : s.active ? ' active' : ''}`}>
           <div className="step-dot"><i className={`ph ${s.done ? 'ph-check' : s.icon}`} /></div>
           <div className="step-lbl"><span className="lbl-long">{s.label}</span><span className="lbl-short" aria-hidden="true">{s.short}</span></div>
-          <div className="step-time">{s.time || '—'}</div>
+          <div className="step-time">{s.time || (s.done ? '' : '—')}</div>
         </div>
       ))}
     </div>
@@ -75,7 +75,7 @@ function Tracker({ o, lastDispatch }) {
 
 function nextStep(o) {
   if (o.status === 'PENDING') return ['info', 'ph-hourglass', <>Waiting for an <b>approver</b> to approve or reject this quotation.</>]
-  if (o.status === 'REJECTED') return ['error', 'ph-x-circle', <><b>Rejected</b>: {o.reject_reason}. Use <b>Duplicate</b> in More to correct and resubmit it.</>]
+  if (o.status === 'REJECTED') return ['error', 'ph-x-circle', <><b>Rejected</b>: {o.reject_reason}. Use <b>Duplicate</b> below to correct and resubmit it.</>]
   if (o.status === 'CANCELLED') return ['error', 'ph-prohibit', <><b>Cancelled</b>: {o.reject_reason}</>]
 
   const p = progress(o)
@@ -86,8 +86,9 @@ function nextStep(o) {
   const todo = []
   if (readyLines.length > 0) todo.push(<><b>Ship</b> {plural(readyLines.length, 'ready line')} (makes the Delivery Order)</>)
   else if (openBalance) todo.push(<><b>Plant</b> marks finished pieces ready to ship</>)
-  if (p.piPending.length) todo.push(<><b>Accounts</b> makes the PI for {p.piPending.map(name).join(', ')}</>)
-  if (p.taxPending.length) todo.push(<><b>Accounts</b> attaches the tax invoice for {p.taxPending.map((b) => b.pi_no || 'the PI').join(', ')}</>)
+  // Counts, not document numbers: the Shipments table below lists which DO / PI each one is.
+  if (p.piPending.length) todo.push(<><b>Accounts</b> makes {p.piPending.length === 1 ? `the PI for ${name(p.piPending[0])}` : `${p.piPending.length} PIs`}</>)
+  if (p.taxPending.length) todo.push(<><b>Accounts</b> attaches {p.taxPending.length === 1 ? `the tax invoice for ${p.taxPending[0].pi_no || 'the PI'}` : `${p.taxPending.length} tax invoices`}</>)
 
   if (!todo.length) return ['ok', 'ph-check-circle', <>Completed: dispatched, invoiced and every tax invoice uploaded.</>]
   return ['info', 'ph-arrow-right', <>Next: {todo.map((t, i) => <span key={i}>{i ? (i === todo.length - 1 ? ' and ' : ', ') : ''}{t}</span>)}.</>]
@@ -107,20 +108,23 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
   const batches = o.batches || []
   const issued = batches.length > 0 || !!o.do_date || !!o.pi_date
 
+  // Secondary actions have words: Duplicate and Edit in the footer, the ones that stop or remove the order
+  // (cancel, short close, delete) behind More so they are never one click away from Edit.
   const left = (
     <div className="foot-acts-left">
       {can(me, 'sales') && (
-        <Link prefetch={false} className="btn btn-ghost btn-sm btn-ic" href={`/orders/new?from=${o.id}`} title="Duplicate order" aria-label="Duplicate order">
-          <LinkBusy /><i className="ph ph-copy" />
+        <Link prefetch={false} className="btn btn-ghost btn-sm" href={`/orders/new?from=${o.id}`}>
+          <LinkBusy /><i className="ph ph-copy" />Duplicate
         </Link>
       )}
       {me.role === 'admin' && (
-        <Link prefetch={false} className="btn btn-ghost btn-sm btn-ic" href={`/orders/${o.id}/edit`} title="Edit order" aria-label="Edit order">
-          <LinkBusy /><i className="ph ph-pencil-simple" />
+        <Link prefetch={false} className="btn btn-ghost btn-sm" href={`/orders/${o.id}/edit`}>
+          <LinkBusy /><i className="ph ph-pencil-simple" />Edit
         </Link>
       )}
+      <FootMore>
       {['PENDING', 'APPROVED'].includes(o.status) && !batches.length && !o.do_date && can(me, 'approver') && (
-        <Modal title={`Cancel ${o.quote_no}`} icon="ph-prohibit" ariaLabel="Cancel order" btnIcon="ph-prohibit" btnClass="btn btn-ghost btn-sm btn-ic co" size="small">
+        <Modal title={`Cancel ${o.quote_no}`} icon="ph-prohibit" label="Cancel order" btnIcon="ph-prohibit" btnClass="btn btn-ghost btn-sm" size="small">
           <form action={cancelOrder}>
             {Hidden}
             <div className="modal-body">
@@ -135,7 +139,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
         </Modal>
       )}
       {open && can(me, 'plant', 'approver') && (
-        <Modal title={`Short Close ${o.quote_no}`} icon="ph-scissors" ariaLabel="Short close order" btnIcon="ph-scissors" btnClass="btn btn-ghost btn-sm btn-ic co" size="small">
+        <Modal title={`Short close ${o.quote_no}`} icon="ph-scissors" label="Short close" btnIcon="ph-scissors" btnClass="btn btn-ghost btn-sm" size="small">
           <form action={shortClose}>
             {Hidden}
             <div className="modal-body">
@@ -150,7 +154,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
         </Modal>
       )}
       {me.role === 'admin' && (
-        <Modal title={`Delete ${o.quote_no}?`} icon="ph-trash" ariaLabel="Delete order" btnIcon="ph-trash" btnClass="btn btn-ghost btn-sm btn-ic danger" size="small">
+        <Modal title={`Delete ${o.quote_no}?`} icon="ph-trash" label="Delete order" btnIcon="ph-trash" btnClass="btn btn-danger btn-sm" size="small">
           <form action={deleteOrder}>
             <input type="hidden" name="id" value={o.id} />
             <TypeToConfirm word={issued ? o.quote_no : null} label="Delete Order" icon="ph-trash">
@@ -166,6 +170,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
           </form>
         </Modal>
       )}
+      </FootMore>
     </div>
   )
 
@@ -186,7 +191,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
       onClose={onClose}
     >
       <div className={`banner ${tone}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="d-flex ai-c gap-8">
           <i className={`ph ${icon}`} />
           <span>{text}</span>
         </div>
@@ -212,7 +217,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                 <th>#</th>
                 <th>Material</th>
                 <th className="r">Ordered</th>
-                <th className="r">Ready</th>
+                <th className="r" title="Marked ready and not shipped yet">Ready to ship</th>
                 <th className="r">Dispatched</th>
                 <th className="r">Balance</th>
                 <th>Production</th>
@@ -234,7 +239,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                       </span>
                     </td>
                     <td className="num c-n" data-label="Ordered">{int(it.qty)}</td>
-                    <td className="num c-n" data-label="Ready">{int(it.ready_qty) || <span className="muted">0</span>}</td>
+                    <td className="num c-n" data-label="Ready to ship">{int(it.ready_qty) || <span className="muted">0</span>}</td>
                     <td className="num c-n" data-label="Dispatched">{int(it.dispatched_qty) || 0}</td>
                     <td className="num fw6 c-n" data-label="Balance">{int(balance)}</td>
                     <td className="c-plant">
@@ -250,7 +255,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                       ) : <span className="muted">—</span>}
                     </td>
                     <td className="c-st">
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <div className="d-iflex ai-c gap-6">
                         <span className={`badge ${isDispatched ? 'b-ok' : Number(it.dispatched_qty) > 0 ? 'b-info' : Number(it.ready_qty) > 0 ? 'b-teal' : 'b-none'}`}>
                           {isDispatched ? 'Dispatched' : Number(it.dispatched_qty) > 0 ? 'Partial' : Number(it.ready_qty) > 0 ? 'Ready' : 'Not yet'}
                         </span>
@@ -265,7 +270,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
             </tbody>
           </table>
         </div>
-        <div className="sum" style={{ marginTop: 16 }}>
+        <div className="sum mt-16">
           <div>Subtotal <b>{money(t.subtotal)}</b></div>
           <div>Transport <b>{money(t.transport)}</b></div>
           <div>VAT {vatPct(o.vat_rate)} <b>{money(t.vat)}</b></div>
@@ -388,7 +393,7 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
           <i className="ph ph-caret-down disc-caret" aria-hidden="true" />
         </summary>
         <div className="detail-grid">
-          <Dr k="Customer" v={<bdi>{o.customer_name}</bdi>} span="span2" />
+          <Dr k="Customer" v={<CustName name={o.customer_name} />} span="span2" />
           <Dr k="Customer code" v={o.customer_code} />
           <Dr k="Contact" v={o.contact_no} />
           <Dr k="VAT no" v={o.vat_no} />

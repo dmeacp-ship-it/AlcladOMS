@@ -47,7 +47,7 @@ export default async function FgQc() {
       )}
 
       {recent?.length > 0 && (
-        <div className="card" style={{ marginTop: 20 }}>
+        <div className="card mt-20">
           <div className="tbl-top">
             <h2 className="tbl-ttl">
               <i className="ph ph-clock-counter-clockwise" />

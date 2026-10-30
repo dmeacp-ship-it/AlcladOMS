@@ -10,7 +10,7 @@ export default function PageError({ error, reset }) {
       <i className="ph ph-warning-circle" />
       <h3>This page couldn't load</h3>
       <p>Check the connection and try again. If it keeps happening, tell the admin{error?.digest ? ` (reference ${error.digest})` : ''}.</p>
-      <div className="row" style={{ justifyContent: 'center' }}>
+      <div className="row jc-c">
         <button type="button" className="btn btn-primary btn-sm" onClick={() => reset()}><i className="ph ph-arrow-clockwise" />Try again</button>
         <Link prefetch={false} href="/orders" className="btn btn-ghost btn-sm"><i className="ph ph-arrow-left" />Back to Orders</Link>
       </div>

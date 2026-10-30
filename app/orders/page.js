@@ -6,24 +6,24 @@ import OrdersView from './OrdersView'
 
 // Workflow pipeline stages shown as tabs: from quote creation to final tax invoice.
 const STAGES = [
-  { status: 'PENDING', label: '1. To Approve', icon: 'ph-hourglass' },
-  { status: 'AWAIT_DISPATCH', label: '2. In Production', icon: 'ph-package' },
-  { status: 'AWAIT_DO', label: '3. Ready to Ship', icon: 'ph-truck' },
-  { status: 'AWAIT_PI', label: '4. To Invoice', icon: 'ph-receipt' },
-  { status: 'AWAIT_TAX', label: '5. Tax Invoice', icon: 'ph-upload-simple' },
+  { status: 'PENDING', label: '1. To approve', icon: 'ph-hourglass' },
+  { status: 'AWAIT_DISPATCH', label: '2. In production', icon: 'ph-package' },
+  { status: 'AWAIT_DO', label: '3. Ready to ship', icon: 'ph-truck' },
+  { status: 'AWAIT_PI', label: '4. Make PI', icon: 'ph-receipt' },
+  { status: 'AWAIT_TAX', label: '5. Tax invoice', icon: 'ph-upload-simple' },
 ]
 
 // Secondary filters in the dropdown menu for admin / manager:
 const FILTERS = [
-  { status: 'APPROVED', label: 'Approved (All)', icon: 'ph-seal-check' },
+  { status: 'APPROVED', label: 'Approved', icon: 'ph-seal-check' },
   { status: 'REJECTED', label: 'Rejected', icon: 'ph-x-circle' },
   { status: 'CANCELLED', label: 'Cancelled', icon: 'ph-prohibit' },
 ]
 
 const TITLES = {
-  MINE: 'My Work',
-  ACTIVE: 'All Active',
-  '': 'Everything',
+  MINE: 'My work',
+  ACTIVE: 'All active',
+  '': 'All orders',
   ...Object.fromEntries(STAGES.map((s) => [s.status, s.label])),
   ...Object.fromEntries(FILTERS.map((f) => [f.status, f.label])),
 }
@@ -109,7 +109,7 @@ export default async function Orders({ searchParams }) {
     <>
       <div className="card">
         <div className="tbl-top">
-          <nav className="tabs tabs-dynamic" aria-label="Which orders" style={{ marginBottom: 0 }}>
+          <nav className="tabs tabs-dynamic mb-0" aria-label="Which orders">
             {tabs.map(([k, icon]) => {
               const isActive = status === k
               const title = TITLES[k]
@@ -137,11 +137,11 @@ export default async function Orders({ searchParams }) {
               <details className="dl-menu q-menu" key={status}>
                 <summary
                   className={`btn btn-sm ${filter ? 'btn-primary' : 'btn-ghost'}`}
-                  title={filter ? `Filter: ${filter.label}` : 'More Filters'}
-                  aria-label={filter ? `Filter: ${filter.label}` : 'More Filters'}
+                  title={filter ? `Filter: ${filter.label}` : 'More filters'}
+                  aria-label={filter ? `Filter: ${filter.label}` : 'More filters'}
                 >
                   <i className="ph ph-funnel" />
-                  <span className="q-label">{filter?.label || 'More Filters'}</span>
+                  <span className="q-label">{filter?.label || 'More filters'}</span>
                   <i className="ph ph-caret-down q-caret" />
                 </summary>
                 <div className="dl-list">
@@ -164,8 +164,8 @@ export default async function Orders({ searchParams }) {
               </a>
             )}
             {can(me, 'sales') && (
-              <IntentLink href="/orders/new" className="btn btn-primary btn-sm">
-                <LinkBusy /><i className="ph ph-plus" />New Quotation
+              <IntentLink href="/orders/new" className="btn btn-primary btn-sm fab-phone">
+                <LinkBusy /><i className="ph ph-plus" />New quotation
               </IntentLink>
             )}
           </div>

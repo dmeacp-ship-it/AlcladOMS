@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LinkBusy } from '../../ui'
+import { DateRange, LinkBusy } from '../../ui'
 import PageTabs from '../../PageTabs'
 
 export const REPORTS = [
@@ -16,44 +16,39 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
   return (
     <>
       <PageTabs group="reports" on="/admin/reports" label="Reports" />
-      <nav className="tabs" aria-label="Sales reports">
+      <nav className="tabs reports-subnav" aria-label="Sales reports">
         {REPORTS.map((r) => (
-          <Link prefetch={false} key={r.key} href={`/admin/reports${r.key ? `/${r.key}` : ''}?${p.qs}`} className={`tab${r.key === tab ? ' on' : ''}`} aria-current={r.key === tab ? 'page' : undefined}>
+          <Link
+            prefetch={false}
+            key={r.key}
+            href={`/admin/reports${r.key ? `/${r.key}` : ''}?${p.qs}`}
+            className={`tab${r.key === tab ? ' on' : ''}`}
+            aria-current={r.key === tab ? 'page' : undefined}
+          >
             <LinkBusy />
             <i className={`ph ${r.icon}`} />{r.label}
           </Link>
         ))}
       </nav>
-      <div className="page-head">
+
+      {/* Period and downloads in one row; it wraps on phones */}
+      <div className="card tbl-bar">
         {periodless ? (
-          <span className="muted text-sm"><i className="ph ph-info" /> Shows what is waiting right now, whatever the dates.</span>
+          <span className="sub text-sm">Live: what is waiting right now, whatever the period.</span>
         ) : (
-          <form className="row" action={base}>
-            <label htmlFor="from" className="sub">From</label>
-            <input id="from" type="date" name="from" defaultValue={p.from} style={{ width: 160 }} />
-            <label htmlFor="to" className="sub">to</label>
-            <input id="to" type="date" name="to" defaultValue={p.to} style={{ width: 160 }} />
-            <button className="btn btn-ghost btn-sm" aria-label="Show this period"><i className="ph ph-check" />Apply</button>
+          <form action={base} className="tbl-bar-l">
+            <DateRange from={p.from} to={p.to} />
           </form>
         )}
         {exports.length > 0 && (
-          <>
-            <div className="acts dl-inline">
-              <span className="muted text-sm">Download{periodless ? '' : ' for this period'}:</span>
+          <details className="dl-menu q-menu tbl-bar-r">
+            <summary className="btn btn-ghost btn-sm"><i className="ph ph-download-simple" /><span className="q-label">Export</span><i className="ph ph-caret-down q-caret" /></summary>
+            <div className="dl-list">
               {exports.map(([k, l]) => (
-                <a key={k} className="btn btn-ghost btn-sm" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-download-simple" />{l}</a>
+                <a key={k} className="dl-item" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-file-csv" />{l}</a>
               ))}
             </div>
-            {/* Phones: the same downloads folded into one menu, so the report starts higher up */}
-            <details className="dl-menu">
-              <summary className="btn btn-ghost btn-sm"><i className="ph ph-download-simple" />Download<i className="ph ph-caret-down" /></summary>
-              <div className="dl-list">
-                {exports.map(([k, l]) => (
-                  <a key={k} className="dl-item" href={`/admin/export/${k}?${p.qs}`}><i className="ph ph-file-csv" />{l}</a>
-                ))}
-              </div>
-            </details>
-          </>
+          </details>
         )}
       </div>
     </>
@@ -62,5 +57,5 @@ export default function ReportsHead({ tab, p, exports = [], periodless }) {
 
 // Horizontal bar for a value against the largest in the table.
 export const Bar = ({ v, max }) => (
-  <div style={{ height: 6, borderRadius: 3, background: 'var(--accent)', width: `${Math.max(2, (v / Math.max(1, max)) * 100)}%`, marginTop: 4 }} />
+  <div className="bar" style={{ width: `${Math.max(2, (v / Math.max(1, max)) * 100)}%` }} />
 )

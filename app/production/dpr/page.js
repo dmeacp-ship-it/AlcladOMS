@@ -30,7 +30,7 @@ export default async function Dprs({ searchParams }) {
 
   const dprQuery = viewId
     ? db().from('productions')
-        .select('*, line:stores(name, plant_code), plan:production_plans(id, plan_no), items:production_items(*, f:fg_items(code, color_name, m2_per_pc))')
+        .select('*, line:stores(name, plant_code), plan:production_plans(id, plan_no), items:production_items(*, f:fg_items(code, color_name, m2_per_pc)), consumptions:production_consumptions(*, m:materials(code, name, uom), sm:materials!suggested_mat_id(code, name))')
         .eq('id', viewId).maybeSingle()
     : Promise.resolve({ data: null })
   const usedQuery = viewId

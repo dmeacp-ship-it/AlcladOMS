@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { db, go, logEvent, requireRole } from '@/lib/server'
 import { invError, invMasters } from '@/lib/inventory'
 import { parseCSV } from '@/lib/csv'
+import { calcDprBOM, normalizeCore } from '@/lib/bom'
+import { listCoreSettings } from '@/lib/bom-server'
 import { plural, qty as fmt, today } from '@/lib/tas'
 
 // Phase 2 (FG side): admin and manager. Form actions return { error } so typed values stay; the rest redirect.
@@ -33,7 +35,7 @@ export async function createPlan(_prev, fd) {
   done(`/production/plan/${p.id}`, `${no} created.`)
 }
 
-// Production entry: rows item / plan_item / good_<i> / rejected_<i> / reason_<i>; RM used = material + qty lines.
+// Production entry: rows item / plan_item / good_<i> / rejected_<i> / reason_<i>; RM consumption = system + actual + reason.
 export async function createProduction(_prev, fd) {
   const me = await requireRole('manager')
   const date = dateOf(fd)
@@ -49,11 +51,58 @@ export async function createProduction(_prev, fd) {
     if (r.rejected > 0 && !r.reason) return { error: 'Give the reason on every row with rejected pieces.' }
   }
   if (!items.length) return { error: 'Enter the good or rejected pieces of at least one item.' }
+
+  // RM consumption. The system figures are worked out again here from the pieces and the saved core
+  // settings, so the form can only send the actual figures, the material picked and the reasons.
+  const { data: specs, error: specErr } = await db().from('fg_items')
+    .select('id, width, length, thickness, skin, core, color_code, color_name').in('id', items.map((r) => r.item))
+  if (specErr) return err(specErr)
+  const { settings } = await listCoreSettings()
+  const sys = calcDprBOM(items.map((r) => ({ fg_item: specs.find((f) => f.id === r.item) || {}, good_qty: r.good, rejected_qty: r.rejected })), settings, [])
+  if (sys.missingCores.length) return { error: `No BOM settings for core type ${sys.missingCores.join(', ')}. Add it on the BOM page first.` }
+  // The settings each row was worked out with, so later edits to a density or scrap % don't rewrite history.
+  const cores = new Set(specs.map((f) => normalizeCore(f.core)))
+  const snapshot = Object.fromEntries(settings.filter((c) => cores.has(c.core_type))
+    .map((c) => [c.core_type, { density: c.density, scrap_pct: c.scrap_pct, adh_rate_per_m2: c.adh_rate_per_m2, mask_rate_per_m2: c.mask_rate_per_m2, bottom_skin_mode: c.bottom_skin_mode }]))
+
+  const cKeys = fd.getAll('consumption_row')
+  const sent = new Set(cKeys)
+  if (sys.some((r) => !sent.has(r.key))) return { error: 'The material list is out of date. Change any piece count to refresh it, then save again.' }
+  const consumption = []
+  for (const k of cKeys) {
+    const s0 = sys.find((r) => r.key === k) // undefined = an extra material added by hand
+    const c = {
+      layer_type: s0?.layer_type || 'OTHER',
+      material_id: Number(fd.get(`c_material_${k}`)) || null,
+      suggested_mat_id: s0 ? Number(fd.get(`c_suggested_${k}`)) || null : null,
+      system_qty: s0?.system_qty || 0,
+      actual_qty: num(fd.get(`c_actual_${k}`) || 0),
+      uom: s0?.uom || str(fd, `c_uom_${k}`) || 'KG',
+      reason: str(fd, `c_reason_${k}`),
+      settings_snapshot: snapshot,
+    }
+    const label = s0?.layer_name || 'the extra material line'
+    if (!(c.actual_qty >= 0)) return { error: `Actual used on ${label} must be 0 or more.` }
+    if (!c.system_qty && !c.actual_qty) continue
+    if (!c.material_id) return { error: `Pick the material for ${label}.` }
+    const diffPct = c.system_qty > 0 ? Math.abs(c.actual_qty - c.system_qty) / c.system_qty * 100 : 100
+    if (diffPct > 5 && !c.reason) {
+      return { error: c.system_qty > 0 ? `Give the reason on ${label}: actual is ${diffPct.toFixed(1)}% off the BOM.` : 'Give the reason for each extra material line.' }
+    }
+    consumption.push(c)
+  }
+
+  // Fallback to legacy usage if consumption not provided
   const usage = fd.getAll('material').map((m, i) => ({ material: Number(m), qty: num(fd.getAll('qty')[i]) })).filter((u) => u.material)
-  if (usage.some((u) => !(u.qty > 0))) return { error: 'RM used must be above 0 on every material line (remove empty lines).' }
+  if (usage.some((u) => !(u.qty > 0))) {
+    return { error: 'RM used must be above 0 on every material line (remove empty lines).' }
+  }
+
   const { data: no, error } = await db().rpc('create_production', {
     p_head: { date, shift: str(fd, 'shift'), line: str(fd, 'line'), plan: str(fd, 'plan'), operator: str(fd, 'operator'), notes: str(fd, 'notes'), by: me.full_name },
-    p_items: items, p_usage: usage,
+    p_items: items,
+    p_usage: usage,
+    p_consumption: consumption,
   })
   if (error) return err(error)
   const { data: p } = await db().from('productions').select('id').eq('dpr_no', no).single()
@@ -116,9 +165,11 @@ export async function importFgOpening(fd) {
   const n = (v) => (v === '' ? null : Number(String(v).replace(/,/g, '')))
   const lines = []
   for (const [i, r] of rows.entries()) {
-    const store = fg[r.store_code.toUpperCase()]
+    const rawPcs = String(r.pcs || '').trim().replace(/,/g, '')
+    if (!rawPcs || rawPcs === '0') continue // Skip empty or zero template rows
+    const store = fg[r.store_code?.toUpperCase()]
     if (!store) go(P, 'error', `Row ${i + 2}: no FG store with code "${r.store_code}".`)
-    const pcs = n(r.pcs)
+    const pcs = n(rawPcs)
     if (!(pcs > 0) || !Number.isInteger(pcs)) go(P, 'error', `Row ${i + 2}: pcs "${r.pcs}" must be a whole number above 0.`)
     for (const k of ['skin', 'width', 'length', 'thickness']) if (r[k] !== '' && !(n(r[k]) > 0)) go(P, 'error', `Row ${i + 2}: ${k} "${r[k]}" is not a number.`)
     if (!r.brand) go(P, 'error', `Row ${i + 2}: brand is required.`)
@@ -127,6 +178,7 @@ export async function importFgOpening(fd) {
       core: r.core || null, skin: n(r.skin), width: n(r.width), length: n(r.length), thickness: n(r.thickness),
     })
   }
+  if (!lines.length) go(P, 'error', 'No products with pcs > 0 were found in the file. Enter piece counts for the items you have in stock.')
   const { data: no, error } = await db().rpc('post_fg_adjustment', { p_type: 'OPENING', p_date: date, p_lines: lines, p_by: me.full_name })
   if (error) go(P, 'error', err(error).error)
   await logEvent(null, me, 'FG opening stock loaded', `${no} · ${plural(lines.length, 'line')} · ${fmt(lines.reduce((s, l) => s + l.qty, 0))} pcs · ${file.name}`)

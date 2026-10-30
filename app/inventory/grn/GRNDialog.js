@@ -67,7 +67,7 @@ export default function GRNDialog({ grn, s, me, closeHref }) {
     >
       <div className="no-print">
         {/* ── Receipt Details Summary ── */}
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card mb-16">
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className="ph ph-info" />Receipt Details</h2>
           </div>
@@ -113,7 +113,7 @@ export default function GRNDialog({ grn, s, me, closeHref }) {
           </div>
           {grn.notes && (
             <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)' }}>
-              <span className="muted text-xs" style={{ display: 'block', marginTop: 10 }}>Notes</span>
+              <span className="muted text-xs d-block mt-10">Notes</span>
               <span className="text-sm">{grn.notes}</span>
             </div>
           )}
@@ -130,7 +130,7 @@ export default function GRNDialog({ grn, s, me, closeHref }) {
             <div className="tbl-top">
               <div>
                 <h2 className="tbl-ttl"><i className="ph ph-seal-check" />Check the goods</h2>
-                <span className="muted text-sm" style={{ display: 'block', marginTop: 2 }}>
+                <span className="muted text-sm d-block mt-2">
                   Enter what failed inspection; the rest goes into {grn.store?.name}. Rejected quantity goes back on the PO as pending.
                 </span>
               </div>
@@ -227,12 +227,12 @@ export default function GRNDialog({ grn, s, me, closeHref }) {
         )}
 
         {/* ── Document Preview (folded disclosure) ── */}
-        <details className="disclosure" style={{ marginTop: 16 }}>
-          <summary className="btn btn-ghost btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <details className="disclosure mt-16">
+          <summary className="btn btn-ghost btn-sm d-iflex ai-c gap-8">
             <i className="ph ph-file-text" />Preview Goods Receipt Note (Print Document)
             <i className="ph ph-caret-down disc-caret" />
           </summary>
-          <div style={{ marginTop: 14 }}>
+          <div className="mt-14">
             {slip}
           </div>
         </details>

@@ -60,7 +60,7 @@ export default function NewPlanDialog({
         <UnsavedGuard />
 
         {state?.error && (
-          <div ref={errRef} tabIndex={-1} role="alert" className="banner error shake" style={{ marginBottom: 14 }}>
+          <div ref={errRef} tabIndex={-1} role="alert" className="banner error shake mb-14">
             <i className="ph ph-warning-circle" />
             <span><b>Not saved.</b> {state.error}</span>
           </div>
@@ -105,13 +105,13 @@ export default function NewPlanDialog({
             </div>
           </div>
           {!wip.length && (
-            <p className="red text-sm" style={{ marginTop: 10 }}>
+            <p className="red text-sm mt-10">
               Add the production lines as stores of type WIP under Settings → Stores.
             </p>
           )}
         </section>
 
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card mt-16">
           <div className="tbl-top">
             <h2 className="tbl-ttl">
               <i className="ph ph-list-checks" />What open orders still need{' '}
@@ -119,7 +119,7 @@ export default function NewPlanDialog({
               {toMake > 0 && <span className="badge b-bad">{qty(toMake)} pcs still to make</span>}
             </h2>
             <div className="tbl-filters">
-              <nav className="tabs" aria-label="Shortages filter" style={{ marginBottom: 0 }}>
+              <nav className="tabs mb-0" aria-label="Shortages filter">
                 <Link
                   prefetch={false}
                   href={shortagesHref}

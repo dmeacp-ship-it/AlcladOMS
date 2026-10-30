@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { money } from '@/lib/tas'
 import { Bar } from './ReportsHead'
+import { CustName } from '../../ui'
 
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—')
 const win = (g) => (g.approved + g.rejected ? g.approved / (g.approved + g.rejected) : -1)
@@ -33,7 +34,7 @@ export default function SalesTable({ title, icon, rows, nameLabel, showCode, emp
   const th = (key, label, cls) => {
     const on = sort.key === key
     return (
-      <th className={cls} aria-sort={on ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
+      <th key={key} className={cls} aria-sort={on ? (sort.desc ? 'descending' : 'ascending') : 'none'}>
         <button type="button" className="th-sort" onClick={() => setSort({ key, desc: on ? !sort.desc : key !== 'name' })}>
           {label}<i className={`ph ${on ? (sort.desc ? 'ph-caret-down' : 'ph-caret-up') : 'ph-caret-up-down'}`} aria-hidden="true" />
         </button>
@@ -47,22 +48,22 @@ export default function SalesTable({ title, icon, rows, nameLabel, showCode, emp
         {children}
       </div>
       <div className="tbl-wrap">
-        <table className="tbl">
+        <table className="tbl sales-tbl">
           <thead>
             <tr>
-              {th('name', nameLabel)}{showCode && <th>Code</th>}
-              {COLS.slice(1).map(([k, l]) => th(k, l, 'r'))}
+              {th('name', nameLabel)}{showCode && <th className="c-code">Code</th>}
+              {COLS.slice(1).map(([k, l]) => th(k, l, `r c-${k}`))}
               {th('value', 'Approved value (SAR)', 'c-bar')}
             </tr>
           </thead>
           <tbody>
             {sorted.map((g) => (
               <tr key={g.name}>
-                <td className="fw6"><bdi>{g.name}</bdi></td>{showCode && <td className="nowrap muted">{g.code || '—'}</td>}
-                <td className="num">{g.quotes}</td><td className="num">{g.approved}</td><td className="num">{g.pending}</td>
-                <td className="num">{g.rejected}</td><td className="num">{g.cancelled}</td>
+                <td className="fw6"><CustName name={g.name} /></td>{showCode && <td className="nowrap muted c-code">{g.code || '—'}</td>}
+                <td className="num">{g.quotes}</td><td className="num">{g.approved}</td><td className="num c-pending">{g.pending}</td>
+                <td className="num c-rejected">{g.rejected}</td><td className="num c-cancelled">{g.cancelled}</td>
                 <td className="num">{pct(g.approved, g.approved + g.rejected)}</td>
-                <td className="num">{money(g.quoted / g.quotes)}</td>
+                <td className="num c-avg">{money(g.quoted / g.quotes)}</td>
                 <td className="num fw6">{money(g.value)}<Bar v={g.value} max={max} /></td>
               </tr>
             ))}
@@ -70,11 +71,11 @@ export default function SalesTable({ title, icon, rows, nameLabel, showCode, emp
           {rows.length > 1 && (
             <tfoot>
               <tr className="grp">
-                <td className="fw6">Total</td>{showCode && <td />}
-                <td className="num fw6">{sum('quotes')}</td><td className="num fw6">{sum('approved')}</td><td className="num fw6">{sum('pending')}</td>
-                <td className="num fw6">{sum('rejected')}</td><td className="num fw6">{sum('cancelled')}</td>
+                <td className="fw6">Total</td>{showCode && <td className="c-code" />}
+                <td className="num fw6">{sum('quotes')}</td><td className="num fw6">{sum('approved')}</td><td className="num fw6 c-pending">{sum('pending')}</td>
+                <td className="num fw6 c-rejected">{sum('rejected')}</td><td className="num fw6 c-cancelled">{sum('cancelled')}</td>
                 <td className="num fw6">{pct(sum('approved'), sum('approved') + sum('rejected'))}</td>
-                <td className="num fw6">{money(sum('quoted') / sum('quotes'))}</td>
+                <td className="num fw6 c-avg">{money(sum('quoted') / sum('quotes'))}</td>
                 <td className="num fw6">{money(sum('value'))}</td>
               </tr>
             </tfoot>

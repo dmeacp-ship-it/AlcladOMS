@@ -7,6 +7,7 @@ import { day, qty, today } from '@/lib/tas'
 import { ClickRow, LinkBusy } from '../ui'
 import ProdTabs from './ProdTabs'
 import PlanDialog from './PlanDialog'
+import { listCoreSettings } from '@/lib/bom-server'
 import OrderNeedDialog from './OrderNeedDialog'
 import NewPlanDialog from './NewPlanDialog'
 
@@ -40,13 +41,13 @@ export default async function Planning({ searchParams }) {
 
   const planQuery = viewId
     ? db().from('production_plans')
-        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_name, m2_per_pc, grade, thickness, skin)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
+        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_code, color_name, core, skin, width, length, thickness, grade, m2_per_pc)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
         .eq('id', viewId).maybeSingle()
     : Promise.resolve({ data: null })
 
   const optionsQuery = isNew ? db().rpc('item_options') : Promise.resolve({ data: {} })
 
-  const [me, missing, s, pos, items, { stores }, lines, { data: plans }, { data: viewPlan }, { data: options }] = await Promise.all([
+  const [me, missing, s, pos, items, { stores, materials }, lines, { data: plans }, { data: viewPlan }, { data: options }, { settings: coreSettings }] = await Promise.all([
     requireRole('manager'),
     prodMissing(),
     getSettings(),
@@ -58,6 +59,7 @@ export default async function Planning({ searchParams }) {
     q,
     planQuery,
     optionsQuery,
+    listCoreSettings(),
   ])
 
   let stock = null
@@ -123,7 +125,7 @@ export default async function Planning({ searchParams }) {
     <>
       <ProdTabs tab="" missing={missing} />
       {!s.fg_store && !missing && me.role === 'admin' && (
-        <div className="banner warn" style={{ marginBottom: 16 }}>
+        <div className="banner warn mb-16">
           <i className="ph ph-warning" />
           <span>Pick the finished goods store orders ship from in Company Settings → Inventory, so its stock counts here.</span>
         </div>
@@ -144,7 +146,7 @@ export default async function Planning({ searchParams }) {
                 <span className="badge b-none">0</span>
               )}
             </Link>
-            <nav className="tabs" aria-label="Plans status" style={{ marginBottom: 0 }}>
+            <nav className="tabs mb-0" aria-label="Plans status">
               <Link prefetch={false} href={plansHref('open')} className={`tab${showPlans === 'open' ? ' on' : ''}`}>
                 <LinkBusy />Open Plans
               </Link>
@@ -256,6 +258,8 @@ export default async function Planning({ searchParams }) {
           m2={m2}
           s={s}
           closeHref={listHref}
+          coreSettings={coreSettings}
+          materials={materials}
         />
       )}
 

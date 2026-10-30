@@ -27,11 +27,11 @@ export default function OrderNeedDialog({ rows, toMake, showAll, quotes, filterH
       }
       closeHref={closeHref}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+      <div className="d-flex jc-sb ai-c mb-14 f-wrap gap-10">
         <span className="muted text-sm">
           Still to make = what orders need − what is in stock − already planned − being checked.
         </span>
-        <nav className="tabs" aria-label="Shortages filter" style={{ marginBottom: 0 }}>
+        <nav className="tabs mb-0" aria-label="Shortages filter">
           <Link prefetch={false} href={filterHref(false)} className={`tab${!showAll ? ' on' : ''}`}>Shortages</Link>
           <Link prefetch={false} href={filterHref(true)} className={`tab${showAll ? ' on' : ''}`}>All</Link>
         </nav>

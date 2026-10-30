@@ -771,6 +771,29 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 
 
 
+### 2026-10-31 - 50. Combined UI audit fixes (desktop + phone)
+- **Why:** The user asked to fix every point in the combined audit (UI-AUDIT-2026-10-31.html, 41 findings). Not deployed yet.
+- **Broken:** Reports → Production crashed (`.catch()` on a Supabase query builder, production/reports/page.js). Five undefined CSS variables replaced with real tokens. Theme is re-applied by the Shell when the head script missed a render; the theme switch no longer throws on an aborted View Transition.
+- **One name per place:** sidebar, phone bar, top bar and stepper use Dashboard / Orders / Purchasing / Production / Inventory / Reports / Settings (no Buying, Floor, Stock, Bill). Top bar shows the area; the sub-line names the tab. Reports pages no longer say "Settings" in the tab title (app/admin/reports/layout.js). Production is one tab row (Ready to ship, Planning, Shift output, Check pieces); Inventory gains an "Issues to line" tab.
+- **Words, not icons:** status tabs always show labels (phones scroll with an edge fade); order rows show one labelled next step ("Make PI", "Attach tax invoice (1 of 2)"), also on phone cards; order dialog footer has Duplicate and Edit, with Cancel / Short close / Delete under More.
+- **Colour:** red only for the primary action, brand mark, active nav and danger. New tokens `--link` (links, quote numbers, document chips, charts) and `--ring` (solid 2px focus ring everywhere). Neutral role tags, stepper current step, totals, section icons, help step numbers.
+- **Shared parts:** `askConfirm()` replaces every `window.confirm`; `MenuCloser` closes every `details.dl-menu` on Esc, outside press and navigation; `DateRange` (presets + From/To) on Reports, Production report, Inventory, Finished goods, Activity log; `CustName` + `splitName()` show "(English) Arabic" names on two lines (self-check in lib/tas.test.mjs); `HelpBox` lets people fold the page help ("Got it", remembered per page in the browser).
+- **Layout:** dashboard sections on the page background (no cards in cards), "Recent orders" table, activity grouped by order, no nested scroll; Settings second sidebar replaced by a tab row; sticky Actions column on wide tables; one Save on Company settings; cards inside dialogs flattened; quotation form has a sticky total + Cancel + Submit bar and wider Grade/Core/Colour fields; shipped lines show a lock instead of a delete icon.
+- **Phones:** toolbars wrap inside their cards (Purchasing overflow fixed), search first, New quotation floats above the tab bar; tab bar is Dashboard / Orders / Production / Inventory / More (Settings, Theme, Log out at the top of More); top-bar search button; dialog forms (New PO etc.) put their submit in the footer next to Close; material lines as compact cards; documents at 85% with sideways scroll instead of 50%.
+- **Type & motion:** sizes collapsed onto one scale with a 12 px minimum, 14 px body, no 800 weight, missing `.fw7` defined; page slide-in removed; no `transition: all`; reduced motion keeps a 120 ms fade on dialogs, sheets and toasts.
+- **Checked:** `next build` passes, `lib/tas.test.mjs` passes, Impeccable detector clean; walked in the browser pane at 1440 × 900 and 375 × 812 as Admin. Not checked: other roles, light theme screenshots, real submits.
+
+### 2026-10-31 - 51. Re-audit in light and dark, every page, desktop / tablet / phone
+- **How:** a scan script loaded all 31 pages in same-origin iframes at 1440, 1024, 768 and 375 px in both themes and checked text contrast (WCAG AA), text under 12 px, content past the screen edge and tables that scroll sideways; then screenshots of the main pages in light mode.
+- **Fixed:** light-mode `--muted` darkened to #636366 (grey sub-text on tiles was 3.97:1); Orders rows show one next step only (two labelled buttons hid Date and Salesperson); quote line fields re-sized so Edit order fits; Orders tab strip slimmer; Customers and Materials tables show fewer columns (`listCols` in lib/tas.js; edit form and CSV keep all); long material codes wrap; phone tab bar solid background; phone label/value cards align their first row; phone two-field form rows go one column (VAT no. was cut off); settings section tab text neutral; 769–1280 px hides the least-needed columns (Orders date + salesperson, master type / mobile / address / kind / min / max / width, Users username / mobile, BOM bottom skin) and keeps the first column of report tables in place.
+- **Result:** 0 contrast, size or overflow findings in light and dark at 1440 and 375; no sideways table scroll at 1440 or 768; at 1024 only the report tables (Salespeople, Customers, Dispatch) scroll, with the name column fixed. Build, tests and the Impeccable detector pass.
+
+### 2026-10-31 - 52. Last open audit items
+- **Report tables at 1024 px:** Salespeople/Customers hide Pending, Rejected, Cancelled and Dispatch hides Vehicle, M2 and Days DO → PI; Customers also hides Code and Avg quote (totals row too) between 769 and 1280 px (all still in the CSV export), so no table scrolls sideways at tablet width.
+- **Inline styles:** 105 literal layout styles became utility classes (`mt-*`, `mb-*`, `gap-*`, `d-flex`, `ai-c`, `jc-sb`, `w-full`… at the end of globals.css, `!important` so they keep the inline precedence). 196 remain: computed or conditional values (widths from data, state colours) that belong inline.
+- **Orders title:** for roles that open on My work (approver, plant, operations, accounts) the top bar now says "My work" (MY_WORK_ROLES in Shell.js mirrors MY_WORK in lib/server.js).
+- **Console:** SalesTable header cells get keys. The theme loader stays a plain blocking `<script>` in `<head>`: `next/script` beforeInteractive was tried and only preloads the file, which would flash the wrong theme. React's dev-only "script tag" warning is filtered in app/ui.js; production doesn't log it.
+
 ## 5. Architecture
 
 ### Files

@@ -2,7 +2,7 @@ import { requireRole } from '@/lib/server'
 import { invMasters, storeLabel } from '@/lib/inventory'
 import { fgAsMaterials, fgItems, fgPosition, fgReport, prodMissing } from '@/lib/production'
 import { day, money, qty, today } from '@/lib/tas'
-import { Combobox, FileDrop, Modal, ModalFoot } from '../../ui'
+import { Combobox, DateRange, FileDrop, Modal, ModalFoot } from '../../ui'
 import { importFgOpening, postFgAdjustment } from '../actions'
 import LinesForm from '../../inventory/LinesForm'
 import ProdTabs from '../ProdTabs'
@@ -22,48 +22,152 @@ export default async function FGStock({ searchParams }) {
   return (
     <>
       <ProdTabs tab="fg" missing={missing} />
-      <form className="page-head" action="/production/fg">
-        <div className="row">
-          <label htmlFor="from" className="sub">From</label>
-          <input id="from" type="date" name="from" defaultValue={p.from} style={{ width: 160 }} />
-          <label htmlFor="to" className="sub">to</label>
-          <input id="to" type="date" name="to" defaultValue={p.to} style={{ width: 160 }} />
-          <select name="store" defaultValue={p.store} aria-label="FG store" className="flt-sel">
+
+      {error && !missing && (
+        <div className="banner error">
+          <i className="ph ph-warning-circle" />Couldn't load the FG stock. Press Refresh to try again; if it keeps failing, tell the admin.
+        </div>
+      )}
+      {!fgStores.length && !missing && (
+        <div className="banner warn">
+          <i className="ph ph-warning" /><span>Add an FG store under Settings → Stores (type FG) for each plant.</span>
+        </div>
+      )}
+
+      <div className="card">
+        {/* ── Card Header: Title & Actions Toolbar ── */}
+        <div className="tbl-top f-wrap gap-12">
+          <div className="d-flex ai-c gap-8 f-wrap">
+            <h2 className="tbl-ttl m-0">
+              <i className="ph ph-stack" />Finished Goods Stock
+              <span className="badge b-none">{rows.length}</span>
+            </h2>
+            {rows.length > 0 && (
+              <span className="badge b-blue fw6">
+                {qty(total('closing'))} pcs · {money(rows.reduce((n, r) => n + r.closing * r.m2_per_pc, 0))} M²
+              </span>
+            )}
+          </div>
+
+          <div className="tbl-filters d-flex ai-c gap-8 f-wrap">
+
+            <Modal
+              title="Load FG opening stock"
+              icon="ph-upload-simple"
+              label="Opening stock (CSV)"
+              btnIcon="ph-upload-simple"
+              btnClass="btn btn-ghost btn-sm"
+            >
+              <form action={importFgOpening}>
+                <div className="modal-body">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 14px', background: 'var(--fill-2)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}>
+                    <div>
+                      <div className="fw6 text-sm d-flex ai-c gap-6">
+                        <i className="ph ph-file-arrow-down" />
+                        Pre-filled Finished Goods Template
+                      </div>
+                      <div className="muted text-xs mt-2">
+                        Contains all 3,800 standard products with specs. Enter piece counts and upload.
+                      </div>
+                    </div>
+                    <a href="/production/fg/export/template" download className="btn btn-secondary btn-sm f-no-shrink">
+                      <i className="ph ph-file-arrow-down" />Download Template
+                    </a>
+                  </div>
+                  <p>Save the Excel sheet as <b>CSV UTF-8</b> with the columns <b>store_code, brand, grade, color_code, color_name, core, skin, width, length, thickness, pcs</b> — the same values as on quotes.</p>
+                  <p className="muted">Each product + size becomes an FG item (made once). A store + item that already has FG stock is refused, so the file can't be loaded twice.</p>
+                  <div className="fg"><label htmlFor="odate">Opening date</label><input id="odate" name="date" type="date" defaultValue={today()} max={today()} required /></div>
+                  <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" maxMB={4} />
+                </div>
+                <ModalFoot label="Load" icon="ph-upload-simple" />
+              </form>
+            </Modal>
+
+            <Modal
+              title="FG Stock Adjustment"
+              icon="ph-sliders-horizontal"
+              label="Adjust stock"
+              btnIcon="ph-sliders-horizontal"
+              btnClass="btn btn-ghost btn-sm"
+              size="large"
+            >
+              <div className="modal-body">
+                <LinesForm
+                  action={postFgAdjustment}
+                  materials={fgAsMaterials(items)}
+                  signed
+                  title="FG items (pieces)"
+                  submit={{ label: 'Post FG adjustment', icon: 'ph-check', cls: 'btn btn-primary' }}
+                >
+                  <div className="fgrid-2 mb-12">
+                    <div className="fg">
+                      <label htmlFor="store">FG store <span className="req">*</span></label>
+                      <Combobox
+                        id="store"
+                        name="store"
+                        defaultValue={fgStores.length === 1 ? String(fgStores[0].id) : ''}
+                        placeholder="Select FG store…"
+                        required
+                        requiredMsg="Choose an FG store."
+                        wide
+                        options={fgStores.map((s) => ({
+                          value: String(s.id),
+                          label: storeLabel(s),
+                          badge: s.type,
+                        }))}
+                      />
+                    </div>
+                    <div className="fg"><label htmlFor="date">Date</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
+                    <div className="fg full"><label htmlFor="reason">Reason <span className="req">*</span></label><input id="reason" name="reason" required placeholder="Stock count difference, damaged in store…" /></div>
+                  </div>
+                </LinesForm>
+              </div>
+            </Modal>
+          </div>
+        </div>
+
+        {/* ── Cohesive Filter Bar integrated inside the Card ── */}
+        {/* Same filter row as Raw material: store, search, period, Export */}
+        <form action="/production/fg" className="tbl-filters fg-filters">
+          <select name="store" defaultValue={p.store} aria-label="Filter by store" className="flt-sel">
             <option value="">All FG stores</option>
             {fgStores.map((s) => <option key={s.id} value={s.id}>{storeLabel(s)}</option>)}
           </select>
-          <input name="q" defaultValue={p.q} placeholder="Item code or colour…" aria-label="Search FG items" style={{ width: 200 }} />
-          <button className="btn btn-ghost btn-sm"><i className="ph ph-check" />Apply</button>
-        </div>
-        <div className="acts">
-          <a className="btn btn-ghost btn-sm" href={`/production/fg/export?${p.qs}`}><i className="ph ph-download-simple" />Download CSV</a>
-          <Modal title="Load FG opening stock" icon="ph-upload-simple" label="Load opening stock (CSV)" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
-            <form action={importFgOpening}>
-              <div className="modal-body">
-                <p>Save the Excel sheet as <b>CSV UTF-8</b> with the columns <b>store_code, brand, grade, color_code, color_name, core, skin, width, length, thickness, pcs</b> — the same values as on quotes.</p>
-                <p className="muted">Each product + size becomes an FG item (made once). A store + item that already has FG stock is refused, so the file can't be loaded twice.</p>
-                <div className="fg"><label htmlFor="odate">Opening date</label><input id="odate" name="date" type="date" defaultValue={today()} max={today()} required /></div>
-                <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" maxMB={4} />
-              </div>
-              <ModalFoot label="Load" icon="ph-upload-simple" />
-            </form>
-          </Modal>
-        </div>
-      </form>
 
-      {error && !missing && <div className="banner error"><i className="ph ph-warning-circle" />Couldn't load the FG stock. Press Refresh to try again; if it keeps failing, tell the admin.</div>}
-      {!fgStores.length && !missing && <div className="banner warn"><i className="ph ph-warning" /><span>Add an FG store under Settings → Stores (type FG) for each plant.</span></div>}
+          <div className="sw">
+            <i className="ph ph-magnifying-glass" />
+            <input className="tsearch" name="q" defaultValue={p.q} placeholder="Item code, color or size…" aria-label="Search finished goods" />
+          </div>
 
-      <div className="card">
-        <div className="tbl-top">
-          <h2 className="tbl-ttl">
-            <i className="ph ph-stack" />Finished goods {day(p.from)} – {day(p.to)} <span className="badge b-none">{rows.length}</span>
-            {rows.length > 0 && <span className="badge b-blue">{qty(total('closing'))} pcs · {money(rows.reduce((n, r) => n + r.closing * r.m2_per_pc, 0))} M2</span>}
-          </h2>
-        </div>
+          <DateRange from={p.from} to={p.to} />
+
+          <a className="btn btn-ghost btn-sm" href={`/production/fg/export?${p.qs}`}>
+            <i className="ph ph-download-simple" />Export
+          </a>
+
+          {(p.q || p.store) && (
+            <a href="/production/fg" className="btn-link text-xs danger ml-4">
+              <i className="ph ph-x" />Reset
+            </a>
+          )}
+        </form>
+
+        {/* ── Main Stock Table ── */}
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Store</th><th>Item (product + size)</th><th className="r">Opening</th><th className="r">In</th><th className="r">Out</th><th className="r">Closing pcs</th><th className="r">Closing M2</th><th className="r">Reserved</th><th className="r">Free</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Store</th>
+                <th>Item (product + size)</th>
+                <th className="r">Opening</th>
+                <th className="r">In</th>
+                <th className="r">Out</th>
+                <th className="r">Closing pcs</th>
+                <th className="r">Closing M2</th>
+                <th className="r">Reserved</th>
+                <th className="r">Free</th>
+              </tr>
+            </thead>
             <tbody>
               {rows.map((r) => {
                 const ps = pos[r.fg_item_id]
@@ -83,36 +187,21 @@ export default async function FGStock({ searchParams }) {
               })}
             </tbody>
           </table>
-          {!rows.length && <div className="empty"><i className="ph ph-stack" /><h3>No finished goods here</h3><p>Pieces arrive here after they are checked, or load the starting stock.</p></div>}
-        </div>
-        <div className="tbl-foot"><span className="muted text-sm">Reserved = marked ready for an order. Free = can go to any order.</span></div>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <LinesForm action={postFgAdjustment} materials={fgAsMaterials(items)} signed title="FG items (pieces)" submit={{ label: 'Post FG adjustment', icon: 'ph-check' }}>
-          <h2 className="fsec-ttl"><i className="ph ph-sliders-horizontal" />FG stock adjustment (pieces)</h2>
-          <div className="fgrid-2">
-            <div className="fg">
-              <label htmlFor="store">FG store <span className="req">*</span></label>
-              <Combobox
-                id="store"
-                name="store"
-                defaultValue={fgStores.length === 1 ? String(fgStores[0].id) : ''}
-                placeholder="Select FG store…"
-                required
-                requiredMsg="Choose an FG store."
-                wide
-                options={fgStores.map((s) => ({
-                  value: String(s.id),
-                  label: storeLabel(s),
-                  badge: s.type,
-                }))}
-              />
+          {!rows.length && (
+            <div className="empty">
+              <i className="ph ph-stack" />
+              <h3>No finished goods here</h3>
+              <p>Pieces arrive here after they are checked in QC, or load opening stock.</p>
             </div>
-            <div className="fg"><label htmlFor="date">Date</label><input id="date" name="date" type="date" defaultValue={today()} max={today()} required /></div>
-            <div className="fg full"><label htmlFor="reason">Reason <span className="req">*</span></label><input id="reason" name="reason" required placeholder="Stock count difference, damaged in store…" /></div>
-          </div>
-        </LinesForm>
+          )}
+        </div>
+
+        <div className="tbl-foot">
+          <span className="muted text-sm">
+            <i className="ph ph-info mr-4" />
+            <b>Reserved</b> = pieces allocated to confirmed customer orders. <b>Free</b> = available finished stock for any order.
+          </span>
+        </div>
       </div>
     </>
   )

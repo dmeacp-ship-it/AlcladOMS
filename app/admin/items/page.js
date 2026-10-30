@@ -41,18 +41,30 @@ export default async function Items() {
         <div className="tbl-top">
           <h2 className="tbl-ttl"><i className="ph ph-cube" />Item master <span className="hint">one list per column; quotes combine them</span></h2>
           <div className="tbl-filters">
-            <a className="btn btn-ghost btn-sm" href="/admin/export/items-template"><i className="ph ph-file-arrow-down" />Template</a>
-            <a className="btn btn-ghost btn-sm" href="/admin/export/items"><i className="ph ph-download-simple" />Export</a>
-            <Modal title="Replace the item master from a CSV" icon="ph-upload-simple" label="Replace from CSV…" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
+            <a className="btn btn-ghost btn-sm" href="/admin/export/items" title="Export all item lists as CSV"><i className="ph ph-download-simple" />Export CSV</a>
+            <Modal title="Bulk Upload / Update Items" icon="ph-upload-simple" label="Bulk Upload / Update" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
               <form action={importItemLists}>
                 <div className="modal-body">
-                  <p>Same layout as the Google Sheet: one column per list, values going down. Save it as <b>CSV UTF-8</b>. Columns:</p>
-                  <p className="muted">{ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).join(', ')}</p>
-                  <div className="banner warn"><i className="ph ph-warning" /><span>This <b>replaces every list</b> with the file. Existing orders don't change.</span></div>
-                  <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" maxMB={4} />
-                  <a href="/admin/export/items-template"><i className="ph ph-file-arrow-down" /> Download the template</a>
+                  <p><b>Add or update item lists in bulk</b> (Brands, Colors, Grades, Cores, Sizes, UoM).</p>
+                  <p>By default, values in the file are <b>merged and updated</b> without deleting existing values. If a color code already exists, its color name is updated. New values are added.</p>
+                  <div style={{ display: 'flex', gap: '8px', margin: '12px 0 16px', flexWrap: 'wrap' }}>
+                    <a className="btn btn-ghost btn-sm" href="/admin/export/items-template">
+                      <i className="ph ph-file-arrow-down" />Download Template (CSV)
+                    </a>
+                    <a className="btn btn-ghost btn-sm" href="/admin/export/items">
+                      <i className="ph ph-download-simple" />Export Current Items (CSV)
+                    </a>
+                  </div>
+                  <div style={{ marginBottom: '12px' }}>
+                    <span className="muted text-sm">Columns: {ITEM_LISTS.flatMap((d) => [d.header, d.nameHeader].filter(Boolean)).join(', ')}</span>
+                  </div>
+                  <FileDrop name="file" accept=".csv,text/csv" hint="CSV UTF-8, max 4 MB" maxMB={4} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', fontSize: '0.8125rem', cursor: 'pointer', color: 'var(--sub)' }}>
+                    <input type="checkbox" name="replace" value="1" />
+                    <span><b>Replace entire item master</b> (caution: wipes existing lists before inserting)</span>
+                  </label>
                 </div>
-                <ModalFoot label="Replace item master" icon="ph-upload-simple" />
+                <ModalFoot label="Upload & Update" icon="ph-upload-simple" />
               </form>
             </Modal>
           </div>

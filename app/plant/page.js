@@ -78,7 +78,7 @@ export default async function Plant({ searchParams }) {
       <PageTabs group="production" on="/plant" label="Production" />
       <div className="card">
         <div className="tbl-top">
-          <nav className="tabs tabs-dynamic" aria-label="Which lines" style={{ marginBottom: 0 }}>
+          <nav className="tabs tabs-dynamic mb-0" aria-label="Which lines">
             {Object.entries(TABS).map(([k, t]) => {
               const isActive = tab === k
               const count = counts[k] ?? 0

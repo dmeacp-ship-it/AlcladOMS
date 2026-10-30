@@ -29,7 +29,7 @@ export default async function Master({ params, searchParams }) {
   const kind = (q, l = lines) => (!isStores ? q : l ? q.eq('type', 'WIP') : q.neq('type', 'WIP'))
   const one = lines ? 'Production line' : cfg.title.slice(0, -1)
 
-  let q = kind(db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' })).order(sort).order('id').range(page * PAGE, page * PAGE + PAGE - 1)
+  let q = kind(db().from(master).select(isCust ? '*, sp:profiles(full_name)' : '*', { count: 'exact' })).order(sort).order('id').range(0, PAGE - 1)
   if (term) q = q.ilike(cfg.search, `%${term}%`)
   const refs = Object.entries(cfg.refs || {})
   const [{ data: rows, count }, other, { data: people }, ...refRows] = await Promise.all([
@@ -42,7 +42,7 @@ export default async function Master({ params, searchParams }) {
   const link = (p, s = sort) => `/admin/${master}?${new URLSearchParams({ ...(lines && { kind: 'lines' }), ...(p && { page: p }), ...(term && { q: term }), ...(s !== 'id' && { sort: s }) })}`
   const sorts = Object.fromEntries(['code', 'name'].map((c) => [c, { href: link(0, c), dir: sort === c ? 'ascending' : 'none' }]))
   const here = link(page)
-  const form = { cols: cfg.cols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: lines ? { ...cfg.defaults, type: 'WIP' } : cfg.defaults, labels: cfg.labels }
+  const form = { cols: cfg.cols, listCols: cfg.listCols, required: cfg.required, numbers: cfg.numbers, options: cfg.options, defaults: lines ? { ...cfg.defaults, type: 'WIP' } : cfg.defaults, labels: cfg.labels }
   // Only what the table and its dialogs show goes to the browser.
   const pick = (r) => ({
     ...Object.fromEntries(['id', ...cfg.cols, ...(isCust ? ['salesperson_id'] : [])].map((c) => [c, r[c] ?? null])),
@@ -59,7 +59,7 @@ export default async function Master({ params, searchParams }) {
       )}
       <div className="tbl-top">
         {isStores ? (
-          <nav className="tabs" aria-label="Stores or production lines" style={{ marginBottom: 0 }}>
+          <nav className="tabs mb-0" aria-label="Stores or production lines">
             {[[false, 'Stores', 'ph-warehouse'], [true, 'Production lines', 'ph-gear-six']].map(([l, label, icon]) => (
               <Link prefetch={false} key={label} href={`/admin/stores${l ? '?kind=lines' : ''}`} className={`tab${l === lines ? ' on' : ''}`} aria-current={l === lines ? 'page' : undefined}>
                 <LinkBusy /><i className={`ph ${icon}`} />{label}<span className="badge b-none">{(l === lines ? count : other?.count) ?? 0}</span>
@@ -85,26 +85,52 @@ export default async function Master({ params, searchParams }) {
               <ModalFoot label={`Add ${one}`} icon="ph-plus" />
             </form>
           </Modal>
-          <Modal title={`Import ${cfg.title}`} icon="ph-upload-simple" label="Import" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
+          <Modal title={`Bulk Upload / Update ${cfg.title}`} icon="ph-upload-simple" label="Bulk Upload / Update" btnIcon="ph-upload-simple" btnClass="btn btn-ghost btn-sm">
             <form action={importMaster}>
               <input type="hidden" name="table" value={master} />
               <div className="modal-body">
                 <p>
-                  Save the Excel sheet as <b>CSV UTF-8</b> (File → Save As). The first row must be the column names, the same as in{' '}
-                  <a href={`/admin/export/${master}`}>an Export</a>: <span className="muted">{[...cfg.cols, ...(isCust ? ['salesperson'] : [])].join(', ')}</span>.
+                  <b>Upload new records or update existing {cfg.title.toLowerCase()} in bulk.</b>
                 </p>
-                <p>{cfg.title} are matched on code: new codes are added, existing ones are updated.{isCust && ' Salesperson can be a name, email or username.'}</p>
-                <FileDrop name="file" accept=".csv,text/csv" hint="CSV, max 4 MB" maxMB={4} />
+                <p>
+                  Records are matched by <b>code</b>: if the code already exists, its details are updated in place. If it is new, a new {one.toLowerCase()} is added.
+                  {isCust && ' Salesperson can be specified by user name, email, or username.'}
+                </p>
+                <div style={{ display: 'flex', gap: '8px', margin: '12px 0 16px', flexWrap: 'wrap' }}>
+                  <a className="btn btn-ghost btn-sm" href={`/admin/export/${master}-template`}>
+                    <i className="ph ph-file-arrow-down" />Download Blank Template (CSV)
+                  </a>
+                  <a className="btn btn-ghost btn-sm" href={`/admin/export/${master}`}>
+                    <i className="ph ph-download-simple" />Export Current {cfg.title} (CSV)
+                  </a>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <span className="muted text-sm">Columns: {[...cfg.cols, ...(isCust ? ['salesperson'] : [])].join(', ')}</span>
+                </div>
+                <FileDrop name="file" accept=".csv,text/csv" hint="CSV UTF-8, max 4 MB" maxMB={4} />
               </div>
-              <ModalFoot label="Import" icon="ph-upload-simple" />
+              <ModalFoot label="Upload & Update" icon="ph-upload-simple" />
             </form>
           </Modal>
-          <a className="btn btn-ghost btn-sm" href={`/admin/export/${master}`}><i className="ph ph-download-simple" />Export</a>
+          <a className="btn btn-ghost btn-sm" href={`/admin/export/${master}`} title={`Download all ${cfg.title.toLowerCase()} as CSV`}><i className="ph ph-download-simple" />Export CSV</a>
         </div>
       </div>
       <div className="tbl-wrap">
-        <MasterTable cfg={form} rows={(rows || []).map(pick)} people={isCust ? people : null} lists={lists}
-          table={master} title={cfg.title} search={cfg.search} here={here} sorts={sorts} />
+        <MasterTable
+          cfg={form}
+          rows={(rows || []).map(pick)}
+          totalCount={count ?? 0}
+          people={isCust ? people : null}
+          lists={lists}
+          table={master}
+          title={cfg.title}
+          search={cfg.search}
+          term={term}
+          sort={sort}
+          kind={lines ? 'lines' : null}
+          here={here}
+          sorts={sorts}
+        />
         {!rows?.length && (
           <div className="empty">
             <i className="ph ph-magnifying-glass" />
@@ -113,15 +139,6 @@ export default async function Master({ params, searchParams }) {
           </div>
         )}
       </div>
-      {(count ?? 0) > PAGE && (
-        <div className="tbl-foot center">
-          {page > 0 ? <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page - 1)}><LinkBusy /><i className="ph ph-caret-left" />Previous</Link> : <span />}
-          <span className="spacer muted text-sm c">
-            {page * PAGE + 1}–{Math.min((page + 1) * PAGE, count)} of {count}
-          </span>
-          {(page + 1) * PAGE < count && <Link prefetch={false} className="btn btn-ghost btn-sm" href={link(page + 1)}><LinkBusy />Next<i className="ph ph-caret-right" /></Link>}
-        </div>
-      )}
     </div>
   )
 }

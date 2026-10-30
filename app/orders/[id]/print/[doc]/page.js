@@ -45,7 +45,7 @@ export default async function PrintPage({ params, searchParams }) {
           <PrintButton />
         </div>
       </div>
-      <Doc doc={doc} o={o} batch={batch} s={await getSettings()} />
+      <div className="doc-scroll"><Doc doc={doc} o={o} batch={batch} s={await getSettings()} /></div>
     </>
   )
 }

@@ -35,7 +35,7 @@ export default function NewRecipeDialog({ closeHref }) {
       title={<>New ACP Parametric Recipe</>}
       closeHref={closeHref}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, width: '100%' }}>
+        <div className="d-flex jc-e gap-8 w-full">
           <Link href={closeHref} className="btn btn-subtle btn-sm">Cancel</Link>
           <button
             type="button"
@@ -50,8 +50,8 @@ export default function NewRecipeDialog({ closeHref }) {
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <p className="muted text-sm" style={{ margin: 0 }}>
+      <div className="d-flex f-col gap-16">
+        <p className="muted text-sm m-0">
           Define physical specifications for panel composite layers. The system will auto-compute standard consumption rates per M² based on standard ACP densities.
         </p>
 
@@ -61,7 +61,7 @@ export default function NewRecipeDialog({ closeHref }) {
             <label className="text-xs muted block mb-1">Panel Grade <span className="req">*</span></label>
             <select
               className="tsearch"
-              style={{ width: '100%', padding: '8px 10px', background: 'var(--surface-sunken)' }}
+              style={{ width: '100%', padding: '8px 10px', background: 'var(--fill-2)' }}
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
             >
@@ -117,9 +117,9 @@ export default function NewRecipeDialog({ closeHref }) {
         {/* ── Auto-calculated Core & Total ── */}
         <div
           style={{
-            background: 'var(--surface-sunken)',
+            background: 'var(--fill-2)',
             padding: '12px 16px',
-            borderRadius: 'var(--radius)',
+            borderRadius: 'var(--r-ctl)',
             border: '1px solid var(--border)',
             display: 'flex',
             justifyContent: 'space-between',
@@ -130,7 +130,7 @@ export default function NewRecipeDialog({ closeHref }) {
         >
           <div>
             <span className="muted text-xs block">Calculated Core Layer</span>
-            <span className="fw7 text-base" style={{ color: 'var(--accent)' }}>
+            <span className="fw7 text-base">
               {coreMm} mm ({grade} Granules)
             </span>
           </div>

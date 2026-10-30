@@ -39,7 +39,7 @@ export default function PlanBufferSection({ catalogItems = [], options = {} }) {
   }
 
   return (
-    <div className="card" style={{ marginTop: 16 }}>
+    <div className="card mt-16">
       <div className="tbl-top">
         <h2 className="tbl-ttl">
           <i className="ph ph-stack" />
@@ -102,7 +102,7 @@ export default function PlanBufferSection({ catalogItems = [], options = {} }) {
 
         {bufferRows.length === 0 && (
           <div className="empty" style={{ padding: '24px 16px' }}>
-            <p className="muted" style={{ margin: 0 }}>
+            <p className="muted m-0">
               No buffer items added yet. Use the buttons below to pick existing catalog items or configure custom sizes.
             </p>
           </div>
@@ -110,7 +110,7 @@ export default function PlanBufferSection({ catalogItems = [], options = {} }) {
       </div>
 
       <div className="tbl-actions-bar">
-        <div className="tbl-actions-left" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="tbl-actions-left d-flex gap-10 ai-c f-wrap">
           <div style={{ minWidth: 260, maxWidth: 360 }}>
             <Combobox
               value={selectedItem}

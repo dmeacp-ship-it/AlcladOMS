@@ -1,328 +1,164 @@
 import Link from 'next/link'
 import { db, orderCounts, requireRole } from '@/lib/server'
-import { STATUS, can, day, money } from '@/lib/tas'
+import { DISPATCH, STATUS, can, day, money, totals } from '@/lib/tas'
 import { invTodo } from '@/lib/todo'
-import { LinkBusy } from './ui'
+import { CustName, LinkBusy } from './ui'
 
 export const metadata = { title: 'Dashboard' }
+
+// One tile of a pipeline row. Tiles with work waiting get a solid surface; empty ones stay quiet.
+function Tile({ href, icon, n, label, sub }) {
+  return (
+    <Link prefetch={false} href={href} className={`dash-stat${n > 0 ? ' has' : ''}`}>
+      <div className="dash-stat-top">
+        <i className={`ph ${icon}`} />
+        <i className="ph ph-caret-right" />
+      </div>
+      <div className="dash-stat-num">{n}</div>
+      <div className="dash-stat-lbl">{label}</div>
+      <div className="dash-stat-sub">{sub}</div>
+    </Link>
+  )
+}
 
 export default async function Dashboard() {
   const me = await requireRole()
   const boss = ['admin', 'manager'].includes(me.role)
 
-  const [c, inv, { data: events }, { data: activeOrders }] = await Promise.all([
+  const [c, inv, { data: events }, { data: rawRecent }] = await Promise.all([
     orderCounts(me.role === 'sales' ? me.id : null),
     boss ? invTodo() : { po: 0, grn: 0, qc: 0, toPlan: 0, toPlanPcs: 0 },
     db().from('order_events')
       .select('id, at, by_name, action, detail, order_id, order:orders(quote_no, customer_name)')
-      .order('id', { ascending: false }).limit(12),
+      .order('id', { ascending: false }).limit(10),
     db().from('orders')
-      .select('id, quote_no, quote_date, customer_name, status, dispatch_status, total')
+      .select('id, quote_no, quote_date, customer_name, status, dispatch_status, transport, vat_rate, items:order_items(qty, m2, price, total)')
       .not('status', 'in', '("REJECTED","CANCELLED")')
       .order('id', { ascending: false })
       .limit(6),
   ])
 
-  const pendingApprovals = c.PENDING || 0
+  const recent = (rawRecent || []).map((o) => ({ ...o, total: totals(o.items || [], o.transport, o.vat_rate).total }))
+  const toApprove = c.PENDING || 0
   const inProduction = c.AWAIT_DISPATCH || 0
   const readyToShip = c.AWAIT_DO || 0
-  const billingPending = (c.AWAIT_PI || 0) + (c.AWAIT_TAX || 0)
+  const billing = (c.AWAIT_PI || 0) + (c.AWAIT_TAX || 0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-      {/* Top Banner Card: Greeting on Left, Quick Shortcuts on Right (Option B) */}
-      <div className="card dash-banner">
-        <div className="dash-banner-info">
-          <h2 className="dash-banner-title">
-            Good day, {me.full_name}
-          </h2>
-          <span className="dash-banner-sub">
-            Role: <b style={{ textTransform: 'capitalize' }}>{me.role}</b> · Operational Command Center
-          </span>
+    <div className="dash">
+      <div className="dash-head">
+        <div>
+          <h2 className="dash-hi">Good day, {me.full_name}</h2>
+          <div className="dash-role">{me.role}</div>
         </div>
-        <div className="dash-banner-acts">
+        <div className="dash-acts">
           {can(me, 'sales') && (
-            <Link prefetch={false} href="/orders/new" className="btn btn-primary btn-sm">
-              <LinkBusy /><i className="ph ph-plus" />New Quotation
-            </Link>
+            <Link prefetch={false} href="/orders/new" className="btn btn-primary btn-sm"><LinkBusy /><i className="ph ph-plus" />New quotation</Link>
           )}
           {can(me, 'plant') && (
-            <Link prefetch={false} href="/inventory/issue/new" className="btn btn-ghost btn-sm">
-              <LinkBusy /><i className="ph ph-arrows-left-right" />Issue RM to Line
-            </Link>
+            <Link prefetch={false} href="/production/dpr/new" className="btn btn-ghost btn-sm"><LinkBusy /><i className="ph ph-gear-six" />Enter shift output</Link>
           )}
           {can(me, 'plant') && (
-            <Link prefetch={false} href="/production/dpr/new" className="btn btn-ghost btn-sm">
-              <LinkBusy /><i className="ph ph-gear-six" />Record Shift Output (DPR)
-            </Link>
+            <Link prefetch={false} href="/inventory/issue/new" className="btn btn-ghost btn-sm"><LinkBusy /><i className="ph ph-arrows-left-right" />Issue to line</Link>
           )}
           {can(me, 'buying') && (
-            <Link prefetch={false} href="/inventory/po/new" className="btn btn-ghost btn-sm">
-              <LinkBusy /><i className="ph ph-shopping-cart" />Create Purchase Order
-            </Link>
+            <Link prefetch={false} href="/inventory/po/new" className="btn btn-ghost btn-sm"><LinkBusy /><i className="ph ph-shopping-cart" />New PO</Link>
           )}
         </div>
       </div>
 
-      {/* 2-Column Command Center Grid */}
       <div className="dash-grid">
-        {/* Left Column: Operations & Active Pipelines */}
         <div className="dash-main">
-          {/* Order Lifecycle Pipeline */}
-          <div className="card" style={{ padding: '16px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9375rem', fontWeight: 700 }}>
-                <i className="ph ph-lightning" style={{ color: 'var(--accentH)', fontSize: '1.125rem' }} />
-                <span>Orders Pipeline</span>
-              </div>
-              <Link prefetch={false} href="/orders" className="text-xs fw6" style={{ color: 'var(--accentH)' }}>
-                All Active Orders ({c.ACTIVE || 0}) →
-              </Link>
+          <section className="dash-sec" aria-labelledby="h-pipe">
+            <div className="dash-sec-head">
+              <h2 id="h-pipe">Order pipeline</h2>
+              <Link prefetch={false} href="/orders">All active orders ({c.ACTIVE || 0}) →</Link>
             </div>
-
             <div className="dash-stat-grid">
-              {/* Step 1: Approvals */}
-              <Link prefetch={false} href="/orders?status=PENDING" className="dash-stat">
-                <div className="dash-stat-top">
-                  <i className="ph ph-hourglass" />
-                  <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                </div>
-                <div className="dash-stat-num" style={{ color: pendingApprovals > 0 ? 'var(--yellow)' : 'inherit' }}>
-                  {pendingApprovals}
-                </div>
-                <div className="dash-stat-lbl">1. To Approve</div>
-                <div className="dash-stat-sub">
-                  {pendingApprovals === 1 ? '1 quote waiting' : `${pendingApprovals} quotes`}
-                </div>
-              </Link>
-
-              {/* Step 2: Production */}
-              <Link prefetch={false} href="/orders?status=AWAIT_DISPATCH" className="dash-stat">
-                <div className="dash-stat-top">
-                  <i className="ph ph-package" />
-                  <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                </div>
-                <div className="dash-stat-num" style={{ color: inProduction > 0 ? 'var(--teal)' : 'inherit' }}>
-                  {inProduction}
-                </div>
-                <div className="dash-stat-lbl">2. In Production</div>
-                <div className="dash-stat-sub">
-                  {inProduction === 1 ? '1 on floor' : `${inProduction} orders`}
-                </div>
-              </Link>
-
-              {/* Step 3: Ready to Ship */}
-              <Link prefetch={false} href="/orders?status=AWAIT_DO" className="dash-stat">
-                <div className="dash-stat-top">
-                  <i className="ph ph-truck" />
-                  <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                </div>
-                <div className="dash-stat-num" style={{ color: readyToShip > 0 ? 'var(--green)' : 'inherit' }}>
-                  {readyToShip}
-                </div>
-                <div className="dash-stat-lbl">3. Ready to Ship</div>
-                <div className="dash-stat-sub">
-                  {readyToShip === 1 ? '1 ready for DO' : `${readyToShip} orders`}
-                </div>
-              </Link>
-
-              {/* Step 4: Billing */}
-              <Link prefetch={false} href="/orders?status=AWAIT_PI" className="dash-stat">
-                <div className="dash-stat-top">
-                  <i className="ph ph-receipt" />
-                  <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                </div>
-                <div className="dash-stat-num" style={{ color: billingPending > 0 ? 'var(--orange)' : 'inherit' }}>
-                  {billingPending}
-                </div>
-                <div className="dash-stat-lbl">4. To Invoice</div>
-                <div className="dash-stat-sub">
-                  {c.AWAIT_PI || 0} PI · {c.AWAIT_TAX || 0} Tax
-                </div>
-              </Link>
+              <Tile href="/orders?status=PENDING" icon="ph-hourglass" n={toApprove} label="1. To approve" sub={toApprove === 1 ? '1 quote' : `${toApprove} quotes`} />
+              <Tile href="/orders?status=AWAIT_DISPATCH" icon="ph-package" n={inProduction} label="2. In production" sub={inProduction === 1 ? '1 order' : `${inProduction} orders`} />
+              <Tile href="/orders?status=AWAIT_DO" icon="ph-truck" n={readyToShip} label="3. Ready to ship" sub={readyToShip === 1 ? '1 order' : `${readyToShip} orders`} />
+              <Tile href="/orders?status=AWAIT_PI" icon="ph-receipt" n={billing} label="4. Billing" sub={`${c.AWAIT_PI || 0} PI · ${c.AWAIT_TAX || 0} tax invoice`} />
             </div>
-          </div>
+          </section>
 
-          {/* Factory & Stock Operations (Boss only) */}
           {boss && (
-            <div className="card" style={{ padding: '16px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9375rem', fontWeight: 700 }}>
-                  <i className="ph ph-factory" style={{ color: 'var(--accentH)', fontSize: '1.125rem' }} />
-                  <span>Factory & Inventory</span>
-                </div>
-                <Link prefetch={false} href="/inventory" className="text-xs fw6" style={{ color: 'var(--accentH)' }}>
-                  Inventory Overview →
-                </Link>
+            <section className="dash-sec" aria-labelledby="h-fac">
+              <div className="dash-sec-head">
+                <h2 id="h-fac">Factory and stock</h2>
+                <Link prefetch={false} href="/inventory">Inventory →</Link>
               </div>
-
               <div className="dash-stat-grid">
-                <Link prefetch={false} href="/inventory/po" className="dash-stat">
-                  <div className="dash-stat-top">
-                    <i className="ph ph-shopping-cart" />
-                    <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                  </div>
-                  <div className="dash-stat-num" style={{ color: inv.po > 0 ? 'var(--yellow)' : 'inherit' }}>
-                    {inv.po}
-                  </div>
-                  <div className="dash-stat-lbl">Purchasing</div>
-                  <div className="dash-stat-sub">
-                    {inv.po === 1 ? '1 waiting approval' : `${inv.po} waiting`}
-                  </div>
-                </Link>
-
-                <Link prefetch={false} href="/inventory/grn" className="dash-stat">
-                  <div className="dash-stat-top">
-                    <i className="ph ph-truck" />
-                    <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                  </div>
-                  <div className="dash-stat-num" style={{ color: inv.grn > 0 ? 'var(--orange)' : 'inherit' }}>
-                    {inv.grn}
-                  </div>
-                  <div className="dash-stat-lbl">Receive & Check</div>
-                  <div className="dash-stat-sub">
-                    {inv.grn === 1 ? '1 incoming delivery' : `${inv.grn} deliveries`}
-                  </div>
-                </Link>
-
-                <Link prefetch={false} href="/production" className="dash-stat">
-                  <div className="dash-stat-top">
-                    <i className="ph ph-calendar-check" />
-                    <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                  </div>
-                  <div className="dash-stat-num" style={{ color: inv.toPlan > 0 ? 'var(--red)' : 'inherit' }}>
-                    {inv.toPlan}
-                  </div>
-                  <div className="dash-stat-lbl">Shortages</div>
-                  <div className="dash-stat-sub">
-                    {inv.toPlanPcs > 0 ? `${inv.toPlanPcs} PCS needed` : 'No shortages'}
-                  </div>
-                </Link>
-
-                <Link prefetch={false} href="/production/qc" className="dash-stat">
-                  <div className="dash-stat-top">
-                    <i className="ph ph-seal-check" />
-                    <i className="ph ph-caret-right" style={{ fontSize: '0.75rem', color: 'var(--muted)' }} />
-                  </div>
-                  <div className="dash-stat-num" style={{ color: inv.qc > 0 ? 'var(--teal)' : 'inherit' }}>
-                    {inv.qc}
-                  </div>
-                  <div className="dash-stat-lbl">Shift QC Check</div>
-                  <div className="dash-stat-sub">
-                    {inv.qc === 1 ? '1 row awaiting' : `${inv.qc} rows awaiting`}
-                  </div>
-                </Link>
+                <Tile href="/inventory/po" icon="ph-shopping-cart" n={inv.po} label="Purchasing" sub={`${inv.po} waiting`} />
+                <Tile href="/inventory/grn" icon="ph-truck" n={inv.grn} label="Receive and check" sub={inv.grn === 1 ? '1 delivery' : `${inv.grn} deliveries`} />
+                <Tile href="/production" icon="ph-calendar-check" n={inv.toPlan} label="Shortages" sub={inv.toPlanPcs > 0 ? `${inv.toPlanPcs} PCS needed` : 'None'} />
+                <Tile href="/production/qc" icon="ph-seal-check" n={inv.qc} label="Check pieces" sub={inv.qc === 1 ? '1 row waiting' : `${inv.qc} rows waiting`} />
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Active Orders Table Card */}
-          <div className="card">
-            <div className="tbl-top" style={{ padding: '12px 18px', minHeight: 48 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.9375rem', fontWeight: 700 }}>
-                <i className="ph ph-list-checks" style={{ color: 'var(--accentH)', fontSize: '1.125rem' }} />
-                <span>Active Orders</span>
-              </div>
-              <Link prefetch={false} href="/orders" className="text-xs fw6" style={{ color: 'var(--accentH)' }}>
-                View All ({c.ACTIVE || 0}) →
-              </Link>
+          <section className="card" aria-labelledby="h-recent">
+            <div className="dash-card-head">
+              <h2 id="h-recent">Recent orders</h2>
+              <Link prefetch={false} href="/orders?show=all">All orders →</Link>
             </div>
-
             <div className="tbl-wrap">
               <table className="tbl">
                 <thead>
-                  <tr>
-                    <th>Quote No</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th className="r">Total (SAR)</th>
-                    <th className="r">Action</th>
-                  </tr>
+                  <tr><th>Quote no</th><th>Customer</th><th>Status</th><th className="r">Total (SAR)</th></tr>
                 </thead>
                 <tbody>
-                  {activeOrders?.map((o) => (
+                  {recent.map((o) => (
                     <tr key={o.id}>
+                      <td className="nowrap"><Link prefetch={false} href={`/orders?view=${o.id}`} className="qno">{o.quote_no}</Link></td>
+                      <td className="fw6"><CustName name={o.customer_name} /></td>
                       <td className="nowrap">
-                        <Link prefetch={false} href={`/orders?view=${o.id}`} className="qno fw7">
-                          {o.quote_no}
-                        </Link>
+                        <span className={`badge b-${o.status}`}>{STATUS[o.status] || o.status}</span>{' '}
+                        {o.status === 'APPROVED' && DISPATCH[o.dispatch_status] && (
+                          <span className={`badge ${DISPATCH[o.dispatch_status][1]}`}>{DISPATCH[o.dispatch_status][0]}</span>
+                        )}
                       </td>
-                      <td>
-                        <span className="fw6" style={{ fontSize: '0.8125rem' }}>{o.customer_name}</span>
-                      </td>
-                      <td className="nowrap">
-                        <span className={`badge b-${o.status}`}>{STATUS[o.status] || o.status}</span>
-                        {o.dispatch_status && <span className="badge b-info" style={{ marginLeft: 4 }}>{o.dispatch_status}</span>}
-                      </td>
-                      <td className="num fw6 nowrap">
-                        {money(o.total)}
-                      </td>
-                      <td className="r nowrap">
-                        <Link prefetch={false} href={`/orders?view=${o.id}`} className="btn btn-ghost btn-sm" style={{ padding: '4px 10px', fontSize: '0.75rem' }}>
-                          View
-                        </Link>
-                      </td>
+                      <td className="num fw6 nowrap">{money(o.total)}</td>
                     </tr>
                   ))}
-                  {!activeOrders?.length && (
-                    <tr>
-                      <td colSpan={5} className="c muted" style={{ padding: 24 }}>
-                        No active orders right now.
-                      </td>
-                    </tr>
-                  )}
+                  {!recent.length && <tr><td colSpan={4} className="c muted">No orders yet.</td></tr>}
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* Right Column: Live Activity Audit Stream (Full Height) */}
         <div className="dash-side">
-          <div className="card" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="tbl-top" style={{ padding: '12px 18px', minHeight: 48, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', fontWeight: 700 }}>
-                <i className="ph ph-clock-counter-clockwise" style={{ color: 'var(--accentH)', fontSize: '1.125rem' }} />
-                <span>Live Activity</span>
-              </div>
-              {boss && (
-                <Link prefetch={false} href="/admin/activity" className="text-xs fw6" style={{ color: 'var(--accentH)' }}>
-                  Full Log →
-                </Link>
-              )}
+          <section className="card" aria-labelledby="h-act">
+            <div className="dash-card-head">
+              <h2 id="h-act">Latest activity</h2>
+              {boss && <Link prefetch={false} href="/admin/activity">Full log →</Link>}
             </div>
-
-            <div className="dash-activity-list" style={{ maxHeight: '620px', flex: 1 }}>
-              {events?.map((ev) => (
-                <div key={ev.id} className="dash-activity-item">
-                  <div className="dash-act-head">
-                    {ev.order?.quote_no ? (
-                      <Link prefetch={false} href={`/orders?view=${ev.order_id}`} className="qno fw7" style={{ fontSize: '0.8125rem' }}>
-                        {ev.order.quote_no}
-                      </Link>
-                    ) : (
-                      <span className="muted text-xs">—</span>
+            <div className="dash-activity-list">
+              {events?.map((ev, i) => {
+                // Consecutive events on the same order share one header.
+                const same = i > 0 && events[i - 1].order_id === ev.order_id
+                return (
+                  <div key={ev.id} className="dash-activity-item">
+                    {!same && (
+                      <div className="dash-act-head">
+                        {ev.order?.quote_no
+                          ? <Link prefetch={false} href={`/orders?view=${ev.order_id}`} className="qno fw7">{ev.order.quote_no}</Link>
+                          : <span className="muted text-xs">—</span>}
+                        <span className="muted text-xs">{day(ev.at)}</span>
+                      </div>
                     )}
-                    <span className="muted text-xs">{day(ev.at)}</span>
+                    <div className="dash-act-acts">
+                      <span className="badge b-none">{ev.action}</span>
+                      <span className="text-xs muted">{ev.by_name || 'System'}</span>
+                    </div>
+                    {ev.detail && <p className="dash-act-detail" title={ev.detail}>{ev.detail}</p>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '3px 0' }}>
-                    <span className="badge b-none" style={{ fontSize: '0.7188rem', padding: '2px 8px' }}>{ev.action}</span>
-                    <span className="text-xs muted">by {ev.by_name || 'System'}</span>
-                  </div>
-                  {ev.detail && (
-                    <p className="dash-act-detail" title={ev.detail}>
-                      {ev.detail}
-                    </p>
-                  )}
-                </div>
-              ))}
-              {!events?.length && (
-                <div className="c muted" style={{ padding: 32, fontSize: '0.8125rem' }}>
-                  No recent activity recorded yet.
-                </div>
-              )}
+                )
+              })}
+              {!events?.length && <div className="c muted dash-activity-item">No activity yet.</div>}
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/server'
 import { dispatch, period } from '@/lib/reports'
 import { day, int, money } from '@/lib/tas'
 import ReportsHead from '../ReportsHead'
+import { CustName } from '@/app/ui'
 
 export const metadata = { title: 'Dispatch · Reports' }
 
@@ -33,12 +34,12 @@ export default async function Dispatch({ searchParams }) {
       <div className="card">
         <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-truck" />Delivery orders <span className="badge b-none">{d.rows.length}</span></h2></div>
         <div className="tbl-wrap">
-          <table className="tbl">
+          <table className="tbl dispatch-tbl">
             <thead>
               <tr>
-                <th>DO No</th><th>DO Date</th><th>Quote No</th><th>Customer</th><th>Vehicle</th>
-                <th className="r">PCS</th><th className="r">M2</th><th className="r" title="First DO of an order only">Days approval → DO</th>
-                <th>PI No</th><th className="r">Days DO → PI</th>
+                <th>DO No</th><th>DO Date</th><th>Quote No</th><th>Customer</th><th className="c-veh">Vehicle</th>
+                <th className="r">PCS</th><th className="r c-m2">M2</th><th className="r" title="First DO of an order only">Days approval → DO</th>
+                <th>PI No</th><th className="r c-dopi">Days DO → PI</th>
               </tr>
             </thead>
             <tbody>
@@ -47,13 +48,13 @@ export default async function Dispatch({ searchParams }) {
                   <td className="nowrap fw6">{r.do_no}</td>
                   <td className="nowrap muted">{day(r.do_date)}</td>
                   <td className="nowrap"><Link prefetch={false} className="qno" href={`/orders?view=${r.order?.id}`}>{r.order?.quote_no}</Link></td>
-                  <td className="fw6"><bdi>{r.order?.customer_name}</bdi></td>
-                  <td className="nowrap">{r.vehicle_no || <span className="muted">—</span>}</td>
+                  <td className="fw6"><CustName name={r.order?.customer_name} /></td>
+                  <td className="nowrap c-veh">{r.vehicle_no || <span className="muted">—</span>}</td>
                   <td className="num">{int(r.pcs)}</td>
-                  <td className="num">{money(r.m2)}</td>
+                  <td className="num c-m2">{money(r.m2)}</td>
                   <td className="num">{daysCell(r.toDo)}</td>
                   <td className="nowrap">{r.pi_no || <span className="badge b-warn">Pending PI</span>}</td>
-                  <td className="num">{daysCell(r.toPi)}</td>
+                  <td className="num c-dopi">{daysCell(r.toPi)}</td>
                 </tr>
               ))}
             </tbody>

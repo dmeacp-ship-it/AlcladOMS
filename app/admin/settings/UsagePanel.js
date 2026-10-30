@@ -7,14 +7,13 @@ export default async function UsagePanel() {
   const rows = await readUsage()
   if (!rows) console.warn('Usage panel: run supabase/migrate-012.sql to enable it.')
   return (
-    <section className="fsec">
-      <h2 className="fsec-ttl"><i className="ph ph-gauge" />Free plan usage</h2>
+    <div style={{ maxWidth: 700 }}>
       {!rows ? <p className="muted text-sm">Usage figures aren't available yet.</p> : (
         <div className="usage">
           {rows.map((r) => (
             <div key={r.key} className="usage-row">
-              <span>{r.label}</span>
-              <span className="num">{fmt(r.key, r.used)} / {fmt(r.key, r.max)}</span>
+              <span className="fw5">{r.label}</span>
+              <span className="num fw6">{fmt(r.key, r.used)} / {fmt(r.key, r.max)}</span>
               <div className={`usage-bar${r.share >= WARN ? ' warn' : ''}`} role="progressbar" aria-label={r.label} aria-valuenow={Math.round(r.share * 100)} aria-valuemin={0} aria-valuemax={100}>
                 <i style={{ width: `${Math.min(100, r.share * 100)}%` }} />
               </div>
@@ -22,10 +21,10 @@ export default async function UsagePanel() {
           ))}
         </div>
       )}
-      <p className="muted text-sm" style={{ marginTop: 10 }}>
+      <p className="muted text-sm mt-14">
         Updated hourly. Data transfer (egress, 5 GB a month) is only shown in the{' '}
-        <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noreferrer">Supabase usage page</a>.
+        <a href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Supabase usage page</a>.
       </p>
-    </section>
+    </div>
   )
 }

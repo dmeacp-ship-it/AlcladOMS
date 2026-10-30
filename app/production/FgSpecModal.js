@@ -195,7 +195,7 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
           </div>
 
           {/* Row 2: Al skin, Width, Length, Thickness */}
-          <div className="fgrid-4" style={{ marginTop: 8 }}>
+          <div className="fgrid-4 mt-8">
             <div className="fg">
               <label htmlFor={`${uid}-skin`}>Al skin</label>
               <select
@@ -253,7 +253,7 @@ export default function FgSpecModal({ open, onClose, onSelect, options = {} }) {
           </div>
 
           {/* Live Preview Strip */}
-          <div className="cust-meta-strip" style={{ marginTop: 16 }}>
+          <div className="cust-meta-strip mt-16">
             <div className="cust-meta-item">
               <span className="lbl">Preview SKU:</span>
               <span className="val badge b-blue">{codePreview || '—'}</span>

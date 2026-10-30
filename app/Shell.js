@@ -3,53 +3,57 @@ import Link from 'next/link'
 import Form from 'next/form'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
-import { IntentLink, LinkBusy, TableLabels, Tooltips } from './ui'
+import { IntentLink, LinkBusy, MenuCloser, TableLabels, Tooltips } from './ui'
 
 const LIST_TITLES = {
-  '': ['All Orders', 'Every quotation and order in the system'],
-  MINE: ['My Work', 'Orders waiting for your action'],
-  ACTIVE: ['Active Orders', 'Orders in progress: approve, make, ship, and invoice'],
-  PENDING: ['To Approve', 'Quotations waiting for approver sign-off'],
-  APPROVED: ['Approved Orders', 'Approved quotations moving through the workflow'],
-  REJECTED: ['Rejected Quotations', 'Duplicate a rejected quote to revise and resubmit'],
-  CANCELLED: ['Cancelled Orders', 'Orders cancelled before delivery'],
-  AWAIT_DO: ['Ready to Ship', 'Finished orders waiting for Delivery Order & shipment'],
-  AWAIT_DISPATCH: ['In Production', 'Orders being manufactured on the plant floor'],
-  AWAIT_PI: ['To Invoice', 'Delivery Orders waiting for Proforma Invoices'],
-  AWAIT_TAX: ['Tax Invoices', 'Proforma Invoices waiting for tax invoice upload'],
+  ALL: ['All orders', 'Every quotation and order'],
+  MINE: ['My work', 'Orders waiting for your action'],
+  ACTIVE: ['Active orders', 'Approve, make, ship and bill'],
+  PENDING: ['To approve', 'Quotations waiting for the approver'],
+  APPROVED: ['Approved orders', 'Approved quotations moving through the steps'],
+  REJECTED: ['Rejected quotations', 'Duplicate a rejected quote to revise and resubmit'],
+  CANCELLED: ['Cancelled orders', 'Orders cancelled before delivery'],
+  AWAIT_DO: ['Ready to ship', 'Finished pieces waiting for a Delivery Order'],
+  AWAIT_DISPATCH: ['In production', 'Orders being made on the floor'],
+  AWAIT_PI: ['Make PI', 'Delivery Orders waiting for a Proforma Invoice'],
+  AWAIT_TAX: ['Tax invoice', 'Proforma Invoices waiting for the tax invoice file'],
 }
+// Roles whose Orders page opens on My work (same keys as MY_WORK in lib/server.js)
+const MY_WORK_ROLES = ['approver', 'plant', 'operations', 'accounts']
+// Top bar: the area's name (the same word as the sidebar), then what this page or tab does.
 const PAGES = [
-  [/^\/$/, 'Dashboard', 'Overview of orders, production, and waiting work'],
-  [/^\/orders\/new/, 'New Quotation', 'Pick the customer and line items, then submit for approval'],
-  [/^\/orders\/\d+\/edit/, 'Edit Order', 'Admin correction: customer, salesperson, lines and prices'],
-  [/^\/admin\/settings/, 'Company Settings', 'Company, documents, VAT, numbering and approval rules'],
-  [/^\/admin\/activity/, 'Activity Log', 'Who did what, and when'],
-  [/^\/admin\/reports\/salespeople/, 'Reports · Salespeople', 'Quotes, approvals and value per salesperson'],
-  [/^\/admin\/reports\/customers/, 'Reports · Customers', 'Quotes, approvals and value per customer'],
-  [/^\/admin\/reports\/waiting/, 'Reports · Waiting', 'What is waiting right now, and for how long'],
-  [/^\/admin\/reports\/dispatch/, 'Reports · Dispatch', 'Delivery orders and lead times'],
-  [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch performance'],
-  [/^\/orders\/\d+\/print/, 'Print Document', 'Print it, or choose “Save as PDF” as the printer'],
-  [/^\/plant/, 'Ready to Ship', 'Mark finished pieces ready, then ship them'],
-  [/^\/admin\/customers/, 'Customers', 'Customer master'],
-  [/^\/admin\/items/, 'Items', 'One list per column; quotes combine them'],
-  [/^\/admin\/users/, 'Users', 'Logins and roles'],
-  [/^\/admin\/plants/, 'Plants', 'Factories; every store belongs to one'],
-  [/^\/admin\/stores/, 'Stores & Lines', 'Stores hold stock; production lines hold the raw material issued to them until it is used'],
-  [/^\/admin\/materials/, 'Materials', 'Raw materials and consumables, with min / max stock levels'],
-  [/^\/admin\/vendors/, 'Vendors', 'Suppliers for purchase orders'],
-  [/^\/inventory\/po/, 'Purchasing', 'Order raw material from a supplier'],
-  [/^\/inventory\/grn/, 'Receive & Check', 'When goods arrive: enter what came, then check it'],
-  [/^\/inventory\/bom/, 'BOM & Recipes', 'Standard formulas and raw material consumption per M²'],
-  [/^\/inventory\/issue/, 'Issue to Line', 'Send raw material from the store to a production line'],
-  [/^\/inventory\/adjust/, 'Stock Adjustments', 'Physical count corrections and opening stock ledger'],
-  [/^\/inventory/, 'Inventory', 'How much raw material is in each store and line'],
-  [/^\/production\/plan/, 'Production Plan', 'What one line makes in one shift'],
-  [/^\/production\/dpr/, 'Daily Production Report (DPR)', 'Step 1: what each line made in a shift, and the raw material it used'],
-  [/^\/production\/qc/, 'Check Pieces (QC)', 'Step 2: check new pieces before they go into the finished goods store'],
-  [/^\/production\/fg/, 'Finished Goods', 'Finished pieces by product and size'],
-  [/^\/production\/reports/, 'Reports', 'How much was made, rejected and used'],
-  [/^\/production/, 'Production Planning', 'What customer orders still need, and what to make'],
+  [/^\/$/, 'Dashboard', 'Orders, production and work waiting on you'],
+  [/^\/orders\/new/, 'New quotation', 'Pick the customer and lines, then submit for approval'],
+  [/^\/orders\/\d+\/edit/, 'Edit order', 'Admin correction: customer, salesperson, lines and prices'],
+  [/^\/admin\/settings/, 'Settings', 'Company, documents, VAT, numbering and approval rules'],
+  [/^\/admin\/activity/, 'Settings', 'Activity log: who did what, and when'],
+  [/^\/admin\/reports\/salespeople/, 'Reports', 'Salespeople: quotes, approvals and value'],
+  [/^\/admin\/reports\/customers/, 'Reports', 'Customers: quotes, approvals and value'],
+  [/^\/admin\/reports\/waiting/, 'Reports', 'Waiting: what is waiting now, and for how long'],
+  [/^\/admin\/reports\/dispatch/, 'Reports', 'Dispatch: Delivery Orders and lead times'],
+  [/^\/admin\/reports/, 'Reports', 'Sales, waiting times and dispatch'],
+  [/^\/orders\/\d+\/print/, 'Print document', 'Print it, or choose “Save as PDF” as the printer'],
+  [/^\/plant/, 'Production', 'Ready to ship: mark finished pieces ready, then ship them'],
+  [/^\/admin\/customers/, 'Settings', 'Customers'],
+  [/^\/admin\/items/, 'Settings', 'Items: one list per column; quotes combine them'],
+  [/^\/admin\/users/, 'Settings', 'Users: logins and roles'],
+  [/^\/admin\/plants/, 'Settings', 'Plants: every store belongs to one'],
+  [/^\/admin\/stores/, 'Settings', 'Stores and production lines'],
+  [/^\/admin\/materials/, 'Settings', 'Materials, with min / max stock levels'],
+  [/^\/admin\/vendors/, 'Settings', 'Vendors: suppliers for purchase orders'],
+  [/^\/admin\/bom/, 'Settings', 'BOM & recipes: material use per M²'],
+  [/^\/inventory\/po/, 'Purchasing', 'Purchase orders: order raw material from a supplier'],
+  [/^\/inventory\/grn/, 'Purchasing', 'Goods received: enter what came, then check it'],
+  [/^\/inventory\/bom/, 'Settings', 'BOM & recipes: material use per M²'],
+  [/^\/inventory\/issue/, 'Inventory', 'Issues to line: raw material sent from a store to a line'],
+  [/^\/inventory\/adjust/, 'Inventory', 'Stock adjustments'],
+  [/^\/inventory/, 'Inventory', 'Raw material in each store and line'],
+  [/^\/production\/plan/, 'Production', 'Plan: what one line makes in one shift'],
+  [/^\/production\/dpr/, 'Production', 'Shift output: what each line made, and the material it used'],
+  [/^\/production\/qc/, 'Production', 'Check pieces before they go into finished goods'],
+  [/^\/production\/fg/, 'Inventory', 'Finished goods by product and size'],
+  [/^\/production\/reports/, 'Reports', 'Production: made, rejected and used'],
+  [/^\/production/, 'Production', 'Planning: what customer orders still need'],
 ]
 
 // Closes a popover on outside press and Esc while it is open.
@@ -68,7 +72,8 @@ function getFallback(path) {
   if (path.startsWith('/orders/new') || path.startsWith('/orders/')) return '/orders'
   if (path.startsWith('/inventory/po/new') || path.startsWith('/inventory/po/')) return '/inventory/po'
   if (path.startsWith('/inventory/grn/')) return '/inventory/po'
-  if (path.startsWith('/inventory/bom')) return '/inventory'
+  if (path.startsWith('/admin/bom')) return '/admin/settings'
+  if (path.startsWith('/inventory/bom')) return '/admin/bom'
   if (path.startsWith('/inventory/issue/')) return '/inventory'
   if (path.startsWith('/inventory/adjust')) return '/inventory'
   if (path.startsWith('/production/dpr/new') || path.startsWith('/production/dpr/')) return '/production/dpr'
@@ -84,12 +89,9 @@ function getFallback(path) {
 export default function Shell({ me, nav, settings, logout, children }) {
   const pathname = usePathname()
   const inSettings = settings.some((s) => pathname.startsWith(s.href))
-  const [setOpen, setSetOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const setRef = useRef(null)
   const moreRef = useRef(null)
-  useEffect(() => { setSetOpen(false); setMoreOpen(false) }, [pathname])
-  useDismiss(setOpen, setSetOpen, setRef)
+  useEffect(() => { setMoreOpen(false) }, [pathname])
   useDismiss(moreOpen, setMoreOpen, moreRef)
   // Report tabs scroll sideways on phones: keep the open one in view.
   useEffect(() => { document.querySelector('.tabs .tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [pathname])
@@ -140,9 +142,18 @@ export default function Shell({ me, nav, settings, logout, children }) {
     return () => { clearTimeout(t); delete document.documentElement.dataset.busy }
   }, [leaving])
   const [dark, setDark] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchRef = useRef(null)
   const [toast, setToast] = useState(null)
   const [online, setOnline] = useState(true)
-  useEffect(() => setDark(document.documentElement.dataset.theme === 'dark'), [])
+  // The head script sets the theme on a full load; this covers renders it missed (error recovery).
+  useEffect(() => {
+    let t
+    try { t = localStorage.theme } catch {}
+    const d = t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)
+    if (d) document.documentElement.dataset.theme = 'dark'
+    setDark(d)
+  }, [])
   useEffect(() => {
     const on = () => setOnline(navigator.onLine)
     on()
@@ -187,7 +198,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
     return href === best
   }
   const [title, sub] = pathname === '/orders'
-    ? LIST_TITLES[status] || LIST_TITLES['']
+    ? LIST_TITLES[status] || LIST_TITLES[sp.get('show') === 'all' ? 'ALL' : MY_WORK_ROLES.includes(me.role) ? 'MINE' : 'ACTIVE']
     : (PAGES.find(([re]) => re.test(pathname)) || [null, 'TAS OMS', '']).slice(1)
   // IntentLink prefetches on hover/touch (150-300 ms head start).
   // staleTimes.dynamic: 30 keeps the prefetched page ready for 30s.
@@ -197,9 +208,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
       <LinkBusy />
       <i className={`ph ${n.icon}`} />
       <span className="ni-txt">{n.label}</span>
-      {/* Phone tab bar: one-word label so every icon sits on the same line */}
-      {n.short && <span className="ni-short">{n.short}</span>}
-      {n.badge > 0 && <span className="ni-bd" aria-label={`${n.badge} waiting`}>{n.badge}</span>}
+      {n.badge > 0 && <span className="ni-bd" aria-label={`${n.badge} steps waiting on you`} title={`${n.badge} steps waiting on you`}>{n.badge}</span>}
     </IntentLink>
   )
   const moreItems = [...nav.filter((n) => n.more), ...settings]
@@ -231,12 +240,15 @@ export default function Shell({ me, nav, settings, logout, children }) {
     const x = b.left + b.width / 2
     const y = b.top + b.height / 2
     const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))
-    document.startViewTransition(apply).ready.then(() => {
-      document.documentElement.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-        { duration: 400, easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)', pseudoElement: '::view-transition-new(root)' },
-      )
-    })
+    // A second click or a navigation can abort the transition; the theme is applied either way.
+    try {
+      document.startViewTransition(apply).ready.then(() => {
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+          { duration: 400, easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)', pseudoElement: '::view-transition-new(root)' },
+        )
+      }, () => {})
+    } catch { apply() }
   }
 
   // Group nav items into top-level items and collapsible sections
@@ -339,15 +351,16 @@ export default function Shell({ me, nav, settings, logout, children }) {
         </div>
         <div className="sb-bottom-wrapper">
           {settings.length > 0 && (
-            <div ref={setRef} className={`sb-set${setOpen ? ' open' : ''}`}>
-              {setOpen && <nav id="sb-settings" className="sb-pop" aria-label="Settings">{settings.map(item)}</nav>}
-              <button type="button" className={`ni sb-set-btn${inSettings ? ' active' : ''}`} title="Settings"
-                aria-expanded={setOpen} aria-controls="sb-settings" onClick={() => setSetOpen(!setOpen)}>
-                <i className="ph ph-gear-six" />
-                <span className="ni-txt">Settings</span>
-                <i className="ph ph-caret-right sb-caret" aria-hidden="true" />
-              </button>
-            </div>
+            <IntentLink
+              href={settings[0]?.href || '/admin/settings'}
+              className={`ni sb-set-btn${inSettings ? ' active' : ''}`}
+              title="Settings"
+              aria-current={inSettings ? 'page' : undefined}
+            >
+              <LinkBusy />
+              <i className="ph ph-gear-six" />
+              <span className="ni-txt">Settings</span>
+            </IntentLink>
           )}
           {/* Phones only: the fifth tab */}
           <div ref={moreRef} className="sb-more">
@@ -361,13 +374,15 @@ export default function Shell({ me, nav, settings, logout, children }) {
                 <div className="more-scrim" aria-hidden="true" onClick={() => setMoreOpen(false)} />
                 <nav id="more-sheet" className="more-sheet" aria-label="More">
                   <div className="more-user"><div className="av sm" aria-hidden="true">{initials}</div><b>{me.full_name}</b><span className={`rtag rt-${me.role}`}>{me.role}</span></div>
+                  <div className="more-quick">
+                    <button type="button" className="ni" onClick={(e) => { toggleTheme(e); setMoreOpen(false) }}>
+                      <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} /><span className="ni-txt">{dark ? 'Light mode' : 'Dark mode'}</span>
+                    </button>
+                    <form action={logout} className="more-logout">
+                      <button className="ni danger"><i className="ph ph-sign-out" /><span className="ni-txt">Log out</span></button>
+                    </form>
+                  </div>
                   {moreItems.length > 0 && <div className="more-list">{moreList.map((n, i) => (n.section ? <div key={`s${i}`} className="more-sec">{n.section}</div> : item(n)))}</div>}
-                  <button type="button" className="ni" onClick={(e) => { toggleTheme(e); setMoreOpen(false) }}>
-                    <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} /><span className="ni-txt">{dark ? 'Light mode' : 'Dark mode'}</span>
-                  </button>
-                  <form action={logout} className="more-logout">
-                    <button className="ni danger"><i className="ph ph-sign-out" /><span className="ni-txt">Log out</span></button>
-                  </form>
                 </nav>
               </>
             )}
@@ -404,14 +419,25 @@ export default function Shell({ me, nav, settings, logout, children }) {
             </div>
           </div>
           <div className="tb-r">
-            <Form action="/orders" prefetch={false} className="gsearch" role="search">
-              <i className="ph ph-magnifying-glass" aria-hidden="true" />
-              <input name="q" type="search" placeholder="Search quotes, customers…" aria-label="Search orders" />
-            </Form>
+            {/* Orders has its own list search, so the top one is left out there. Phones: a search button opens it. */}
+            {pathname !== '/orders' && (
+              <>
+                <Form action="/orders" prefetch={false} className={`gsearch${searchOpen ? ' open' : ''}`} role="search">
+                  <input type="hidden" name="show" value="all" />
+                  <i className="ph ph-magnifying-glass" aria-hidden="true" />
+                  <input ref={searchRef} name="q" type="search" placeholder="Search quotes, customers…" aria-label="Search all orders"
+                    onBlur={() => setSearchOpen(false)} />
+                </Form>
+                <button type="button" className="btn btn-ghost btn-sm btn-ic tb-search" aria-label="Search all orders"
+                  onClick={() => { setSearchOpen(true); requestAnimationFrame(() => searchRef.current?.focus()) }}>
+                  <i className="ph ph-magnifying-glass" />
+                </button>
+              </>
+            )}
             <button type="button" className="btn btn-ghost btn-sm btn-ic tb-theme" onClick={toggleTheme} title="Dark or light mode" aria-label="Switch between dark and light mode">
               <i className={`ph ${dark ? 'ph-sun' : 'ph-moon'}`} />
             </button>
-            <button type="button" className={`btn btn-success btn-sm btn-ic${refreshing ? ' spinning' : ''}`} title="Refresh data" aria-label="Refresh data"
+            <button type="button" className={`btn btn-ghost btn-sm btn-ic tb-refresh${refreshing ? ' spinning' : ''}`} title="Refresh data" aria-label="Refresh data"
               onClick={() => startRefresh(() => router.refresh())}>
               <i className="ph ph-arrow-clockwise" />
             </button>
@@ -426,6 +452,7 @@ export default function Shell({ me, nav, settings, logout, children }) {
       </div>
 
       <Tooltips />
+      <MenuCloser />
       <TableLabels />
       <div id="toasts" role="status" aria-live="polite">
         {toast?.kind === 'success' && (

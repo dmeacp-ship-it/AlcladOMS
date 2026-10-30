@@ -54,7 +54,7 @@ export default async function Users() {
       <div className="tbl-wrap">
         <table className="tbl users-tbl">
           <thead>
-            <tr><th>Name</th><th>Username</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th>Last sign-in</th><th className="r">Actions</th></tr>
+            <tr><th className="c-name">Name</th><th className="c-user">Username</th><th className="c-email">Email</th><th className="c-mobile">Mobile</th><th className="c-role">Role</th><th className="c-status">Status</th><th className="c-seen">Last sign-in</th><th className="r c-act">Actions</th></tr>
           </thead>
           <tbody>
             {users?.map((u) => (

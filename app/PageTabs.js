@@ -2,20 +2,17 @@ import { IntentLink, LinkBusy } from './ui'
 
 // Pages that share one sidebar link (Production, Stock, Reports) show these tabs at the top. on: the lit tab's href.
 const GROUPS = {
+  // One row of tabs per area: the shift steps (enter output, then check pieces) are tabs of Production too.
   production: [
-    ['/plant', 'Ready to Ship', 'ph-truck'],
-    ['/production', 'Production Planning', 'ph-calendar-check'],
-    ['/production/dpr', 'Daily Production Report (DPR)', 'ph-clipboard-text'],
+    ['/plant', 'Ready to ship', 'ph-truck'],
+    ['/production', 'Planning', 'ph-calendar-check'],
+    ['/production/dpr', 'Shift output (DPR)', 'ph-clipboard-text'],
+    ['/production/qc', 'Check pieces (QC)', 'ph-seal-check'],
   ],
   stock: [
-    ['/inventory', 'Raw Material', 'ph-warehouse'],
-    ['/production/fg', 'Finished Goods', 'ph-stack'],
-    ['/inventory/bom', 'BOM & Recipes', 'ph-receipt'],
-    ['/inventory/adjust', 'Adjustments', 'ph-sliders-horizontal'],
-  ],
-  shift: [
-    ['/production/dpr', '1. Enter production', 'ph-gear-six'],
-    ['/production/qc', '2. Check pieces', 'ph-seal-check'],
+    ['/inventory', 'Raw material', 'ph-warehouse'],
+    ['/production/fg', 'Finished goods', 'ph-stack'],
+    ['/inventory/issue', 'Issues to line', 'ph-arrows-left-right'],
   ],
   reports: [
     ['/admin/reports', 'Sales', 'ph-chart-bar'],

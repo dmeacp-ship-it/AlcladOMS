@@ -26,6 +26,24 @@
         ],
         "createdAt": "2026-10-28T07:49:11.111Z",
         "reason": "Claude: line 928 is .doc footer, the 6px red rule of the printed TAS document format (from the first commit aa919c2); not a rounded card"
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          "UI-AUDIT-2026-10-31.html"
+        ],
+        "createdAt": "2026-10-30T18:35:25.455Z",
+        "reason": "Claude: static scan pairs light-theme text with dark-theme surfaces (e.g. #000 default on dark #1a1d20, dark #7fb0dd on light #fff); body color is var(--ink) and every token is redefined per theme, actual pairs all exceed 4.5:1"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "UI-AUDIT-2026-10-31.html"
+        ],
+        "createdAt": "2026-10-30T18:42:01.128Z",
+        "reason": "Claude: .tw is a table scroll wrapper; every th/td inside has 9px 12px padding, so no text touches its border"
       }
     ]
   }

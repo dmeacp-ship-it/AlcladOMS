@@ -1,3 +1,4 @@
+import { HelpBox } from './ui'
 // "What is this page for" box at the top of the store and production pages: one plain sentence and, where there is
 // something to do, the steps in order. Written for people who don't use computers much.
 export const HELP = {
@@ -44,19 +45,11 @@ export default function PageHelp({ page, missing, migration }) {
   return (
     <>
       {missing && (
-        <div className="banner warn" style={{ marginBottom: 16 }}>
+        <div className="banner warn mb-16">
           <i className="ph ph-warning" /><span>This part isn't set up yet: run <b>supabase/{migration}</b> in Supabase → SQL Editor.</span>
         </div>
       )}
-      {h && (
-        <div className="page-help">
-          <i className={`ph ${h.icon} page-help-ic`} aria-hidden="true" />
-          <div>
-            <p>{h.text}</p>
-            {h.steps && <ol>{h.steps.map((s) => <li key={s}>{s}</li>)}</ol>}
-          </div>
-        </div>
-      )}
+      {h && <HelpBox id={page} icon={h.icon} text={h.text} steps={h.steps} />}
     </>
   )
 }

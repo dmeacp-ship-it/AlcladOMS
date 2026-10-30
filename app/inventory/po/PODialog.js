@@ -72,7 +72,7 @@ export default function PODialog({ po, s, me, back, closeHref }) {
         </div>
       )}
       {po.status === 'PENDING' && me.role !== 'admin' && (
-        <div className="banner info no-print" style={{ marginBottom: 16 }}>
+        <div className="banner info no-print mb-16">
           <i className="ph ph-hourglass" />
           <span>Waiting for an admin to approve</span>
         </div>
@@ -92,7 +92,7 @@ export default function PODialog({ po, s, me, back, closeHref }) {
         signs={['Prepared By', `Approved By${po.status !== 'PENDING' && po.status !== 'REJECTED' && po.action_by ? ` (${po.action_by})` : ''}`]}
       />
 
-      <div className="card no-print" style={{ marginTop: 20 }}>
+      <div className="card no-print mt-20">
         <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-truck" />Received against this PO</h2></div>
         <div className="tbl-wrap">
           <table className="tbl">

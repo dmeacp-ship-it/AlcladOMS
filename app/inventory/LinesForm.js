@@ -19,7 +19,7 @@ export default function LinesForm({ action, materials, rate, signed, submit, tit
       <div className="card">
         <div className="tbl-top"><h2 className="tbl-ttl"><i className="ph ph-package" />{title}</h2></div>
         <div className="tbl-wrap">
-          <table className="tbl">
+          <table className="tbl mat-lines">
             <thead>
               <tr><th>#</th><th style={{ width: '45%' }}>{title === 'Materials' ? 'Material' : 'Item'}</th><th>Qty{signed && ' (+ in / − out)'}</th>{rate && <th>Rate (SAR)</th>}<th>UoM</th><th><span className="sr-only">Remove</span></th></tr>
             </thead>

@@ -2,7 +2,7 @@
 import { useState, useEffect, useOptimistic, useRef } from 'react'
 import Link from 'next/link'
 import { DISPATCH, STATUS, actionData, day, int, money, plural, totals } from '@/lib/tas'
-import { ClickRow, DocsMenu, LinkBusy } from '../ui'
+import { ClickRow, CustName, DocsMenu, LinkBusy } from '../ui'
 import OrderDialog from './OrderDialog'
 import OrderActions from './OrderActions'
 // Details come from a GET route, not a Server Action, so a slow server never blocks the dialog.
@@ -157,7 +157,7 @@ export default function OrdersView({
                       {o.quote_no}
                     </Link>
                   </td>
-                  <td className="c-cust"><bdi className="cust-name">{o.customer_name}</bdi></td>
+                  <td className="c-cust"><CustName name={o.customer_name} className="cust-name" /></td>
                   <td className="nowrap c-st">
                     {o.status === 'APPROVED' && DISPATCH[o.dispatch_status]
                       ? <span className={`badge ${DISPATCH[o.dispatch_status][1]}`}>{DISPATCH[o.dispatch_status][0]}</span>
@@ -170,7 +170,7 @@ export default function OrdersView({
                   </td>
                   <td className="nowrap muted c-date">{day(o.quote_date)}</td>
                   <td className="c-sp">{o.salesperson_name}</td>
-                  <td className="nowrap c-act"><div className="row-acts icons"><OrderActions o={d} me={{ role: me.role }} back={listHref} sm onAction={handleAction} /></div></td>
+                  <td className="nowrap c-act"><div className="row-acts"><OrderActions o={d} me={{ role: me.role }} back={listHref} sm onAction={handleAction} /></div></td>
                 </ClickRow>
               )
             })}

@@ -1,49 +1,26 @@
 import Link from 'next/link'
 import { storeLabel } from '@/lib/inventory'
 import { SHIFTS } from '@/lib/production'
-import { DEFAULT_BOMS, calculateRecipeNeeds, matchRecipe } from '@/lib/bom'
+import { calcDprBOM } from '@/lib/bom'
 import { day, dmy, money, qty } from '@/lib/tas'
 import { PrintButton, RouteDialog } from '../ui'
 import Slip from '../inventory/Slip'
 
-export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
+export default function PlanDialog({ plan, stock, m2, s, closeHref, coreSettings, materials }) {
   if (!plan) return null
   plan.items?.sort((a, b) => a.id - b.id)
 
   const totalPlannedPcs = plan.items.reduce((n, i) => n + Number(i.qty || 0), 0)
   const totalProducedPcs = plan.items.reduce((n, i) => n + Number(i.produced_qty || 0), 0)
 
-  // Calculate BOM requirements for the plan
-  const bomReqMap = {}
-  for (const item of (plan.items || [])) {
-    const itemM2 = Number(item.qty || 0) * Number(item.f?.m2_per_pc || 0)
-    if (itemM2 > 0) {
-      const recipe = matchRecipe(DEFAULT_BOMS, {
-        grade: item.f?.grade,
-        thickness: item.f?.thickness,
-        topSkin: item.f?.skin,
-        bottomSkin: 0.20,
-      })
-      if (recipe) {
-        const needs = calculateRecipeNeeds(recipe, itemM2)
-        for (const need of needs) {
-          const key = need.mat_code !== '—' ? need.mat_code : need.layer_name
-          if (!bomReqMap[key]) {
-            bomReqMap[key] = {
-              name: need.mat_name,
-              code: need.mat_code,
-              layer: need.layer_name,
-              category: need.category,
-              uom: need.uom,
-              total_qty: 0,
-            }
-          }
-          bomReqMap[key].total_qty += need.total_qty
-        }
-      }
-    }
-  }
-  const bomReqs = Object.values(bomReqMap)
+  // Raw material for the planned pieces: the same calculation and saved settings as the production entry.
+  const bomRows = calcDprBOM(
+    (plan.items || []).filter((i) => i.f && Number(i.qty) > 0).map((i) => ({ fg_item: i.f, good_qty: Number(i.qty) })),
+    coreSettings, materials,
+  )
+  const bomReqs = bomRows.map((r) => ({
+    id: r.material_id, name: r.material_name, code: r.material_code, layer: r.layer_name, uom: r.uom, total_qty: r.system_qty,
+  }))
 
   const footer = (
     <>
@@ -81,7 +58,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
     >
       <div className="no-print">
         {/* ── Plan Header Details ── */}
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card mb-16">
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className="ph ph-info" />Plan Details</h2>
           </div>
@@ -105,7 +82,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
           </div>
           {plan.notes && (
             <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border)' }}>
-              <span className="muted text-xs" style={{ display: 'block', marginTop: 10 }}>Notes</span>
+              <span className="muted text-xs d-block mt-10">Notes</span>
               <span className="text-sm">{plan.notes}</span>
             </div>
           )}
@@ -169,6 +146,9 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
         </div>
 
         {/* ── BOM Material Requisition for this Plan ── */}
+        {bomRows.missingCores.length > 0 && (
+          <div className="banner error" role="alert"><i className="ph ph-warning-circle" /><span>No BOM settings for core type {bomRows.missingCores.join(', ')}: its raw material isn't in the list below.</span></div>
+        )}
         {bomReqs.length > 0 && (
           <div className="card" style={{ marginTop: 16, border: '1px solid var(--border)' }}>
             <div className="tbl-top">
@@ -199,7 +179,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
                 <tbody>
                   {bomReqs.map((req, idx) => {
                     const matchStock = (stock || []).find(
-                      (s) => (req.code && req.code !== '—' && s.code === req.code) || s.name?.toLowerCase() === req.name?.toLowerCase()
+                      (s) => (req.id && s.material_id === req.id) || (req.code && req.code !== '—' && s.code === req.code)
                     )
                     const stockQty = matchStock ? Number(matchStock.closing || 0) : 0
                     const isEnough = stockQty >= req.total_qty
@@ -212,7 +192,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
                         <td data-label="Layer Spec">
                           <span className="text-xs muted">{req.layer}</span>
                         </td>
-                        <td className="num fw7" data-label="Formula Needed" style={{ color: 'var(--ink)' }}>
+                        <td className="num fw7" data-label="Formula Needed" style={{ color: 'var(--text)' }}>
                           {qty(req.total_qty)} {req.uom}
                         </td>
                         <td className="num fw6" data-label="Plant Stock Today">
@@ -235,7 +215,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
         )}
 
         {/* ── RM in Plant Today ── */}
-        <div className="card" style={{ marginTop: 16 }}>
+        <div className="card mt-16">
           <div className="tbl-top">
             <h2 className="tbl-ttl"><i className="ph ph-warehouse" />Current RM in plant {plan.line?.plant_code}</h2>
             <span className="muted text-sm">{money(m2)} M2 planned across {plan.items?.length || 0} items.</span>
@@ -248,7 +228,7 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref }) {
                   <tr key={`${r.store_id}-${r.material_id}`}>
                     <td data-label="Store">
                       {r.store}
-                      {r.store_id === plan.line?.id && <span className="badge b-teal" style={{ marginLeft: 6 }}>this line</span>}
+                      {r.store_id === plan.line?.id && <span className="badge b-teal ml-6">this line</span>}
                     </td>
                     <td data-label="Material">
                       <span className="mat-name">{r.name}</span>

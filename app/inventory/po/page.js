@@ -168,8 +168,8 @@ export default async function POList({ searchParams }) {
       <div className="card">
         {/* ── Table Top Bar with Tabs and Filters ── */}
         <div className="tbl-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <nav className="tabs" aria-label="Buying sections" style={{ marginBottom: 0 }}>
+          <div className="d-flex ai-c gap-12 f-wrap">
+            <nav className="tabs mb-0" aria-label="Buying sections">
               <Link
                 prefetch={false}
                 href="/inventory/po"
@@ -177,7 +177,7 @@ export default async function POList({ searchParams }) {
               >
                 <LinkBusy />
                 <i className="ph ph-shopping-cart" />
-                Purchase Orders
+                Purchase orders
                 <span className="badge b-none">{poActiveCount}</span>
               </Link>
               <Link
@@ -187,7 +187,7 @@ export default async function POList({ searchParams }) {
               >
                 <LinkBusy />
                 <i className="ph ph-truck" />
-                Goods Received (GRN)
+                Goods received
                 {grnPendingCount > 0 && <span className="badge b-warn">{grnPendingCount}</span>}
               </Link>
             </nav>
@@ -196,7 +196,7 @@ export default async function POList({ searchParams }) {
           <div className="tbl-filters">
             {/* Sub-status tabs */}
             {!isGrn ? (
-              <nav className="tabs" aria-label="PO status" style={{ marginBottom: 0 }}>
+              <nav className="tabs mb-0" aria-label="PO status">
                 {PO_TABS.map(([k, l]) => (
                   <Link prefetch={false} key={k} href={poHref(k)} className={`tab${k === show ? ' on' : ''}`}>
                     <LinkBusy />{l}
@@ -204,7 +204,7 @@ export default async function POList({ searchParams }) {
                 ))}
               </nav>
             ) : (
-              <nav className="tabs" aria-label="GRN status" style={{ marginBottom: 0 }}>
+              <nav className="tabs mb-0" aria-label="GRN status">
                 <Link prefetch={false} href={grnHref(true)} className={`tab${show !== 'all' ? ' on' : ''}`}>
                   <LinkBusy />Waiting to be checked
                 </Link>
@@ -230,10 +230,13 @@ export default async function POList({ searchParams }) {
             </form>
 
             {/* Quick action buttons */}
-            <Link prefetch={false} href={newHref} scroll={false} className="btn btn-primary btn-sm">
-              <LinkBusy /><i className="ph ph-plus" />New PO
-            </Link>
-            <Link prefetch={false} href={receiveNewHref} scroll={false} className="btn btn-ghost btn-sm">
+            {/* Each tab's own main action: New PO on Purchase orders, Receive goods on Goods received */}
+            {!isGrn && (
+              <Link prefetch={false} href={newHref} scroll={false} className="btn btn-primary btn-sm">
+                <LinkBusy /><i className="ph ph-plus" />New PO
+              </Link>
+            )}
+            <Link prefetch={false} href={receiveNewHref} scroll={false} className={`btn btn-sm ${isGrn ? 'btn-primary' : 'btn-ghost'}`}>
               <LinkBusy /><i className="ph ph-truck" />Receive goods
             </Link>
           </div>

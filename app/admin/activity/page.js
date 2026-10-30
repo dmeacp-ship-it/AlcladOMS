@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LinkBusy } from '../../ui'
+import { DateRange, LinkBusy } from '../../ui'
 import { db, requireRole } from '@/lib/server'
 import { activityQuery, stamp } from '@/lib/activity'
 
@@ -46,8 +46,7 @@ export default async function Activity({ searchParams }) {
           </div>
           {select('user', 'All users', users)}
           {select('action', 'All actions', actions)}
-          <input type="date" name="from" defaultValue={filters.from} aria-label="From date" className="flt-date" />
-          <input type="date" name="to" defaultValue={filters.to} aria-label="To date" className="flt-date" />
+          <DateRange from={filters.from} to={filters.to} />
           <button className="btn btn-ghost btn-sm"><i className="ph ph-funnel" />Filter</button>
           {Object.keys(filters).length > 0 && <Link prefetch={false} className="btn btn-ghost btn-sm neutral" href="/admin/activity"><LinkBusy />Clear</Link>}
           <a className="btn btn-ghost btn-sm" href={`/admin/export/activity?${new URLSearchParams(filters)}`}><i className="ph ph-download-simple" />Export</a>
