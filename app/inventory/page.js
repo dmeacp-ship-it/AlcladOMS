@@ -35,8 +35,6 @@ export default async function Stock({ searchParams }) {
     q: p.q,
   }
 
-  const isAll = !p.low
-
   return (
     <>
       <InvTabs tab="" missing={missing} />
@@ -51,40 +49,21 @@ export default async function Stock({ searchParams }) {
       <div className="card">
         {/* Unified Card Header Toolbar */}
         <div className="tbl-top">
-          {/* Quick Filter Tabs (Dynamic Expandable) */}
-          <nav className="tabs tabs-dynamic mb-0" aria-label="Filter stock by level">
-            <IntentLink
-              href={href({ ...baseParams, low: '' })}
-              className={`tab${isAll ? ' on' : ''}`}
-              aria-current={isAll ? 'page' : undefined}
-              title={`All materials (${totalCount ?? rows.length})`}
-              aria-label={`All materials (${totalCount ?? rows.length})`}
-            >
-              <LinkBusy />
-              <i className="ph ph-warehouse" />
-              <span className="tab-txt">All materials</span>
-              <span className="badge b-none">{totalCount ?? rows.length}</span>
-            </IntentLink>
-
-            <IntentLink
-              href={href({ ...baseParams, low: '1' })}
-              className={`tab${p.low ? ' on' : ''}`}
-              aria-current={p.low ? 'page' : undefined}
-              title={`Below minimum (${lowCount ?? 0})`}
-              aria-label={`Below minimum (${lowCount ?? 0})`}
-            >
-              <LinkBusy />
-              <i className="ph ph-warning" style={{ color: (lowCount ?? 0) > 0 ? 'var(--red)' : 'inherit' }} />
-              <span className="tab-txt">Below minimum</span>
-              <span className={`badge ${(lowCount ?? 0) > 0 ? 'b-bad' : 'b-none'}`}>
-                {lowCount ?? 0}
-              </span>
-            </IntentLink>
-          </nav>
-
           {/* Integrated Filter Controls */}
           <form action="/inventory" method="GET" className="tbl-filters">
             {p.low && <input type="hidden" name="low" value="1" />}
+
+            {/* Below-minimum toggle: on shows only low stock, off shows all */}
+            <IntentLink
+              href={href({ ...baseParams, low: p.low ? '' : '1' })}
+              className={`btn btn-sm ${p.low ? 'btn-primary' : 'btn-ghost'}`}
+              title={p.low ? `Showing below minimum only; show all ${totalCount ?? rows.length}` : 'Show only materials below minimum'}
+            >
+              <LinkBusy />
+              <i className="ph ph-warning" style={{ color: !p.low && (lowCount ?? 0) > 0 ? 'var(--red)' : undefined }} />
+              Below minimum
+              <span className={`badge ${!p.low && (lowCount ?? 0) > 0 ? 'b-bad' : 'b-none'}`}>{lowCount ?? 0}</span>
+            </IntentLink>
 
             {/* Store Select */}
             <select name="store" defaultValue={p.store} className="flt-sel" aria-label="Filter by store">

@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { QUEUE_MINE, batchQueues, db, fetchOrder, filterOrders, findOrder, myWorkIds, orderCounts, orderHistory, requireRole } from '@/lib/server'
 import { can } from '@/lib/tas'
@@ -6,12 +7,13 @@ import OrdersView from './OrdersView'
 
 // Workflow pipeline stages shown as tabs: from quote creation to final tax invoice.
 const STAGES = [
-  { status: 'PENDING', label: '1. To approve', icon: 'ph-hourglass' },
-  { status: 'AWAIT_DISPATCH', label: '2. In production', icon: 'ph-package' },
-  { status: 'AWAIT_DO', label: '3. Ready to ship', icon: 'ph-truck' },
-  { status: 'AWAIT_PI', label: '4. Make PI', icon: 'ph-receipt' },
-  { status: 'AWAIT_TAX', label: '5. Tax invoice', icon: 'ph-upload-simple' },
+  { status: 'PENDING', label: 'To approve', icon: 'ph-hourglass' },
+  { status: 'AWAIT_DISPATCH', label: 'In production', icon: 'ph-package' },
+  { status: 'AWAIT_DO', label: 'Ready to ship', icon: 'ph-truck' },
+  { status: 'AWAIT_PI', label: 'Make PI', icon: 'ph-receipt' },
+  { status: 'AWAIT_TAX', label: 'Tax invoice', icon: 'ph-upload-simple' },
 ]
+const isStage = (k) => STAGES.some((s) => s.status === k)
 
 // Secondary filters in the dropdown menu for admin / manager:
 const FILTERS = [
@@ -110,15 +112,20 @@ export default async function Orders({ searchParams }) {
       <div className="card">
         <div className="tbl-top">
           <nav className="tabs tabs-dynamic mb-0" aria-label="Which orders">
-            {tabs.map(([k, icon]) => {
+            {tabs.map(([k, icon], i) => {
               const isActive = status === k
               const title = TITLES[k]
               const count = countOf(k)
+              const stage = isStage(k)
+              const prev = i > 0 && isStage(tabs[i - 1][0])
+              // Chevron between stages, a divider where the stage run starts or ends
+              const sep = i === 0 ? null : stage && prev ? <i className="ph ph-caret-right step-sep" aria-hidden="true" /> : stage !== prev ? <span className="tab-div" aria-hidden="true" /> : null
               return (
+                <Fragment key={k}>
+                {sep}
                 <IntentLink
-                  key={k}
                   href={href({ ...listOf(k), ...keep })}
-                  className={`tab${isActive ? ' on' : ''}`}
+                  className={`tab${isActive ? ' on' : ''}${stage && !count ? ' dim' : ''}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={`${title} (${count})`}
                   aria-label={`${title} (${count})`}
@@ -126,8 +133,9 @@ export default async function Orders({ searchParams }) {
                   <LinkBusy />
                   <i className={`ph ${icon}`} />
                   <span className="tab-txt">{title}</span>
-                  <span className="badge b-none">{count}</span>
+                  <span className={`badge ${stage && count ? 'b-warn' : 'b-none'}`}>{count}</span>
                 </IntentLink>
+                </Fragment>
               )
             })}
           </nav>

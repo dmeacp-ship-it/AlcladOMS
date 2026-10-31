@@ -535,6 +535,16 @@ button.tab { border: 0; background: transparent; font: inherit; cursor: pointer;
 .tab.on i { color: var(--accentH); }
 .tab:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
+/* Page sections (PageTabs): underline tabs, so the pill filters below read as a level down */
+.tabs.sec-tabs { background: none; padding: 0; border-radius: 0; gap: 22px; width: 100%; box-shadow: inset 0 -1px 0 var(--border); }
+.sec-tabs .tab { border-radius: 0; padding: 10px 2px; }
+.sec-tabs .tab:hover { background: none; }
+.sec-tabs .tab.on { background: none; box-shadow: inset 0 -2px 0 var(--accentH); }
+/* Orders: the five stages read as one pipeline; empty stages fade */
+.tab-div { flex: none; width: 1px; margin: 6px 4px; background: var(--border2); }
+.step-sep { flex: none; align-self: center; font-size: 0.75rem; color: var(--sub); opacity: 0.6; }
+.tab.dim:not(.on) { opacity: 0.6; }
+
 .tabs-dynamic .tab { transition: background var(--dur-fast), color var(--dur-fast); }
 /* Status tabs always show their words; on phones the strip scrolls and fades at the edge to show there is more */
 @media (max-width: 768px) { .tabs-dynamic { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 28px; } }

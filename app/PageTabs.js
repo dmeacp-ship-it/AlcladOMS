@@ -23,7 +23,7 @@ const GROUPS = {
 export default function PageTabs({ group, on, label }) {
   const tabs = GROUPS[group] || []
   return (
-    <nav className="tabs" aria-label={label}>
+    <nav className="tabs sec-tabs" aria-label={label}>
       {tabs.map(([href, text, icon]) => {
         const isActive = href === on
         return (
