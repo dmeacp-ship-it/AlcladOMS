@@ -8,7 +8,7 @@
     "start": "next start",
     "test": "node --test lib/tas.test.mjs lib/icons.test.mjs lib/bom.test.mjs",
     "icons": "python scripts/icons.py",
-    "test:sql": "node supabase/migrate-015.test.mjs && node supabase/migrate-017.test.mjs"
+    "test:sql": "node supabase/migrate-015.test.mjs && node supabase/migrate-017.test.mjs && node supabase/migrate-019.test.mjs && node supabase/migrate-020.test.mjs"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.1",

@@ -5,6 +5,7 @@ import { calcDprBOM } from '@/lib/bom'
 import { day, dmy, money, qty } from '@/lib/tas'
 import { PrintButton, RouteDialog } from '../ui'
 import Slip from '../inventory/Slip'
+import { autoIssuePlan } from './actions'
 
 export default function PlanDialog({ plan, stock, m2, s, closeHref, coreSettings, materials }) {
   if (!plan) return null
@@ -27,9 +28,17 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref, coreSettings
       <PrintButton cls="btn btn-ghost" label="Print / Save PDF" />
       {plan.status === 'OPEN' && (
         <>
-          <Link prefetch={false} href={`/inventory/issue/new?plan=${plan.id}`} className="btn btn-ghost">
-            <i className="ph ph-arrows-left-right" />Issue RM to this line
-          </Link>
+          {plan.issues?.length > 0 ? (
+            <span className="badge b-ok" style={{ alignSelf: 'center', padding: '6px 12px' }}>
+              <i className="ph ph-check" />RM Issued: {plan.issues.map((i) => i.doc_no).join(', ')}
+            </span>
+          ) : (
+            <form action={autoIssuePlan.bind(null, plan.id)}>
+              <button type="submit" className="btn btn-ghost">
+                <i className="ph ph-magic-wand" />Auto-issue RM to line
+              </button>
+            </form>
+          )}
           <Link prefetch={false} href={`/production/dpr/new?plan=${plan.id}`} className="btn btn-primary">
             <i className="ph ph-factory" />Enter production
           </Link>
@@ -156,13 +165,17 @@ export default function PlanDialog({ plan, stock, m2, s, closeHref, coreSettings
                 <i className="ph ph-receipt" />BOM Required Raw Material <span className="badge b-none">{money(m2)} M²</span>
               </h2>
               {plan.status === 'OPEN' && (
-                <Link
-                  prefetch={false}
-                  href={`/inventory/issue/new?plan=${plan.id}`}
-                  className="btn btn-primary btn-sm"
-                >
-                  <i className="ph ph-arrows-left-right" />Issue RM to Line
-                </Link>
+                plan.issues?.length > 0 ? (
+                  <span className="badge b-ok">
+                    <i className="ph ph-check" />RM Issued: {plan.issues.map((i) => i.doc_no).join(', ')}
+                  </span>
+                ) : (
+                  <form action={autoIssuePlan.bind(null, plan.id)}>
+                    <button type="submit" className="btn btn-primary btn-sm">
+                      <i className="ph ph-magic-wand" />Auto-issue RM to Line
+                    </button>
+                  </form>
+                )
               )}
             </div>
             <div className="tbl-wrap">

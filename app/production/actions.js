@@ -98,6 +98,8 @@ export async function createProduction(_prev, fd) {
     return { error: 'RM used must be above 0 on every material line (remove empty lines).' }
   }
 
+  // Any shortfall on the line is issued from the plant's RM store inside create_production (migrate-020),
+  // in the same transaction: if the entry fails, the issue is undone too.
   const { data: no, error } = await db().rpc('create_production', {
     p_head: { date, shift: str(fd, 'shift'), line: str(fd, 'line'), plan: str(fd, 'plan'), operator: str(fd, 'operator'), notes: str(fd, 'notes'), by: me.full_name },
     p_items: items,
@@ -106,6 +108,8 @@ export async function createProduction(_prev, fd) {
   })
   if (error) return err(error)
   const { data: p } = await db().from('productions').select('id').eq('dpr_no', no).single()
+  const { data: autoIss } = await db().from('transfers').select('doc_no').eq('notes', `Auto-issued for DPR ${no}`).maybeSingle()
+  if (autoIss) await logEvent(null, me, 'Material auto-issued', `${autoIss.doc_no} · issued to the line for ${no}`)
   const good = items.reduce((n, r) => n + r.good, 0)
   await logEvent(null, me, 'Production entered', `${no} · ${fmt(good)} good, ${fmt(items.reduce((n, r) => n + r.rejected, 0))} rejected pcs`)
   done(`/production/dpr/${p.id}`, `${no} saved. The good pieces now wait for FG QC.`)
@@ -227,3 +231,30 @@ export async function getOrCreateFgItem(input) {
   return { item }
 }
 
+// Auto-issue a plan's raw material from the plant's RM store to its line. The parametric BOM (calcDprBOM)
+// gives the quantities; auto_issue_plan (migrate-020) moves only the shortfall, in one transaction.
+// Called from a plain form, so every outcome redirects with a toast (a returned { error } would be lost).
+export async function autoIssuePlan(planId) {
+  const me = await requireRole('manager')
+  const back = `/production?view=${planId}`
+  const { data: plan } = await db().from('production_plans')
+    .select('id, plan_no, line:stores(name), items:plan_items(qty, f:fg_items(*))')
+    .eq('id', planId).maybeSingle()
+  if (!plan) go('/production', 'error', 'Plan not found.')
+
+  const { settings } = await listCoreSettings()
+  const { data: materials } = await db().from('materials').select('*')
+  const bom = calcDprBOM(
+    (plan.items || []).filter((i) => i.f && Number(i.qty) > 0).map((i) => ({ fg_item: i.f, good_qty: Number(i.qty) })),
+    settings, materials || [],
+  )
+  if (bom.missingCores?.length) go(back, 'error', `No BOM settings for core type ${bom.missingCores.join(', ')}. Add it on the BOM page first.`)
+  const lines = bom.filter((r) => r.material_id && r.system_qty > 0).map((r) => ({ material: r.material_id, qty: r.system_qty }))
+  if (!lines.length) go(back, 'error', 'No raw material could be matched to this plan. Check the BOM settings and materials.')
+
+  const { data: no, error } = await db().rpc('auto_issue_plan', { p_plan_id: plan.id, p_lines: lines, p_by: me.full_name })
+  if (error) go(back, 'error', `Auto-issue failed: ${invError(error)}`)
+  if (no === 'ALREADY_STOCKED') go(back, 'ok', 'The line already has the raw material for this plan.')
+  await logEvent(null, me, 'Material auto-issued', `${no} · auto-issued to ${plan.line?.name} for ${plan.plan_no}`)
+  go(back, 'ok', `${no}: raw material issued to ${plan.line?.name}.`)
+}

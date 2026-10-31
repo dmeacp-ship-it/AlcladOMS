@@ -794,6 +794,16 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 - **Orders title:** for roles that open on My work (approver, plant, operations, accounts) the top bar now says "My work" (MY_WORK_ROLES in Shell.js mirrors MY_WORK in lib/server.js).
 - **Console:** SalesTable header cells get keys. The theme loader stays a plain blocking `<script>` in `<head>`: `next/script` beforeInteractive was tried and only preloads the file, which would flash the wrong theme. React's dev-only "script tag" warning is filtered in app/ui.js; production doesn't log it.
 
+### 2026-10-31 - 53. Auto-issue made safe (review findings A–D) + credit gate
+- **Why:** an outside review of the auto-issue work (Option B) found four real problems; all were confirmed against the code and the live database before fixing.
+- **A. Plan auto-issue:** `auto_issue_plan` in migrate-020 read the old static `bom_items`, and all 15 rows there have no material linked (`default_mat_id` null), so it would issue nothing. Rewritten as `auto_issue_plan(p_plan_id, p_lines, p_by)`: the app passes the parametric BOM totals (calcDprBOM) and the function moves only the shortfall, links the transfer to the plan and checks RM stock, all in one transaction (the old 2-argument version is dropped).
+- **B. DPR auto-issue:** the app moved material with `create_transfer` before `create_production`; a failed entry left the transfer behind. The JS pre-transfer is removed; `create_production` (migrate-020) issues the shortfall inside its own transaction. New SQL tests prove a failed DPR or plan issue leaves no transfer and no production.
+- **C. Silent errors:** `autoIssuePlan` runs from a plain form, so its `{ error }` was lost. Every outcome now redirects with a toast (`go(...)`).
+- **D. Keys:** scripts/check_columns.py, check_existing.py and insert_erp_materials.py had the service-role key and project URL written in. They now read SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from .env.local.
+- **Credit gate:** quotes under the auto-approve amount now go to the approver when the customer is over its credit limit; the toast says why.
+- **Icons:** phosphor subset regenerated (calendar-blank, lock-simple, question used by the audit fixes, magic-wand for auto-issue).
+- **Deploy order:** run supabase/migrate-020.sql in the Supabase SQL Editor first, then deploy. The live code before this commit works with the new SQL too.
+
 ## 5. Architecture
 
 ### Files

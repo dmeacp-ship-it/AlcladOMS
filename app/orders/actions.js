@@ -113,16 +113,18 @@ export async function createQuote(_prev, fd) {
     return { error: e2.message }
   }
   const total = totals(items, transport > 0 ? transport : 0, rate).total
-  await logEvent(order.id, me, 'Quotation created', `${items.length} line${items.length > 1 ? 's' : ''}${await creditNote(c, total, order.id)}`)
+  const credit = await creditNote(c, total, order.id)
+  await logEvent(order.id, me, 'Quotation created', `${items.length} line${items.length > 1 ? 's' : ''}${credit}`)
 
-  // Approval rule (Settings → Rules): small quotes skip the approval queue.
-  const auto = Number(s.auto_approve_below) > 0 && total < Number(s.auto_approve_below)
+  // Approval rule (Settings → Rules): small quotes skip the approval queue, unless the customer is over its
+  // credit limit; then an approver decides.
+  const auto = Number(s.auto_approve_below) > 0 && total < Number(s.auto_approve_below) && !credit
   if (auto) {
     await db().from('orders').update({ status: 'APPROVED', action_by: 'Auto-approved', action_at: new Date().toISOString() }).eq('id', order.id)
     await logEvent(order.id, { full_name: 'System' }, 'Approved', `Auto-approved: below SAR ${money(s.auto_approve_below)}`)
   }
   revalidatePath('/', 'layout')
-  redirect(`/orders?ok=${encodeURIComponent(`Quotation ${order.quote_no} ${auto ? 'auto-approved' : 'submitted for approval'}.`)}`)
+  redirect(`/orders?ok=${encodeURIComponent(`Quotation ${order.quote_no} ${auto ? 'auto-approved' : credit ? 'sent for approval: customer is over its credit limit' : 'submitted for approval'}.`)}`)
 }
 
 // Approve / reject replaces the old one-click email links.
