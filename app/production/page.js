@@ -41,7 +41,7 @@ export default async function Planning({ searchParams }) {
 
   const planQuery = viewId
     ? db().from('production_plans')
-        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, color_code, color_name, core, skin, width, length, thickness, grade, m2_per_pc)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
+        .select('*, line:stores(id, name, plant_code), items:plan_items(*, f:fg_items(code, brand, color_code, color_name, core, skin, width, length, thickness, grade, m2_per_pc)), issues:transfers(id, doc_no, doc_date), dprs:productions(id, dpr_no, prod_date)')
         .eq('id', viewId).maybeSingle()
     : Promise.resolve({ data: null })
 

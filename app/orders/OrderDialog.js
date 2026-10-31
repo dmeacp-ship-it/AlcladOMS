@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { DISPATCH, PRODUCTION, STATUS, prodLabel, actionData, balanceOf, can, day, dispatchOpen, int, money, plural, readyOf, totals, vatPct } from '@/lib/tas'
-import { cancelOrder, deleteOrder, saveProduction, shortClose, undoDispatch } from './actions'
+import { cancelOrder, deleteOrder, saveProduction, shortClose } from './actions'
 import { CustName, FootMore, LinkBusy, Modal, ModalFoot, PlantStatus, RouteDialog, DocView, TypeToConfirm } from '../ui'
 import OrderActions, { PiAction, TaxAction } from './OrderActions'
 import MarkReadyModal from '../plant/MarkReadyModal'
@@ -351,7 +351,6 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
               <thead>
                 <tr>
                   <th>Date</th><th>Line</th><th className="r">Qty (PCS)</th><th>Vehicle No</th><th>Transporter</th><th>LR No</th><th>Driver</th><th>By</th>
-                  {approved && can(me, 'plant') && <th />}
                 </tr>
               </thead>
               <tbody>
@@ -365,19 +364,6 @@ export default function OrderDialog({ o, history, me, back, closeHref, openBatch
                     <td>{d.lr_no || <span className="muted">—</span>}</td>
                     <td>{d.driver || <span className="muted">—</span>}</td>
                     <td className="nowrap">{d.by_name}</td>
-                    {approved && can(me, 'plant') && (
-                      <td>
-                        <Modal title="Undo dispatch" icon="ph-arrow-counter-clockwise" label="Undo" btnIcon="ph-arrow-counter-clockwise" btnClass="btn btn-ghost btn-sm" size="small">
-                          <form action={undoDispatch}>
-                            {Hidden}<input type="hidden" name="dispatch_id" value={d.id} />
-                            <div className="modal-body">
-                              <p>Take back <b>{int(d.qty)} PCS</b> of line {lineNo[d.order_item_id]} dispatched on <b>{day(d.dispatch_date)}</b>? It goes back into the balance.</p>
-                            </div>
-                            <ModalFoot label="Undo Dispatch" icon="ph-arrow-counter-clockwise" cls="btn-danger" />
-                          </form>
-                        </Modal>
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>

@@ -804,6 +804,13 @@ part quantities allowed) → **Proforma Invoice per DO batch** → **tax invoice
 - **Icons:** phosphor subset regenerated (calendar-blank, lock-simple, question used by the audit fixes, magic-wand for auto-issue).
 - **Deploy order:** run supabase/migrate-020.sql in the Supabase SQL Editor first, then deploy. The live code before this commit works with the new SQL too.
 
+### 2026-10-31 - 54. BOM follows the company STANDARD BOM (All_Finished_Goods_BOM.xlsx)
+- **Why:** the user sent the full BOM list (3,040 FGs, 27,360 lines). The parametric formula came out 3–13% low on coils and core (PE density 0.92 vs 1.35), had one core line instead of FR3 + CaCO3 / LDPE A + B, no width rule, and no waste lines.
+- **lib/bom.js:** the 16 grades of the STANDARD BOM sheet are built in (`STD_GRADES`, `STANDARD_GRADES`). `calcPanelBOM` uses them when the product is grade AL4025–AL4050(N), core PE or FR-B1 and 4 mm; the grade decides the skin (the FG item's `skin` is not used for those). Width rule: coil = width + 20 mm, adhesive + 30, protective film + 10; coils and side trim × (coil/width)/(1270/1250); film 1.016 at 1250, film/width otherwise. AL4045 runs on 0.35 stock coil. Protective film level by top colour (`filmLevel`), brand from the FG. Waste (plastic, side trim, process) comes back on `rows.waste`, not as material to issue. Everything else (FR-A2, other thickness) keeps the parametric formula and core settings.
+- **Material picking:** coils prefer SDPE; adhesive by gauge + width; film by brand + level + width; core components by name. A spec with no exact material suggests none.
+- **Checked:** every one of the 3,040 FGs reproduces the sheet's material names and quantities (27,360 lines, 0 differences; scratch script, not committed). `lib/bom.test.mjs` has spot rows from the sheet.
+- **Screens:** Settings → BOM & Recipes gets a Standard BOM tab; the calculator has Grade / Brand / Colour (Custom = formula). The DPR form shows the expected waste. DPR settings snapshot records `STANDARD` grades. `getOrCreateFgItem` returns the full spec (it left out grade/core/skin, so new custom items costed wrong in the DPR form).
+
 ## 5. Architecture
 
 ### Files
@@ -895,3 +902,10 @@ when opened (not stored), so editing company details changes how old documents p
   - Instant order dialog: `OrdersView.js` client table host, opening dialogs in ~16 ms from row data + `history.pushState`, async background history loader (`loadOrderDetail`).
   - Optimistic actions: `useOptimistic` for instantaneous row status transitions on quote approve/reject.
   - Service Worker: `public/sw.js` cache-first for `_next/static`, icons, fonts; `proxy.js` matcher exclusion; `offline.html` fallback.
+
+## 55. Flow audit fixes: P0 + P1 (31 Oct 2026)
+Audit: FLOW-AUDIT-2026-10-31.html (https://claude.ai/artifact/1WfXyPwRY923p3dcQKDiWZ).
+- **Sign-in bypass closed.** `proxy.js` skipped every path ending in `.png`, and a skipped path keeps any `x-tas-user` header the browser sends, so `/admin/x.png` with an admin's id ran as admin (Server Actions too). The matcher now skips only root-level files by exact name (`letterhead.png`, icons, manifest, sw.js). Checked: forged header on `/admin/customers.png`, `/orders/x.png`, `/admin/export/orders.png` → 307 /login; public files still 200.
+- **Plan auto-issue read only 1,000 of 2,203 materials** (plain select). Now uses `invMasters()`; and it refuses, naming the layers, when any BOM line has no material instead of issuing part of the plan.
+- **1510 mm SUPER HIGH SS10+ film missing** for both brands: `supabase/migrate-021.sql` adds them, copied from the 1510 mm HIGH rows (run in the SQL Editor; set the cost after).
+- **Undo dispatch removed** (order dialog + `undoDispatch` action). With Ship = DO + dispatch it took pieces back into the balance but left the DO line and PI, so they could ship and invoice twice. `undo_dispatch()` stays in the database, unused.

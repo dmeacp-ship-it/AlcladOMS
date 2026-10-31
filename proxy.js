@@ -37,4 +37,6 @@ export async function proxy(request) {
 }
 
 // Static files, service worker, the app icons and the install manifest (fetched without cookies) skip the check.
-export const config = { matcher: ['/((?!_next/static|_next/image|sw\\.js|offline\\.html|favicon.ico|icon.svg|apple-icon|manifest.webmanifest|pwa-icon|.*\\.png$).*)'] }
+// Only root-level names: a skipped path keeps any x-tas-user the browser sent, so a pattern that can match a
+// page route (the old `.*\.png$` matched /admin/x.png) lets a forged header sign anyone in.
+export const config = { matcher: ['/((?!_next/static|_next/image|sw\\.js$|offline\\.html$|favicon\\.ico$|icon\\.svg$|apple-icon|manifest\\.webmanifest$|pwa-icon|letterhead\\.png$).*)'] }

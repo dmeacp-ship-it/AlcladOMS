@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { db, go, logEvent, requireRole } from '@/lib/server'
 import { invError, invMasters } from '@/lib/inventory'
 import { parseCSV } from '@/lib/csv'
-import { calcDprBOM, normalizeCore } from '@/lib/bom'
+import { calcDprBOM, normalizeCore, standardFor } from '@/lib/bom'
 import { listCoreSettings } from '@/lib/bom-server'
 import { plural, qty as fmt, today } from '@/lib/tas'
 
@@ -52,18 +52,21 @@ export async function createProduction(_prev, fd) {
   }
   if (!items.length) return { error: 'Enter the good or rejected pieces of at least one item.' }
 
-  // RM consumption. The system figures are worked out again here from the pieces and the saved core
-  // settings, so the form can only send the actual figures, the material picked and the reasons.
+  // RM consumption. The system figures are worked out again here from the pieces, the standard BOM and
+  // the saved core settings, so the form can only send the actual figures, the material picked and the reasons.
   const { data: specs, error: specErr } = await db().from('fg_items')
-    .select('id, width, length, thickness, skin, core, color_code, color_name').in('id', items.map((r) => r.item))
+    .select('id, brand, grade, width, length, thickness, skin, core, color_code, color_name').in('id', items.map((r) => r.item))
   if (specErr) return err(specErr)
   const { settings } = await listCoreSettings()
   const sys = calcDprBOM(items.map((r) => ({ fg_item: specs.find((f) => f.id === r.item) || {}, good_qty: r.good, rejected_qty: r.rejected })), settings, [])
   if (sys.missingCores.length) return { error: `No BOM settings for core type ${sys.missingCores.join(', ')}. Add it on the BOM page first.` }
   // The settings each row was worked out with, so later edits to a density or scrap % don't rewrite history.
-  const cores = new Set(specs.map((f) => normalizeCore(f.core)))
+  // Products in the standard BOM don't use the core settings; they are listed under STANDARD instead.
+  const std = [...new Set(specs.map((f) => standardFor(f)).filter(Boolean).map((s) => `${s.grade}${s.core === 'FRB1' ? '-FRB1' : ''}`))]
+  const cores = new Set(specs.filter((f) => !standardFor(f)).map((f) => normalizeCore(f.core)))
   const snapshot = Object.fromEntries(settings.filter((c) => cores.has(c.core_type))
     .map((c) => [c.core_type, { density: c.density, scrap_pct: c.scrap_pct, adh_rate_per_m2: c.adh_rate_per_m2, mask_rate_per_m2: c.mask_rate_per_m2, bottom_skin_mode: c.bottom_skin_mode }]))
+  if (std.length) snapshot.STANDARD = { source: 'All_Finished_Goods_BOM.xlsx (31 Oct 2026)', grades: std }
 
   const cKeys = fd.getAll('consumption_row')
   const sent = new Set(cKeys)
@@ -223,7 +226,7 @@ export async function getOrCreateFgItem(input) {
 
   const { data: item, error: fetchErr } = await db()
     .from('fg_items')
-    .select('id, code, color_name, b_grade, m2_per_pc, width, length')
+    .select('id, code, brand, grade, color_code, color_name, core, skin, width, length, thickness, b_grade, m2_per_pc')
     .eq('id', id)
     .single()
 
@@ -231,7 +234,7 @@ export async function getOrCreateFgItem(input) {
   return { item }
 }
 
-// Auto-issue a plan's raw material from the plant's RM store to its line. The parametric BOM (calcDprBOM)
+// Auto-issue a plan's raw material from the plant's RM store to its line. The BOM (calcDprBOM)
 // gives the quantities; auto_issue_plan (migrate-020) moves only the shortfall, in one transaction.
 // Called from a plain form, so every outcome redirects with a toast (a returned { error } would be lost).
 export async function autoIssuePlan(planId) {
@@ -243,12 +246,16 @@ export async function autoIssuePlan(planId) {
   if (!plan) go('/production', 'error', 'Plan not found.')
 
   const { settings } = await listCoreSettings()
-  const { data: materials } = await db().from('materials').select('*')
+  // invMasters reads every material: a plain select stops at Supabase's 1,000 rows (there are 2,000+).
+  const { materials } = await invMasters()
   const bom = calcDprBOM(
     (plan.items || []).filter((i) => i.f && Number(i.qty) > 0).map((i) => ({ fg_item: i.f, good_qty: Number(i.qty) })),
-    settings, materials || [],
+    settings, materials,
   )
   if (bom.missingCores?.length) go(back, 'error', `No BOM settings for core type ${bom.missingCores.join(', ')}. Add it on the BOM page first.`)
+  // Refuse rather than issue part of the plan's material without saying so.
+  const unmatched = bom.filter((r) => !r.material_id && r.system_qty > 0).map((r) => r.layer_name)
+  if (unmatched.length) go(back, 'error', `No material in Materials for: ${unmatched.join(', ')}. Add it under Materials, or issue this plan by hand.`)
   const lines = bom.filter((r) => r.material_id && r.system_qty > 0).map((r) => ({ material: r.material_id, qty: r.system_qty }))
   if (!lines.length) go(back, 'error', 'No raw material could be matched to this plan. Check the BOM settings and materials.')
 

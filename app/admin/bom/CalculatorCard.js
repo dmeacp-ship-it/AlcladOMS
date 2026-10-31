@@ -1,10 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { calcPanelBOM, DEFAULT_CORE_SETTINGS } from '@/lib/bom'
+import { calcPanelBOM, DEFAULT_CORE_SETTINGS, STANDARD_GRADES } from '@/lib/bom'
 import { qty } from '@/lib/tas'
 
+const STD_OPTIONS = STANDARD_GRADES.map((s) => `${s.grade}${s.core === 'FRB1' ? '-FRB1' : ''}`)
+
 export default function CalculatorCard({ coreSettings = [] }) {
+  const [grade, setGrade] = useState('AL4050') // '' = custom (parametric formula)
+  const [brand, setBrand] = useState('ALCLAD')
+  const [colorCode, setColorCode] = useState('RAL7001H')
   const [coreType, setCoreType] = useState('NFR')
   const [thickness, setThickness] = useState(4.0)
   const [topSkin, setTopSkin] = useState(0.25)
@@ -17,10 +22,14 @@ export default function CalculatorCard({ coreSettings = [] }) {
     ? Object.fromEntries(coreSettings.map((s) => [s.core_type, s]))
     : DEFAULT_CORE_SETTINGS
 
+  const std = grade ? STANDARD_GRADES.find((s) => `${s.grade}${s.core === 'FRB1' ? '-FRB1' : ''}` === grade) : null
   const bom = calcPanelBOM(
     {
-      core: coreType,
-      thickness,
+      grade: std?.grade,
+      brand,
+      color_code: colorCode,
+      core: std ? std.core : coreType,
+      thickness: std ? 4 : thickness,
       skin: topSkin,
       bottom_skin: botSkin,
       width,
@@ -28,17 +37,41 @@ export default function CalculatorCard({ coreSettings = [] }) {
     },
     pieces,
     settingsMap
-  )
+  ) || {}
 
-  const totalKg = bom.layers
-    .filter((l) => l.uom === 'KG')
-    .reduce((sum, l) => sum + l.qty, 0)
-  const kgPerM2 = bom.totalM2 > 0 ? totalKg / bom.totalM2 : 0
+  const layers = bom.layers || []
+  const totalKg = layers
+    .filter((l) => l.uom === 'KG' && l.layer_type !== 'WASTE') // waste lines are negative output
+    .reduce((sum, l) => sum + (Number(l.qty) || 0), 0)
+  const kgPerM2 = (bom.totalM2 || 0) > 0 ? totalKg / bom.totalM2 : 0
+  const netCore = bom.coreThickMm ?? bom.coreThickness ?? 0
 
   return (
     <div style={{ padding: '20px 24px' }}>
       {/* ── Inputs Grid ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14, marginBottom: 20 }}>
+        <div>
+          <label className="text-xs muted block mb-1">Grade</label>
+          <select className="tsearch" style={{ width: '100%', padding: '8px 10px', fontWeight: 600 }} value={grade} onChange={(e) => setGrade(e.target.value)}>
+            {STD_OPTIONS.map((g) => <option key={g} value={g}>{g} (standard, 4 mm)</option>)}
+            <option value="">Custom (formula)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs muted block mb-1">Brand</label>
+          <select className="tsearch" style={{ width: '100%', padding: '8px 10px' }} value={brand} onChange={(e) => setBrand(e.target.value)}>
+            <option>ALCLAD</option>
+            <option>ALUMAX</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs muted block mb-1">Colour code</label>
+          <input className="tsearch" style={{ width: '100%', padding: '8px 10px' }} value={colorCode} onChange={(e) => setColorCode(e.target.value.toUpperCase())} />
+        </div>
+
+        {!std && (<>
         <div>
           <label className="text-xs muted block mb-1">Core Type</label>
           <select
@@ -99,6 +132,7 @@ export default function CalculatorCard({ coreSettings = [] }) {
             onChange={(e) => setBotSkin(Number(e.target.value))}
           />
         </div>
+        </>)}
 
         <div>
           <label className="text-xs muted block mb-1">Width (mm)</label>
@@ -147,14 +181,14 @@ export default function CalculatorCard({ coreSettings = [] }) {
         <div className="card" style={{ padding: '12px 14px', background: 'var(--fill-2)' }}>
           <div className="muted text-xs">Total Surface Area</div>
           <div className="fw7 font-mono" style={{ fontSize: '1.125rem', marginTop: 4 }}>
-            {qty(bom.totalM2)} <span className="text-xs muted">m²</span>
+            {qty(bom.totalM2 || 0)} <span className="text-xs muted">m²</span>
           </div>
         </div>
 
         <div className="card" style={{ padding: '12px 14px', background: 'var(--fill-2)' }}>
           <div className="muted text-xs">Net Core Thickness</div>
           <div className="fw7 font-mono" style={{ fontSize: '1.125rem', marginTop: 4 }}>
-            {bom.coreThickness.toFixed(2)} <span className="text-xs muted">mm</span>
+            {netCore.toFixed(2)} <span className="text-xs muted">mm</span>
           </div>
         </div>
 
@@ -187,25 +221,36 @@ export default function CalculatorCard({ coreSettings = [] }) {
             </tr>
           </thead>
           <tbody>
-            {bom.layers.map((l) => (
-              <tr key={l.key}>
+            {layers.map((l, idx) => (
+              <tr key={l.key || l.layer_type || idx}>
                 <td className="fw6">
-                  {l.name}
-                  {l.is_blend && (
+                  {l.layer_name || l.name}
+                  {(l.is_blend || l.ratio_pct) && (
                     <span className="badge b-info text-xs ml-6">
-                      {l.blend_ratio_pct}% blend
+                      {l.blend_ratio_pct || l.ratio_pct}% blend
                     </span>
                   )}
                 </td>
-                <td className="muted text-sm">{l.spec || '—'}</td>
-                <td className="num">{l.rate_per_m2 ? l.rate_per_m2.toFixed(3) : '—'}</td>
-                <td className="num">{l.scrap_factor > 1 ? `+${Math.round((l.scrap_factor - 1) * 100)}%` : '—'}</td>
+                <td className="muted text-sm">{l.formula || l.spec || '—'}</td>
+                <td className="num">{l.rate_per_m2 != null ? Number(l.rate_per_m2).toFixed(3) : '—'}</td>
+                <td className="num">
+                  {l.scrap_pct != null
+                    ? `+${l.scrap_pct}%`
+                    : l.scrap_factor > 1
+                      ? `+${Math.round((l.scrap_factor - 1) * 100)}%`
+                      : '—'}
+                </td>
                 <td className="num fw7 font-mono" style={{ fontSize: '0.9375rem' }}>
                   {qty(l.qty)}
                 </td>
                 <td className="muted text-xs fw6">{l.uom}</td>
               </tr>
             ))}
+            {!layers.length && (
+              <tr>
+                <td colSpan={6} className="c muted">No layers defined for this specification.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

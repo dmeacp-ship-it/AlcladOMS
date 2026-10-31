@@ -463,6 +463,11 @@ export default function DprForm({ fg, materials = [], planRows, options = {}, co
               </tbody>
             </table>
           </div>
+          {bomRows.waste?.length > 0 && (
+            <p className="muted text-sm" style={{ margin: '8px 16px 0' }}>
+              Expected waste (standard BOM): {bomRows.waste.map((w) => `${w.layer_name} ${Math.abs(w.qty).toLocaleString()} ${w.uom.toLowerCase()}`).join(' · ')}
+            </p>
+          )}
 
           <div className="tbl-actions-bar" style={{ padding: '8px 16px' }}>
             <div className="tbl-actions-left">

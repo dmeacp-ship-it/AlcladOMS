@@ -5,7 +5,7 @@ import { QUEUES, batchQueues, db, findOrder, getOrder, go, logEvent, orderHistor
 import { removeInvoices, saveInvoice } from '@/lib/drive'
 import { getSettings } from '@/lib/settings'
 import { fgPosition } from '@/lib/production'
-import { DISPATCH, PRODUCTION, calcM2, prodLabel, prodStatus, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
+import { PRODUCTION, calcM2, prodLabel, prodStatus, day, describe, dispatchOpen, int, lineTotal, money, plural, readyOf, today, totals } from '@/lib/tas'
 
 const num = (v) => (String(v ?? '').trim() === '' ? NaN : Number(v))
 // After an action, land back where it was started: the order dialog, the list row or the plant page.
@@ -507,21 +507,6 @@ export async function uploadTaxInvoice(fd) {
   await logEvent(o.id, me, old ? 'Tax invoice replaced' : 'Tax invoice uploaded', `${batch?.pi_no ? batch.pi_no + ': ' : ''}${file.name}`)
   revalidatePath('/', 'layout')
   go(path, 'ok', 'Tax invoice uploaded.')
-}
-
-// Takes back one dispatch entered by mistake.
-export async function undoDispatch(fd) {
-  const me = await requireRole('plant')
-  const { data: d } = await db().from('dispatches').select('*, item:order_items(item_no)').eq('id', fd.get('dispatch_id') || 0).maybeSingle()
-  const o = await getOrder(d?.order_id ?? fd.get('id'), me)
-  const path = back(fd, o.id)
-  if (!d) go(path, 'error', 'That dispatch was already undone.')
-  if (o.status !== 'APPROVED') go(path, 'error', 'Only approved orders can change.')
-  const { data: st, error } = await db().rpc('undo_dispatch', { p_dispatch: d.id })
-  if (error) go(path, 'error', error.message)
-  await logEvent(o.id, me, 'Dispatch undone', `Line ${d.item?.item_no}: ${d.qty} PCS of ${day(d.dispatch_date)}`)
-  revalidatePath('/', 'layout')
-  go(path, 'ok', `Dispatch undone - ${DISPATCH[st]?.[0] || 'Done'}.`)
 }
 
 // The rest of the DO will never ship: stop dispatching it (PI and tax invoice carry on as normal).

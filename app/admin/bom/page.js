@@ -5,13 +5,14 @@ import { invMasters } from '@/lib/inventory'
 import { ClickRow, IntentLink, LinkBusy } from '../../ui'
 import BomDialog from './BomDialog'
 import CalculatorCard from './CalculatorCard'
+import { STANDARD_GRADES } from '@/lib/bom'
 
 export const metadata = { title: 'BOM & Recipes' }
 
 export default async function AdminBomPage({ searchParams }) {
   await requireRole(['admin', 'manager'])
   const sp = await searchParams
-  const subview = sp.tab || 'settings'
+  const subview = sp.tab || 'standard'
   const term = String(sp.q || '').trim().toLowerCase()
   const viewId = sp.view || null
 
@@ -37,7 +38,7 @@ export default async function AdminBomPage({ searchParams }) {
 
   const baseHref = (p) => {
     const q = new URLSearchParams()
-    if (p.tab && p.tab !== 'settings') q.set('tab', p.tab)
+    if (p.tab && p.tab !== 'standard') q.set('tab', p.tab)
     if (p.q) q.set('q', p.q)
     const qs = q.toString()
     return `/admin/bom${qs ? `?${qs}` : ''}`
@@ -45,7 +46,7 @@ export default async function AdminBomPage({ searchParams }) {
 
   const viewHref = (coreType) => {
     const q = new URLSearchParams()
-    if (subview !== 'settings') q.set('tab', subview)
+    if (subview !== 'standard') q.set('tab', subview)
     if (term) q.set('q', term)
     q.set('view', coreType)
     return `/admin/bom?${q.toString()}`
@@ -59,6 +60,17 @@ export default async function AdminBomPage({ searchParams }) {
         {/* ── Toolbar Header ── */}
         <div className="tbl-top">
           <nav className="tabs tabs-dynamic mb-0" aria-label="BOM views">
+            <IntentLink
+              href={baseHref({ tab: 'standard', q: term })}
+              className={`tab${subview === 'standard' ? ' on' : ''}`}
+              title="Company standard BOM per SQM"
+            >
+              <LinkBusy />
+              <i className="ph ph-table" />
+              <span>Standard BOM</span>
+              <span className="badge b-none">{STANDARD_GRADES.length}</span>
+            </IntentLink>
+
             <IntentLink
               href={baseHref({ tab: 'settings', q: term })}
               className={`tab${subview === 'settings' || subview === 'recipes' ? ' on' : ''}`}
@@ -100,6 +112,9 @@ export default async function AdminBomPage({ searchParams }) {
         {/* ── Subview 1: Core-Type Settings Table ── */}
         {(subview === 'settings' || subview === 'recipes') && (
           <div className="tbl-wrap">
+            <p className="muted text-sm" style={{ margin: '8px 16px' }}>
+              Used only for products outside the Standard BOM (FR-A2 and thicknesses other than 4 mm).
+            </p>
             <table className="tbl bom-tbl">
               <thead>
                 <tr>
@@ -175,6 +190,37 @@ export default async function AdminBomPage({ searchParams }) {
                       <span className="btn-link"><i className="ph ph-pencil-simple" />Edit</span>
                     </td>
                   </ClickRow>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Subview: company standard BOM, per 1 SQM at 1250 mm (1500 mm scales coils and film by width) ── */}
+        {subview === 'standard' && (
+          <div className="tbl-wrap">
+            <p className="muted text-sm" style={{ margin: '8px 16px' }}>
+              kg per 1 SQM of 4 mm panel at 1250 mm width, from All_Finished_Goods_BOM.xlsx. Production, plans and auto-issue use these figures.
+              Wider panels scale coils and side trim by coil width (+20 mm), protective film by film width (+10 mm). Negative = waste out.
+            </p>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Grade</th><th className="r">Skin / stock</th><th className="r">Top coil</th><th className="r">Bottom coil</th>
+                  <th className="r">Core A</th><th className="r">Core B</th><th className="r">Adhesive</th><th className="r">Protective (m²)</th>
+                  <th className="r">Plastic waste</th><th className="r">Side trim</th><th className="r">Process waste</th>
+                </tr>
+              </thead>
+              <tbody>
+                {STANDARD_GRADES.map((g) => (
+                  <tr key={`${g.grade}-${g.core}`}>
+                    <td className="fw6" data-label="Grade">{g.grade}<span className="mat-sub">{g.core === 'FRB1' ? 'FR-B1: FR3 + CaCO3' : 'PE: LDPE A + B'}</span></td>
+                    <td className="num" data-label="Skin / stock">{g.skin} / {g.stock}</td>
+                    {[['Top coil', g.top], ['Bottom coil', g.bot], ['Core A', g.coreA], ['Core B', g.coreB], ['Adhesive', g.adh], ['Protective (m²)', g.mask],
+                      ['Plastic waste', g.plastic], ['Side trim', g.trim], ['Process waste', g.process]].map(([label, v]) => (
+                      <td key={label} className="num" data-label={label}>{v.toFixed(4)}</td>
+                    ))}
+                  </tr>
                 ))}
               </tbody>
             </table>
